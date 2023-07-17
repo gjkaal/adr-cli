@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "adr-cli": {
+      "commandName": "Project",
+      "commandLineArgs": "init --adrRoot \"/document\""
+    }
+  }
+}
