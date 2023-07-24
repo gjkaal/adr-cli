@@ -1,7 +1,9 @@
-﻿namespace CommandHandlers;
+﻿using System.Threading.Tasks;
+
+namespace CommandHandlers;
 
 public interface IAdrInitCommandHandler
 {
-    int Initialize(string adrRootPath, string templateRootPath);
+    Task<int> InitializeAsync(string adrRootPath, string templateRootPath);
 }
 

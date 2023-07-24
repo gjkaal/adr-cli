@@ -9,7 +9,6 @@ namespace adr;
 
 internal static class Program
 {
-
     private static async Task<int> Main(string[] args)
     {
         var serviceCollection = new ServiceCollection();
@@ -133,7 +132,7 @@ internal static class Program
                      configure.AddConsole();
                  });
 
-        serviceCollection.AddSingleton<IFileSystem, System.IO.Abstractions.FileSystem>();
+        serviceCollection.AddSingleton<IFileSystem, FileSystem>();
         serviceCollection.AddSingleton<IAdrSettings, AdrSettings>();
         serviceCollection.AddSingleton<IAdrInitCommandHandler, AdrInitCommandHandler>();
         serviceCollection.AddSingleton<IAdrRecordRepository, AdrRecordRepository>();

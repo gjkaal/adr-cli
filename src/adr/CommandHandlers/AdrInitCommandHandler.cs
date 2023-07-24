@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.CommandLine;
 using System.IO.Abstractions;
+using System.Threading.Tasks;
 
 namespace CommandHandlers;
 
@@ -33,18 +34,18 @@ public class AdrInitCommandHandler : IAdrInitCommandHandler
         Option<string> templateRoot = new("--tmpRoot", "Set the template root directory");
         initCommand.AddOption(adrRoot);
         initCommand.AddOption(templateRoot);
-        initCommand.SetHandler((adrRootPath, templateRootPath) =>
+        initCommand.SetHandler(async (adrRootPath, templateRootPath) =>
         {
             var c = serviceProvider.GetRequiredService<IAdrInitCommandHandler>();
-            c.Initialize(adrRootPath, templateRootPath);
+            await c.InitializeAsync(adrRootPath, templateRootPath);
         }, adrRoot, templateRoot);
         return initCommand;
     }
 
-    public int Initialize(string adrRootPath, string templateRootPath)
+    public async Task<int> InitializeAsync(string adrRootPath, string templateRootPath)
     {
-        adrRootPath = GetWithDefault(adrRootPath, settings.DocFolder);
-        templateRootPath = GetWithDefault(templateRootPath, settings.TemplateFolder);
+        adrRootPath = GetWithDefault(adrRootPath, settings.DocFolder??"/adr/doc");
+        templateRootPath = GetWithDefault(templateRootPath, settings.TemplateFolder ?? "/adr/template");
 
         logger.LogInformation($"ADR documents => {adrRootPath}");
         logger.LogInformation($"Templates => {templateRootPath}");
@@ -66,7 +67,7 @@ public class AdrInitCommandHandler : IAdrInitCommandHandler
             Status = AdrStatus.Accepted
         };
 
-        adrRecordRepository.WriteRecord(record);
+        await adrRecordRepository.WriteRecordAsync(record);
         record.Launch(settings);
         return 0;
     }

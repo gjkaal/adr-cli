@@ -58,11 +58,13 @@ namespace adr
         {
             this.settings = settings;
             this.logger = logger;
+            logger.LogInformation("AdrRecordRepository Initialization complete");
         }
 
         public JsonSerializerSettings SerializerSettings => _serializerSettings;
         public async Task<StringBuilder> GetLayoutAsync(AdrRecord record)
         {
+            logger.LogInformation($"Retrieving layout for {record.TemplateType}");
             var sb = await GetTemplateAsync(record.TemplateType.ToString());
 
             sb.Replace("{RecordId}", record.RecordId.ToString("D5"));
@@ -89,11 +91,13 @@ namespace adr
             return sb;
         }
 
-        public async void WriteRecord(AdrRecord record)
+        public async Task WriteRecordAsync(AdrRecord record)
         {
             record.RecordId = settings.GetNextFileNumber();
             record.Validate();
             record.PrepareForStorage();
+
+            logger.LogInformation($"Write ADR #{record.RecordId} to {record.FileName}");
 
             IFileInfo contentRecord = settings.GetContentFile(record.FileName);
             using (var contentWriter = contentRecord.CreateText())
@@ -102,6 +106,7 @@ namespace adr
                 await contentWriter.WriteAsync(content);
                 await contentWriter.FlushAsync();
             }
+            logger.LogInformation($"Write content layout for {record.Title}");
 
             IFileInfo metaRecord = settings.GetMetaFile(record.FileName);
             using (var metaWriter = metaRecord.CreateText())
@@ -110,6 +115,7 @@ namespace adr
                 await metaWriter.WriteAsync(meta);
                 await metaWriter.FlushAsync();
             }
+            logger.LogInformation($"Write metadata layout for {record.Title}");
         }
 
         private async Task<StringBuilder> GetTemplateAsync(string templateName)
