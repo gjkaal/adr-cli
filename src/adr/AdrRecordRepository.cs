@@ -2,18 +2,19 @@
 using Newtonsoft.Json.Converters;
 using System;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.IO.Abstractions;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+using System.Linq;
+using adr.Extensions;
+using Microsoft.VisualBasic;
 
 namespace adr
 {
     public class AdrRecordRepository : IAdrRecordRepository
     {
-        private const string DefaultConsequences = "See https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions for mor information about ADR's.";
+        private const string DefaultConsequences = "See https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions for more information about ADR's.";
 
         private const string DefaultContext = "Architecture for agile projects has to be described and defined differently. Not all decisions will be made at once, nor will all of them be done when the project begins.";
 
@@ -44,28 +45,33 @@ namespace adr
             Formatting = Formatting.Indented,
             NullValueHandling = NullValueHandling.Ignore,
             Culture = CultureInfo.InvariantCulture,
-            DateFormatHandling = DateFormatHandling.IsoDateFormat,
+            DateFormatHandling = DateFormatHandling.IsoDateFormat,            
             Converters = {
                new StringEnumConverter()
             }
         };
 
         private readonly ILogger<AdrRecordRepository> logger;
+        private readonly IFileSystem fileSystem;
         private readonly IAdrSettings settings;
         public AdrRecordRepository(
+            IFileSystem fileSystem,
             IAdrSettings settings,
             ILogger<AdrRecordRepository> logger)
         {
+            this.fileSystem = fileSystem;
             this.settings = settings;
             this.logger = logger;
-            logger.LogInformation("AdrRecordRepository Initialization complete");
+            logger.LogDebug("AdrRecordRepository Initialization complete");
+            logger.LogDebug($"Documents located in {settings.DocFolderInfo().FullName}");
+            logger.LogDebug($"Templates located in {settings.TemplateFolderInfo().FullName}");
         }
 
         public JsonSerializerSettings SerializerSettings => _serializerSettings;
         public async Task<StringBuilder> GetLayoutAsync(AdrRecord record)
         {
             logger.LogInformation($"Retrieving layout for {record.TemplateType}");
-            var sb = await GetTemplateAsync(record.TemplateType.ToString());
+            var sb = await GetOrCreateTemplateAsync(record.TemplateType.ToString());
 
             sb.Replace("{RecordId}", record.RecordId.ToString("D5"));
             sb.Replace("{Title}", record.Title);
@@ -91,6 +97,50 @@ namespace adr
             return sb;
         }
 
+        /// <summary>
+        /// Read the Adr metadata from an existing record.
+        /// If more than one match exists, then the first match is used.
+        /// </summary>
+        /// <param name="recordId">A valid, positive integer value.</param>
+        /// <returns>null if no metadata record exists, or an <see cref="AdrRecord"/> with the metadata (without the content fields)</returns>
+        public async Task<AdrRecord?> ReadMetadataAsync(int recordId)
+        {
+            AdrRecord result;
+            var adrDocumentFolder = settings.DocFolderInfo();
+            var matchFileName = $"{recordId:D5}-*.json";
+            var files = adrDocumentFolder.EnumerateFiles(matchFileName).ToArray();
+            if (files.Length == 0)
+            {
+                return null;
+            }
+            if (files.Length > 1)
+            {
+                var fileNames = string.Join(Environment.NewLine, files.Select(m => m.Name));
+                logger.LogWarning($"Found more than one matching file, selecting the first from:{Environment.NewLine}{fileNames}");
+            }
+
+            using (var metadataContent = files[0].OpenText())
+            {
+                var content = await metadataContent.ReadToEndAsync();
+                try
+                {
+                    result = JsonConvert.DeserializeObject<AdrRecord>(content, SerializerSettings);
+                }
+                catch(Exception e)
+                {
+                    var fileDate = fileSystem.File.GetCreationTime(files[0].FullName);
+                    result = new AdrRecord
+                    {
+                        RecordId = recordId,
+                        Status = AdrStatus.Error,
+                        DateTime = fileDate,
+                        Title = e.Message
+                    };
+                }
+            }
+            return result;
+        }
+
         public async Task WriteRecordAsync(AdrRecord record)
         {
             record.RecordId = settings.GetNextFileNumber();
@@ -106,19 +156,19 @@ namespace adr
                 await contentWriter.WriteAsync(content);
                 await contentWriter.FlushAsync();
             }
-            logger.LogInformation($"Write content layout for {record.Title}");
+            logger.LogDebug($"Write content for {record.Title}");
 
             IFileInfo metaRecord = settings.GetMetaFile(record.FileName);
             using (var metaWriter = metaRecord.CreateText())
             {
-                var meta = record.GetRecord(_serializerSettings);
+                var meta = record.GetMetadata(_serializerSettings);
                 await metaWriter.WriteAsync(meta);
                 await metaWriter.FlushAsync();
             }
-            logger.LogInformation($"Write metadata layout for {record.Title}");
+            logger.LogDebug($"Write metadata for {record.Title}");
         }
 
-        private async Task<StringBuilder> GetTemplateAsync(string templateName)
+        private async Task<StringBuilder> GetOrCreateTemplateAsync(string templateName)
         {
             string template;
             if (string.IsNullOrEmpty(templateName))
@@ -130,6 +180,7 @@ namespace adr
                 IFileInfo templateFile = settings.GetTemplate(templateName);
                 if (templateFile.Exists)
                 {
+                    logger.LogDebug($"Reading template file '{templateName}'");
                     using (var templateContent = templateFile.OpenText())
                     {
                         template = await templateContent.ReadToEndAsync();
@@ -137,7 +188,14 @@ namespace adr
                 }
                 else
                 {
+                    
+                    logger.LogInformation($"Create new template file for '{templateName}'");
                     template = DefaultTemplate;
+                    using (var templateWriter = templateFile.CreateText())
+                    {
+                        await templateWriter.WriteAsync(template);
+                        await templateWriter.FlushAsync();
+                    }
                 }
             }
             return new StringBuilder(template);

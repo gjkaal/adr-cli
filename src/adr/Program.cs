@@ -1,4 +1,6 @@
-﻿using CommandHandlers;
+﻿using adr.CommandHandlers;
+using adr.Extensions;
+using adr.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.CommandLine;
@@ -6,6 +8,8 @@ using System.IO.Abstractions;
 using System.Threading.Tasks;
 
 namespace adr;
+
+
 
 internal static class Program
 {
@@ -21,10 +25,17 @@ internal static class Program
 
         app.SetHandler((context) =>
         {
-            context.Console.WriteLine("Ïnitialized");
+            context.Console.WriteLine("Use -help to see the available commands.");
         });
-        app.Add(AdrInitCommandHandler.CommandHandler(serviceProvider));
 
+        // Initialize
+        app.AddRange(AdrInit.CommandHandler(serviceProvider));
+
+        // Create AD, ACR and revisions
+        app.AddRange(AdrNew.CommandHandler(serviceProvider));
+
+        // Query the ADR, lists, searching etc.
+        app.AddRange(AdrQuery.CommandHandler(serviceProvider));
 
         return await app.InvokeAsync(args);
 
@@ -36,64 +47,7 @@ internal static class Program
         //    });
         //});
 
-        //app.Command("new", (command) =>
-        //{
-        //    command.Description = "Initialize a new ADR record with a title";
-        //    var title = command.Argument("title", "");
-        //    var context = command.Option("--context|-c", "", CommandOptionType.SingleValue);
-        //    var decision = command.Option("--decision|-d", "", CommandOptionType.SingleValue);
-        //    var supercedes = command.Option("-s|--supercedes", "", CommandOptionType.SingleValue);
-        //    command.HelpOption(HelpOption);
-
-        //    command.OnExecute(() =>
-        //    {
-        //        var previous = supercedes.Value();
-        //        if (!string.IsNullOrEmpty(previous))
-        //        {
-        //            var settings = AdrSettings.Current;
-        //            Console.WriteLine($"Revision for {previous}");
-        //            if (!int.TryParse(previous, out var recordId))
-        //            {
-        //                Console.WriteLine($"Supersedes should be numeric: {previous}");
-        //                return -1;
-        //            }
-
-        //            var directory = new DirectoryInfo(settings.DocFolder);
-        //            if (!directory.Exists)
-        //            {
-        //                Console.WriteLine($"Could not find folder: {settings.DocFolder}");
-        //                return -1;
-        //            }
-        //            var files = directory.GetFiles(recordId.ToString("D5")+ "*.json");
-        //            if (files.Length == 0)
-        //            {
-        //                Console.WriteLine($"Cannot find superseding record: {previous}");
-        //                return -1;
-        //            }
-
-        //            var entry = new AdrEntry(
-        //                TemplateType.Revision,
-        //                title.Value,
-        //                context.Value(),
-        //                decision.Value());
-        //            entry.AdrRecord.SuperSedes = AdrRecord.Load(files[0].FullName);
-
-        //            entry.Write()
-        //                 .Launch();
-        //        }
-        //        else
-        //        {
-        //            var entry = new AdrEntry(
-        //                TemplateType.Adr,
-        //                title.Value,
-        //                context.Value(),
-        //                decision.Value());
-        //            entry.Write()
-        //                 .Launch();
-        //        }
-        //        return 0;
-        //    });
-        //});
+        
 
         //app.Command("link", (command) =>
         //{
@@ -132,12 +86,18 @@ internal static class Program
                      configure.AddConsole();
                  });
 
+        serviceCollection.AddSingleton<IStdOut, StdOutService>();
         serviceCollection.AddSingleton<IFileSystem, FileSystem>();
         serviceCollection.AddSingleton<IAdrSettings, AdrSettings>();
-        serviceCollection.AddSingleton<IAdrInitCommandHandler, AdrInitCommandHandler>();
         serviceCollection.AddSingleton<IAdrRecordRepository, AdrRecordRepository>();
+
+        // Todo: inject commandhandlers based on reflection
+        serviceCollection.AddSingleton<IAdrInit, AdrInit>();
+        serviceCollection.AddSingleton<IAdrNew, AdrNew>();
+        serviceCollection.AddSingleton<IAdrQuery, AdrQuery>();
+
     }
 
-    
+
 }
 

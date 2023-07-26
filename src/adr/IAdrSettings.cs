@@ -5,6 +5,16 @@ namespace adr;
 public interface IAdrSettings
 {
     /// <summary>
+    /// The default location for Adr records.
+    /// </summary>
+    string DefaultDocFolder { get; }
+
+    /// <summary>
+    /// The default location for Adr templates.
+    /// </summary>
+    string DefaultTemplates { get; }
+
+    /// <summary>
     /// Relative or full file location for the documentation folder.
     /// </summary>
     string DocFolder { get; set; }
@@ -13,6 +23,16 @@ public interface IAdrSettings
     /// Relative or full file location for templates.
     /// </summary>
     string TemplateFolder { get; set; }
+
+    /// <summary>
+    /// Directory information for the ADR documents.
+    /// </summary>
+    IDirectoryInfo DocFolderInfo();
+
+    /// <summary>
+    /// Directory information for the ADR templates.
+    /// </summary>
+    IDirectoryInfo TemplateFolderInfo();
 
     /// <summary>
     /// Find a content file with the provided base name.

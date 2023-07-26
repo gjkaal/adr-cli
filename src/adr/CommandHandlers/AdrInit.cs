@@ -1,54 +1,58 @@
-﻿using adr;
+﻿using adr.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.CommandLine;
-using System.IO.Abstractions;
 using System.Threading.Tasks;
 
-namespace CommandHandlers;
+namespace adr.CommandHandlers;
 
-public class AdrInitCommandHandler : IAdrInitCommandHandler
+/// <summary>
+/// Command handler for ADR initialization
+/// </summary>
+public class AdrInit : IAdrInit
 {
     private readonly IAdrSettings settings;
-    private readonly IFileSystem fileSystem;
-    private readonly ILogger<AdrInitCommandHandler> logger;
+    private readonly ILogger<AdrInit> logger;
     private readonly IAdrRecordRepository adrRecordRepository;
 
-    public AdrInitCommandHandler(
+    public AdrInit(
         IAdrSettings settings,
-        IFileSystem fileSystem,
-        ILogger<AdrInitCommandHandler> logger,
+        ILogger<AdrInit> logger,
         IAdrRecordRepository adrRecordRepository)
     {
         this.settings = settings;
-        this.fileSystem = fileSystem;
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
     }
 
-    public static Command CommandHandler(IServiceProvider serviceProvider)
+    public static IEnumerable<Command> CommandHandler(IServiceProvider serviceProvider)
     {
-        var initCommand = new Command("init", "Get or set the log path");
+        var initCommand = new Command("init", "Initialize a new ADR folder");
         Option<string> adrRoot = new("--adrRoot", "Set the adr root directory");
         Option<string> templateRoot = new("--tmpRoot", "Set the template root directory");
         initCommand.AddOption(adrRoot);
         initCommand.AddOption(templateRoot);
         initCommand.SetHandler(async (adrRootPath, templateRootPath) =>
         {
-            var c = serviceProvider.GetRequiredService<IAdrInitCommandHandler>();
+            var c = serviceProvider.GetRequiredService<IAdrInit>();
             await c.InitializeAsync(adrRootPath, templateRootPath);
         }, adrRoot, templateRoot);
-        return initCommand;
+        return new []{ initCommand };
     }
 
-    public async Task<int> InitializeAsync(string adrRootPath, string templateRootPath)
+    /// <summary>
+    /// Initialize an ADR, with optionally providing a path where the documents are stored and
+    /// a path where the templates can be found. The settings are stored in a config file.
+    /// </summary>
+    /// <param name="adrRootPath">An alternate for the document folder, default is '\docs\adr'.</param>
+    /// <param name="templateRootPath">An alternate for the template folder, default is '\docs\adr\template' </param>
+    /// <returns></returns>
+    public async Task<int> InitializeAsync(string adrRootPath = "", string templateRootPath = "")
     {
-        adrRootPath = GetWithDefault(adrRootPath, settings.DocFolder??"/adr/doc");
-        templateRootPath = GetWithDefault(templateRootPath, settings.TemplateFolder ?? "/adr/template");
-
-        logger.LogInformation($"ADR documents => {adrRootPath}");
-        logger.LogInformation($"Templates => {templateRootPath}");
+        adrRootPath = GetPathWithDefault(adrRootPath, settings.DocFolder ?? settings.DefaultDocFolder);
+        templateRootPath = GetPathWithDefault(templateRootPath, settings.TemplateFolder ?? settings.DefaultTemplates);
 
         settings.DocFolder = adrRootPath;
         settings.TemplateFolder = templateRootPath;
@@ -66,13 +70,14 @@ public class AdrInitCommandHandler : IAdrInitCommandHandler
             Title = "Record Architecture Decisions initialization",
             Status = AdrStatus.Accepted
         };
-
         await adrRecordRepository.WriteRecordAsync(record);
-        record.Launch(settings);
+        record.LaunchEditor(settings);
+
+        logger.LogInformation($"Initialization complete, initial ADR is created in {settings.DocFolder}.");
         return 0;
     }
 
-    private string GetWithDefault(string? folder, string defaultPath)
+    private static string GetPathWithDefault(string? folder, string defaultPath)
     {
         folder = folder?.Replace("/", "\\");
         defaultPath = defaultPath.Replace("/", "\\");

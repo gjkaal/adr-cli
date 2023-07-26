@@ -24,6 +24,5 @@ namespace adr
 
         [JsonIgnore]
         public string Consequences { get; set; }
-
     }
 }

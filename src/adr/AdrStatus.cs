@@ -22,6 +22,10 @@
         /// </summary>
         Accepted = 3,
         /// <summary>
+        /// If a Adr is invalid or could not be deserialized, the state will be 'error'
+        /// </summary>
+        Error = 254,
+        /// <summary>
         /// An obsolete ADR is no longer applicable.
         /// </summary>
         Obsolete = 255

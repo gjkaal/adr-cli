@@ -9,7 +9,6 @@ using Tests.XLogger;
 using System.Threading.Tasks;
 using System.IO.Abstractions;
 using System.IO;
-using Xunit.Sdk;
 using Newtonsoft.Json;
 
 namespace Tests
@@ -130,11 +129,5 @@ namespace Tests
             Assert.True(layout.Length > 0);
             testOutputHelper.WriteLine(layout.ToString());
         }
-
-
-
-      
     }
-
-    
 }

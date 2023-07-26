@@ -9,6 +9,8 @@ namespace adr
     public class AdrSettings : IAdrSettings
     {
         private const string DefaultFileName = "adr.config.json";
+        private const string DefaultTemplateFolder = "\\docs\\adr-templates";
+        private const string DefaultAdrFolder = "\\docs\\adr";
         private readonly IPath path;
         private readonly IFileInfoFactory fileInfoFactory;
         private readonly IDirectoryInfoFactory directoryInfoFactory;
@@ -24,16 +26,37 @@ namespace adr
         }
 
         /// <summary>
+        /// If no documentfolder is provided, this is the path that is used.
+        /// </summary>
+        public string DefaultDocFolder => DefaultAdrFolder;
+
+        /// <summary>
+        /// If no template folder is provided, this is the path that is used.
+        /// </summary>
+        public string DefaultTemplates => DefaultTemplateFolder;
+
+        /// <summary>
         /// Location where the Adr records and the markdown files will be stored.
         /// </summary>
-        public string DocFolder { get; set; } = "\\adr\\doc";
+        public string DocFolder { get; set; } = DefaultAdrFolder;
 
         /// <summary>
         /// Location for markdown templates.
         /// </summary>
-        public string TemplateFolder { get; set; } = "\\adr\\templates";
+        public string TemplateFolder { get; set; } = DefaultTemplateFolder;
 
+        /// <summary>
+        /// Read the content for an ADR.
+        /// </summary>
+        /// <param name="fileName">The base name for an ADR, without path or extensions.</param>
+        /// <returns>A FileInformation object.</returns>
         public IFileInfo GetContentFile(string fileName) => GetAdrFileInfo(fileName, "md");
+
+        /// <summary>
+        /// Read the meta data for an ADR.
+        /// </summary>
+        /// <param name="fileName">The base name for an ADR, without path or extensions.</param>
+        /// <returns>A FileInformation object.</returns>
         public IFileInfo GetMetaFile(string fileName) => GetAdrFileInfo(fileName, "json");
 
         private IFileInfo GetAdrFileInfo(string fileName, string extension)
@@ -43,6 +66,10 @@ namespace adr
             return fileInfoFactory.New(filePath);
         }
 
+        /// <summary>
+        /// Generate the next free file number for an ADR.
+        /// </summary>
+        /// <returns>0 is no ADR's are found, or the next increment in the file numbers.</returns>
         public int GetNextFileNumber()
         {
             var docFolderInfo = DocFolderInfo();
@@ -57,18 +84,34 @@ namespace adr
             return maxFileNum + 1;
         }
 
-        private IDirectoryInfo DocFolderInfo()
+        /// <summary>
+        /// Get the directory information for the ADR document folder.
+        /// </summary>
+        public IDirectoryInfo DocFolderInfo()
         {
+            if (DocFolder.StartsWith("\\")) DocFolder = DocFolder[1..];
             var folder = path.Combine(currentPath, DocFolder);
-            return directoryInfoFactory.New(folder);
+            var directory = directoryInfoFactory.New(folder);
+            if (!directory.Exists) directory.Create();
+            return directory;        
         }
 
-        private IDirectoryInfo TemplateFolderInfo()
+        /// <summary>
+        /// Get the directory information for the template folder.
+        /// </summary>
+        public IDirectoryInfo TemplateFolderInfo()
         {
+            if (TemplateFolder.StartsWith("\\")) TemplateFolder = TemplateFolder[1..];
             var folder = path.Combine(currentPath, TemplateFolder);
-            return directoryInfoFactory.New(folder);
+            var directory = directoryInfoFactory.New(folder);
+            if (!directory.Exists) directory.Create();
+            return directory;
         }
 
+        /// <summary>
+        /// Get the file information for a template.
+        /// </summary>
+        /// <param name="templateType">The template type should be formatted using a controlled set.</param>
         public IFileInfo GetTemplate(string templateType)
         {
             var folderInfo = TemplateFolderInfo();
@@ -114,8 +157,8 @@ namespace adr
             var fileInfo = GetConfigFileInfo();
             if (!fileInfo.Exists)
             {
-                settings.DocFolder = "docs\\adr";
-                settings.TemplateFolder = "docs\\adr\\templates";
+                settings.DocFolder = DefaultAdrFolder;
+                settings.TemplateFolder = DefaultTemplateFolder;
                 return settings;
             }
 
@@ -136,13 +179,7 @@ namespace adr
 
         public bool RepositoryInitialized()
         {
-            var docFolder = DocFolderInfo();
-            if (!docFolder.Exists)
-            {
-                // created but not initalized
-                docFolder.Create();
-                return false;
-            }
+            var docFolder = DocFolderInfo();            
             return docFolder.EnumerateFiles().Any();
         }
     }
