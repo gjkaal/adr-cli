@@ -1,6 +1,7 @@
 ﻿using adr;
 using adr.CommandHandlers;
 using adr.Extensions;
+using adr.Services;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.IO.Abstractions;
@@ -16,6 +17,7 @@ public class AdrInitTests
     private readonly Mock<IAdrRecordRepository> repositoryMock = new();
     private readonly Mock<IProcessHelper> procesMock = new();
     private readonly Mock<IFileInfo> contentFileMock = new();
+    private readonly Mock<IStdOut> stdOutMock = new();
     private readonly ITestOutputHelper testOutputHelper;
     private readonly ILogger<AdrInit> logger;
 
@@ -26,6 +28,7 @@ public class AdrInitTests
     {
         this.testOutputHelper = testOutputHelper;
         logger = XUnitLogger.CreateLogger<AdrInit>(testOutputHelper);
+        stdOutMock.Setup(m => m.WriteLine(It.IsAny<string>())).Callback<string>(s => testOutputHelper.WriteLine(s));
     }
 
     [Fact]
@@ -35,6 +38,7 @@ public class AdrInitTests
             new Mock<IAdrSettings>().Object, 
             logger, 
             new Mock<IAdrRecordRepository>().Object,
+            new Mock<IStdOut>().Object,
             new Mock<IProcessHelper>().Object
             );
         Assert.NotNull(sut);
@@ -47,7 +51,7 @@ public class AdrInitTests
         settingsMock.SetupGet(m => m.DefaultTemplates).Returns("\\adrInit\\tests\\templates");
         settingsMock.Setup(m => m.GetContentFile(It.IsAny<string>())).Returns(contentFileMock.Object);
         contentFileMock.SetupGet(m => m.Exists).Returns(true);
-        IAdrInit sut = new AdrInit(settingsMock.Object, logger, repositoryMock.Object, procesMock.Object);
+        IAdrInit sut = new AdrInit(settingsMock.Object, logger, repositoryMock.Object, stdOutMock.Object, procesMock.Object);
         var result = await sut.InitializeAsync("doc", "template");
         Assert.Equal(0, result);
     }

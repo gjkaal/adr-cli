@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
-using System.IO.Abstractions;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -13,11 +13,13 @@ namespace adr.Extensions;
 public static class AdrRecordExtensions
 {
 
+    private const int MinimumTitleLength = 10;
+
     /// <summary>
-    /// Format the ADR as a string of 80 characters
+    /// Format the ADR as a string.
     /// </summary>
-    /// <param name="record"></param>
-    /// <returns></returns>
+    /// <param name="record">The AdrRecord.</param>
+    /// <returns>One line of text</returns>
     public static string FormatString(this AdrRecord record)
     {
         return $"{record.RecordId:D5} {record.DateTime:yyyyMMdd} {record.Status.ToString()??"",-10} {record.Title.PadRight(80)[..80]}";
@@ -107,6 +109,54 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
+    /// Update the <see cref="AdrRecord"/> data using the markdown text content.
+    /// The RecordId and Date in the <see cref="AdrRecord"/> are not modified.
+    /// </summary>
+    /// <param name="record"></param>
+    /// <param name="markdownContent"></param>
+    /// <returns></returns>
+    public static AdrRecord UpdateFromMarkdown(this AdrRecord record, int recordId, string markdownContent, out bool metadataMmodified)
+    {
+        metadataMmodified = false;
+        var lines = markdownContent.Split(Environment.NewLine).Select(s => s.Trim()).ToArray();
+        if (lines.Length <= 0) return record;
+
+        if (recordId > 0 && recordId != record.RecordId)
+        {
+            metadataMmodified = true;
+            record.RecordId = recordId;
+        }
+
+        // A title should contain at leat 10 characters
+        var title = lines[0].Split('.', StringSplitOptions.RemoveEmptyEntries).Last().Trim();
+        if (title.Length >= MinimumTitleLength && record.Title != title)
+        {
+            metadataMmodified = true;
+            record.Title = title;
+        }
+
+        if (lines.TryFindMdElement("status", out var statusText)
+            && Enum.TryParse<AdrStatus>(statusText, out var adrStatus)
+            && record.Status != adrStatus)
+        {
+            metadataMmodified = true;
+            record.Status = adrStatus;
+        }
+
+        if (lines.TryFindMdElement("Context", out var context) && record.Context.Trim() != context.Trim())
+        {
+            metadataMmodified = true;
+            record.Context = context.Trim();
+        }
+
+        // Decision and consequences are not part of the metadata
+        if (lines.TryFindMdElement("Decision", out var decision)) record.Decision = decision;
+        if (lines.TryFindMdElement("Consequences", out var consequences)) record.Consequences = consequences;
+
+        return record;
+    }
+
+    /// <summary>
     /// Validate critical elements is the <see cref="AdrRecord"/>.
     /// </summary>
     /// <param name="record">The AdrRecord.</param>
@@ -116,10 +166,71 @@ public static class AdrRecordExtensions
         if (string.IsNullOrEmpty(record.Title)) throw new AdrException("Title cannot be empty");
     }
 
+    /// <summary>
+    /// Format the ADR as a string with detailed information.
+    /// </summary>
+    /// <param name="record">The AdrRecord.</param>
+    /// <returns></returns>
+    public static string VerboseString(this AdrRecord record)
+    {
+        return $"{record.RecordId:D5} {record.DateTime:yyyy-MMM-dd} Status: {record.Status}" + Environment.NewLine
+            + $"Title:   {record.Title}" + Environment.NewLine
+            + $"Context: {record.Context}" + Environment.NewLine
+            + "---";
+    }
+    /// <summary>
+    /// Find the line with the header
+    /// </summary>
+    /// <param name="lines">Lines from a markdown text.</param>
+    /// <param name="header">The header</param>
+    /// <returns></returns>
+    private static int FindLineWithHeader(this string[] lines, string header)
+    {
+        var n = 0;
+        var mdHeader = $"# {header}";
+        while (n < lines.Length)
+        {
+            if (lines[n].Contains(mdHeader, StringComparison.OrdinalIgnoreCase)) return n;
+            n++;
+        }
+        return -1;
+    }
+
     private static string SanitizeFileName(string title)
     {
         return title
             .Replace(' ', '-')
             .ToLower();
+    }
+
+    /// <summary>
+    /// Find the text in between markdown tags.
+    /// </summary>
+    /// <param name="lines"></param>
+    /// <param name="header"></param>
+    /// <param name="element"></param>
+    /// <returns></returns>
+    private static bool TryFindMdElement(this string[] lines, string header, out string element)
+    {
+        try
+        {
+            element = string.Empty;
+            var n = FindLineWithHeader(lines, header);
+            if (n < 0) return false;
+            var sb = new StringBuilder();
+            while (n < lines.Length - 1)
+            {
+                var text = lines[++n].Trim();
+                if (text == string.Empty) continue;
+                if (text[0] == '#') break;
+                sb.AppendLine(text);
+            }
+            element = sb.ToString();
+            return true;
+        }
+        catch(Exception e) {
+            element = e.Message;
+            return false; 
+        }
     }
 }

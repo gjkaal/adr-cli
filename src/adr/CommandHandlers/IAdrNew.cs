@@ -16,4 +16,5 @@ public interface IAdrNew
     /// <param name="context">The context for this decision.</param>
     /// <returns>integer indicating success or failure</returns>
     Task<int> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context);
+
 }

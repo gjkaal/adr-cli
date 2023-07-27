@@ -1,9 +1,11 @@
 ﻿using adr.Extensions;
+using adr.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace adr.CommandHandlers;
@@ -16,21 +18,35 @@ public class AdrInit : IAdrInit
     private readonly IAdrSettings settings;
     private readonly ILogger<AdrInit> logger;
     private readonly IAdrRecordRepository adrRecordRepository;
+    private readonly IStdOut stdOut;
     private readonly IProcessHelper processHelper;
 
     public AdrInit(
         IAdrSettings settings,
         ILogger<AdrInit> logger,
         IAdrRecordRepository adrRecordRepository,
+        IStdOut stdOut,
         IProcessHelper processHelper)
     {
         this.settings = settings;
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
+        this.stdOut = stdOut;
         this.processHelper = processHelper;
     }
 
     public static IEnumerable<Command> CommandHandler(IServiceProvider serviceProvider)
+    {
+        return new[] {
+            InitCommand(serviceProvider),
+            SyncMetadataCommand(serviceProvider)
+        };
+    }
+
+    /// <summary>
+    /// Define the command for initializing a new ADR reposity.
+    /// </summary>
+    private static Command InitCommand(IServiceProvider serviceProvider)
     {
         var initCommand = new Command("init", "Initialize a new ADR folder");
         Option<string> adrRoot = new("--adrRoot", "Set the adr root directory");
@@ -42,7 +58,21 @@ public class AdrInit : IAdrInit
             var c = serviceProvider.GetRequiredService<IAdrInit>();
             await c.InitializeAsync(adrRootPath, templateRootPath);
         }, adrRoot, templateRoot);
-        return new []{ initCommand };
+        return initCommand;
+    }
+
+    /// <summary>
+    /// Define the command for synchronizing the metadata documents in the ADR reposity.
+    /// </summary>
+    private static Command SyncMetadataCommand(IServiceProvider serviceProvider)
+    {
+        var cmd = new Command("sync", "Sync the metadata using the content in the markdown files");
+        cmd.SetHandler(async () =>
+        {
+            var c = serviceProvider.GetRequiredService<IAdrInit>();
+            await c.SyncMetadataAsync(1);
+        });
+        return cmd;
     }
 
     /// <summary>
@@ -90,6 +120,34 @@ public class AdrInit : IAdrInit
         return (path.StartsWith("\\"))
             ? path[1..]
             : path;
+    }
+
+    public  async Task<int> SyncMetadataAsync(int startFromRecordId) {
+        var docFolder = settings.DocFolderInfo();
+        foreach(var docInfo in docFolder.EnumerateFiles("*.md"))
+        {
+            var recordIdPart = docInfo.Name.Split('-')[0];
+            if (int.TryParse(recordIdPart, out var recordId) && recordId >= startFromRecordId) {
+                var record = await adrRecordRepository.ReadMetadataAsync(recordId);
+                if (record == null) continue;
+                var markdown = await adrRecordRepository.ReadContentAsync(recordId);
+                if (markdown == null) continue;
+                record.UpdateFromMarkdown(recordId, markdown, out var modified);
+                if (modified)
+                {
+                    var bytesWritten = await adrRecordRepository.UpdateMetadataAsync(recordId, record);
+                    if (bytesWritten <= 0)
+                    {
+                        stdOut.WriteLine($"Could not find {docInfo.Name} for update");
+                    }
+                    else
+                    {
+                        stdOut.WriteLine($"Metadatafile {docInfo.Name} is modified.");
+                    }
+                }
+            }
+        }
+        return 0;
     }
 }
 

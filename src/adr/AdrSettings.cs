@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
@@ -61,8 +62,13 @@ namespace adr
 
         private IFileInfo GetAdrFileInfo(string fileName, string extension)
         {
+            var fullFileName = 
+            fileName.EndsWith("." + extension, StringComparison.OrdinalIgnoreCase)
+            ? fileName
+            : $"{fileName}.{extension}";
+            
             var folderInfo = DocFolderInfo();
-            var filePath = path.Combine(folderInfo.FullName, $"{fileName}.{extension}");
+            var filePath = path.Combine(folderInfo.FullName, fullFileName);
             return fileInfoFactory.New(filePath);
         }
 

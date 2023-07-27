@@ -32,29 +32,29 @@ public class AdrNew : IAdrNew
         return new[] { InitNewCommand(serviceProvider) };
     }
 
+    private static readonly Option<string> title = new("--title", "The title for the ADR")
+    {
+        IsRequired = true
+    };
+
+    private static readonly Option<bool> requirement = new("--req", "The ADR is a critical requirement.")
+    {
+        IsRequired = false
+    };
+
+    private static readonly Option<string> revision = new("--rev", "The ADR rivision for an earlier ADR, provide a valid id.")
+    {
+        IsRequired = false
+    };
+
+    private static readonly Option<string> context = new("--context", "Optional context for the ADR (otherwise a default value will be used)")
+    {
+        IsRequired = false
+    };
+
     private static Command InitNewCommand(IServiceProvider serviceProvider)
     {
         var cmd = new Command("new", "Create a new Architecture Decision Record");
-
-        Option<string> title = new("--title", "The title for the ADR")
-        {
-            IsRequired = true
-        };
-
-        Option<bool> requirement = new("--req", "The ADR is a critical requirement.")
-        {
-            IsRequired = false
-        };
-        requirement.SetDefaultValue(false);
-
-        Option<string> revision = new("--rev", "The ADR rivision for an earlier ADR, provide a valid id.");
-        requirement.IsRequired = false;
-        requirement.SetDefaultValue(-1);
-
-        Option<string> context = new("--context", "Optional context for the ADR (otherwise a default value will be used)")
-        {
-            IsRequired = false
-        };
 
         cmd.AddOption(title);
         cmd.AddOption(requirement);
@@ -68,6 +68,9 @@ public class AdrNew : IAdrNew
         return cmd;
     }
 
+    /// <summary>
+    /// Create a new ADR
+    /// </summary>
     public async Task<int> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context) {
         int result;
         if (isRequirement)

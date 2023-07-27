@@ -86,6 +86,7 @@ internal static class Program
                      configure.AddConsole();
                  });
 
+        serviceCollection.AddSingleton<IProcessHelper, ProcessHelper>();
         serviceCollection.AddSingleton<IStdOut, StdOutService>();
         serviceCollection.AddSingleton<IFileSystem, FileSystem>();
         serviceCollection.AddSingleton<IAdrSettings, AdrSettings>();

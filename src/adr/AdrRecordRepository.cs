@@ -8,7 +8,8 @@ using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 using System.Linq;
 using adr.Extensions;
-using Microsoft.VisualBasic;
+using System.IO;
+using adr.Services;
 
 namespace adr
 {
@@ -51,16 +52,20 @@ namespace adr
             }
         };
 
-        private readonly ILogger<AdrRecordRepository> logger;
         private readonly IFileSystem fileSystem;
+        private readonly ILogger<AdrRecordRepository> logger;
         private readonly IAdrSettings settings;
+        private readonly IStdOut stdOut;
+
         public AdrRecordRepository(
             IFileSystem fileSystem,
             IAdrSettings settings,
+            IStdOut stdOut,
             ILogger<AdrRecordRepository> logger)
         {
             this.fileSystem = fileSystem;
             this.settings = settings;
+            this.stdOut = stdOut;
             this.logger = logger;
             logger.LogDebug("AdrRecordRepository Initialization complete");
             logger.LogDebug($"Documents located in {settings.DocFolderInfo().FullName}");
@@ -68,6 +73,7 @@ namespace adr
         }
 
         public JsonSerializerSettings SerializerSettings => _serializerSettings;
+
         public async Task<StringBuilder> GetLayoutAsync(AdrRecord record)
         {
             logger.LogInformation($"Retrieving layout for {record.TemplateType}");
@@ -105,7 +111,6 @@ namespace adr
         /// <returns>null if no metadata record exists, or an <see cref="AdrRecord"/> with the metadata (without the content fields)</returns>
         public async Task<AdrRecord?> ReadMetadataAsync(int recordId)
         {
-            AdrRecord result;
             var adrDocumentFolder = settings.DocFolderInfo();
             var matchFileName = $"{recordId:D5}-*.json";
             var files = adrDocumentFolder.EnumerateFiles(matchFileName).ToArray();
@@ -116,29 +121,58 @@ namespace adr
             if (files.Length > 1)
             {
                 var fileNames = string.Join(Environment.NewLine, files.Select(m => m.Name));
-                logger.LogWarning($"Found more than one matching file, selecting the first from:{Environment.NewLine}{fileNames}");
+                stdOut.WriteLine($"Found more than one matching file, selecting the first from:{Environment.NewLine}{fileNames}");
             }
 
+            var result = await ReadAdrFromFile(recordId, files[0]);
+            return result;
+        }
+
+        /// <summary>
+        /// Read the content file
+        /// </summary>
+        /// <param name="recordId"></param>
+        /// <returns></returns>
+        public async Task<string> ReadContentAsync(int recordId)
+        {
+            var adrDocumentFolder = settings.DocFolderInfo();
+            var matchFileName = $"{recordId:D5}-*.md";
+            var files = adrDocumentFolder.EnumerateFiles(matchFileName).ToArray();
+            if (files.Length == 0)
+            {
+                return string.Empty;
+            }
+            if (files.Length > 1)
+            {
+                var fileNames = string.Join(Environment.NewLine, files.Select(m => m.Name));
+                stdOut.WriteLine($"Found more than one matching file, selecting the first from:{Environment.NewLine}{fileNames}");
+            }
+
+            string content = string.Empty;
             using (var metadataContent = files[0].OpenText())
             {
-                var content = await metadataContent.ReadToEndAsync();
-                try
-                {
-                    result = JsonConvert.DeserializeObject<AdrRecord>(content, SerializerSettings);
-                }
-                catch(Exception e)
-                {
-                    var fileDate = fileSystem.File.GetCreationTime(files[0].FullName);
-                    result = new AdrRecord
-                    {
-                        RecordId = recordId,
-                        Status = AdrStatus.Error,
-                        DateTime = fileDate,
-                        Title = e.Message
-                    };
-                }
+                content = await metadataContent.ReadToEndAsync();
             }
-            return result;
+            return content;
+        }
+
+        public async Task<int> UpdateMetadataAsync(int recordId, AdrRecord record)
+        {
+            record.RecordId = recordId;
+            logger.LogInformation($"Update ADR #{record.RecordId} to {record.FileName}");
+            IFileInfo metaRecord = settings.GetMetaFile(record.FileName);
+            if (!metaRecord.Exists) return -1;
+
+            var bytesWritten = 0;
+            using (var metaWriter = metaRecord.CreateText())
+            {
+                var meta = record.GetMetadata(_serializerSettings);
+                await metaWriter.WriteAsync(meta);
+                await metaWriter.FlushAsync();
+                bytesWritten = meta.Length;
+            }
+            logger.LogDebug($"Update metadata for {record.Title}");
+            return bytesWritten;
         }
 
         public async Task WriteRecordAsync(AdrRecord record)
@@ -146,7 +180,7 @@ namespace adr
             record.RecordId = settings.GetNextFileNumber();
             record.Validate();
             record.PrepareForStorage();
-
+            
             logger.LogInformation($"Write ADR #{record.RecordId} to {record.FileName}");
 
             IFileInfo contentRecord = settings.GetContentFile(record.FileName);
@@ -188,7 +222,7 @@ namespace adr
                 }
                 else
                 {
-                    
+
                     logger.LogInformation($"Create new template file for '{templateName}'");
                     template = DefaultTemplate;
                     using (var templateWriter = templateFile.CreateText())
@@ -199,6 +233,48 @@ namespace adr
                 }
             }
             return new StringBuilder(template);
+        }
+
+        private async Task<AdrRecord> ReadAdrFromFile(int recordId, IFileInfo fileInfo)
+        {
+            if (!fileInfo.Exists)
+            {
+                return new AdrRecord
+                {
+                    RecordId = recordId,
+                    Status = AdrStatus.Error,
+                    DateTime = DateTime.Now,
+                    FileName = fileInfo.FullName,
+                    Title = "File not found"
+                };
+            }
+
+            using (var metadataContent = fileInfo.OpenText())
+            {
+                var content = await metadataContent.ReadToEndAsync();
+                try
+                {
+                    var record = JsonConvert.DeserializeObject<AdrRecord>(content, SerializerSettings);
+                    if(record.RecordId != recordId)
+                    {
+                        stdOut.WriteLine($"{fileInfo.Name} contains invalid record id : {record.RecordId}");                        
+                    }
+                    
+                    return record;
+                }
+                catch (Exception e)
+                {
+                    var fileDate = fileSystem.File.GetCreationTime(fileInfo.FullName);
+                    return new AdrRecord
+                    {
+                        RecordId = recordId,
+                        Status = AdrStatus.Error,
+                        DateTime = fileDate,
+                        FileName = fileInfo.FullName,
+                        Title = e.Message
+                    };
+                }
+            }
         }
     }
 }
