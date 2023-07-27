@@ -17,7 +17,10 @@ namespace Tests
     {
         private readonly ITestOutputHelper testOutputHelper;
         private readonly ILogger<AdrRecordRepository> logger;
-        private readonly Mock<IAdrSettings> adrSettingsMock = new Mock<IAdrSettings>();
+        private readonly Mock<IAdrSettings> adrSettingsMock = new();
+        private readonly Mock<IFileSystem> fileSystemMock = new();
+        private readonly Mock<IDirectoryInfo> docFolderMock = new();
+        private readonly Mock<IDirectoryInfo> templateFolderMock = new();        
 
         // see https://www.meziantou.net/how-to-get-asp-net-core-logs-in-the-output-of-xunit-tests.htm
         // for information about xunit ilogger interception
@@ -26,6 +29,11 @@ namespace Tests
         {
             this.testOutputHelper = testOutputHelper;
             logger = XUnitLogger.CreateLogger<AdrRecordRepository>(testOutputHelper);
+
+            adrSettingsMock.Setup(m => m.DocFolderInfo()).Returns(docFolderMock.Object);
+            adrSettingsMock.Setup(m => m.TemplateFolderInfo()).Returns(templateFolderMock.Object);
+            docFolderMock.SetupGet(m => m.FullName).Returns("x:\\temp\\adr\\doc");
+            templateFolderMock.SetupGet(m => m.FullName).Returns("x:\\temp\\adr\\template");
         }
 
         [Fact]
@@ -45,15 +53,22 @@ namespace Tests
             var fileStream2 = new Mock<IFileInfo>();
             fileStream2.Setup(m => m.CreateText()).Returns(writer2);
 
+            using var stream3 = new MemoryStream();
+            using var writer3 = new StreamWriter(stream3);
+            var fileStream3 = new Mock<IFileInfo>();
+            fileStream3.Setup(m => m.CreateText()).Returns(writer3);
+
             adrSettingsMock.Setup(m => m.GetContentFile(It.IsAny<string>())).Returns(fileStream1.Object);
             adrSettingsMock.Setup(m => m.GetMetaFile(It.IsAny<string>())).Returns(fileStream2.Object);
+            adrSettingsMock.Setup(m => m.GetTemplate(It.IsAny<string>())).Returns(fileStream3.Object);
+
             adrSettingsMock.Setup(m => m.GetNextFileNumber()).Returns(167);
 
             var record = new AdrRecord { 
                 RecordId = 123,
                 Title = "Test",
             };
-            IAdrRecordRepository sut = new AdrRecordRepository(adrSettingsMock.Object, logger);
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, logger);
 
             await sut.WriteRecordAsync(record);
 
@@ -78,7 +93,7 @@ namespace Tests
         [Fact]
         public void AdrRecordRepository_CanInitialize()
         {
-            IAdrRecordRepository sut = new AdrRecordRepository(new Mock<IAdrSettings>().Object, logger);
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, logger);
             Assert.NotNull(sut);
         }
 
@@ -98,7 +113,7 @@ namespace Tests
             fileInfoMock.Setup(m => m.OpenText()).Returns(streamReader);
             adrSettingsMock.Setup(m => m.GetTemplate(It.IsAny<string>())).Returns(fileInfoMock.Object);
 
-            IAdrRecordRepository sut = new AdrRecordRepository(adrSettingsMock.Object, logger);
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, logger);
             var record = new AdrRecord
             {
                 TemplateType = template
@@ -114,11 +129,14 @@ namespace Tests
         [Fact]
         public async Task AdrRecordRepository_GetLayoutAsync_ProvidesLayoutWithoutTemplate()
         {
-            var fileInfoMock = new Mock<IFileInfo>();
-            fileInfoMock.SetupGet(m => m.Exists).Returns(false);
-            adrSettingsMock.Setup(m => m.GetTemplate(It.IsAny<string>())).Returns(fileInfoMock.Object);
+            using var stream3 = new MemoryStream();
+            using var writer3 = new StreamWriter(stream3);
+            var fileStream3 = new Mock<IFileInfo>();
+            fileStream3.Setup(m => m.CreateText()).Returns(writer3);
+            fileStream3.SetupGet(m => m.Exists).Returns((bool)false);
+            adrSettingsMock.Setup(m => m.GetTemplate(It.IsAny<string>())).Returns(fileStream3.Object);
 
-            IAdrRecordRepository sut = new AdrRecordRepository(adrSettingsMock.Object, logger);
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, logger);
             var record = new AdrRecord
             {
                 TemplateType = TemplateType.Ad

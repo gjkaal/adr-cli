@@ -16,15 +16,18 @@ public class AdrInit : IAdrInit
     private readonly IAdrSettings settings;
     private readonly ILogger<AdrInit> logger;
     private readonly IAdrRecordRepository adrRecordRepository;
+    private readonly IProcessHelper processHelper;
 
     public AdrInit(
         IAdrSettings settings,
         ILogger<AdrInit> logger,
-        IAdrRecordRepository adrRecordRepository)
+        IAdrRecordRepository adrRecordRepository,
+        IProcessHelper processHelper)
     {
         this.settings = settings;
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
+        this.processHelper = processHelper;
     }
 
     public static IEnumerable<Command> CommandHandler(IServiceProvider serviceProvider)
@@ -71,7 +74,7 @@ public class AdrInit : IAdrInit
             Status = AdrStatus.Accepted
         };
         await adrRecordRepository.WriteRecordAsync(record);
-        record.LaunchEditor(settings);
+        record.LaunchEditor(settings, processHelper);
 
         logger.LogInformation($"Initialization complete, initial ADR is created in {settings.DocFolder}.");
         return 0;

@@ -13,15 +13,18 @@ public class AdrNew : IAdrNew
     private readonly IAdrSettings settings;
     private readonly ILogger<AdrNew> logger;
     private readonly IAdrRecordRepository adrRecordRepository;
+    private readonly IProcessHelper processHelper;
 
     public AdrNew(
-    IAdrSettings settings,
-    ILogger<AdrNew> logger,
-    IAdrRecordRepository adrRecordRepository)
+        IAdrSettings settings,
+        ILogger<AdrNew> logger,
+        IAdrRecordRepository adrRecordRepository,
+        IProcessHelper processHelper)
     {
         this.settings = settings;
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
+        this.processHelper = processHelper;
     }
 
     public static IEnumerable<Command> CommandHandler(IServiceProvider serviceProvider)
@@ -103,7 +106,7 @@ public class AdrNew : IAdrNew
         if (!string.IsNullOrEmpty(context)) record.Context = context;
 
         await adrRecordRepository.WriteRecordAsync(record);
-        record.LaunchEditor(settings);
+        record.LaunchEditor(settings, processHelper);
 
          logger.LogInformation($"AD is created in {settings.DocFolder}.");
         return 0;
@@ -127,7 +130,7 @@ public class AdrNew : IAdrNew
         if(!string.IsNullOrEmpty(context)) record.Context = context;
 
         await adrRecordRepository.WriteRecordAsync(record);
-        record.LaunchEditor(settings);
+        record.LaunchEditor(settings, processHelper);
 
         logger.LogInformation($"Revision for {recordId:D5} is created in {settings.DocFolder}.");
         return 0;
@@ -143,7 +146,7 @@ public class AdrNew : IAdrNew
         if (!string.IsNullOrEmpty(context)) record.Context = context;
 
         await adrRecordRepository.WriteRecordAsync(record);
-        record.LaunchEditor(settings);
+        record.LaunchEditor(settings, processHelper);
 
         logger.LogInformation($"ASR is created in {settings.DocFolder}.");
         return 0;

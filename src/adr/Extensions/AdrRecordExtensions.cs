@@ -56,7 +56,7 @@ public static class AdrRecordExtensions
     /// file for the <see cref="AdrRecord"/>.</param>
     /// <returns>The same record as provided as parameter.</returns>
     /// <exception cref="AdrException"></exception>
-    public static AdrRecord LaunchEditor(this AdrRecord record, IAdrSettings settings)
+    public static AdrRecord LaunchEditor(this AdrRecord record, IAdrSettings settings, IProcessHelper process)
     {
         var fileInfo = settings.GetContentFile(record.FileName);
         if (!fileInfo.Exists)
@@ -65,7 +65,7 @@ public static class AdrRecordExtensions
         }
         try
         {
-            Process.Start(fileInfo.FullName);
+            process.Start(fileInfo.FullName);
         }
         catch (Exception e)
         {
@@ -73,15 +73,15 @@ public static class AdrRecordExtensions
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 var url = fileInfo.FullName.Replace("&", "^&");
-                Process.Start(new ProcessStartInfo("cmd", $"/c start {url}") { CreateNoWindow = true });
+                process.Start(new ProcessStartInfo("cmd", $"/c start {url}") { CreateNoWindow = true });
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                Process.Start("xdg-open", fileInfo.FullName);
+                process.Start("xdg-open", fileInfo.FullName);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                Process.Start("open", fileInfo.FullName);
+                process.Start("open", fileInfo.FullName);
             }
             else
             {
