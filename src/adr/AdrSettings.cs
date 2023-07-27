@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
-using System.Reflection;
 using Newtonsoft.Json;
 
 namespace adr
@@ -13,6 +12,7 @@ namespace adr
         private const string DefaultTemplateFolder = "\\docs\\adr-templates";
         private const string DefaultAdrFolder = "\\docs\\adr";
         private readonly IPath path;
+        private readonly IDirectory directoryService;
         private readonly IFileInfoFactory fileInfoFactory;
         private readonly IDirectoryInfoFactory directoryInfoFactory;
         private readonly string currentPath;
@@ -22,8 +22,9 @@ namespace adr
             path = fs.Path;
             fileInfoFactory = fs.FileInfo;
             directoryInfoFactory = fs.DirectoryInfo;
-            var assemblyLocation = Assembly.GetEntryAssembly().Location;
-            currentPath = assemblyLocation.Substring(0, assemblyLocation.LastIndexOfAny(new[] { '/', '\\' }));
+            directoryService = fs.Directory;
+            currentPath = directoryService.GetCurrentDirectory();
+            Read(this);
         }
 
         /// <summary>
@@ -131,8 +132,9 @@ namespace adr
         /// <returns></returns>
         public IAdrSettings Write()
         {
-            var fileInfo = GetConfigFileInfo();
-            
+            var fileInfoPath = path.Combine(currentPath, DefaultFileName);
+            var fileInfo = fileInfoFactory.New(fileInfoPath);
+
             using (var stream = fileInfo.CreateText())
             {
                 var value = new
@@ -151,17 +153,40 @@ namespace adr
             return this;
         }
 
-        private IFileInfo GetConfigFileInfo()
+        private IFileInfo? GetConfigFileInfo()
         {
-            var fileInfoPath = path.Combine(currentPath, DefaultFileName);
-            var fileInfo = fileInfoFactory.New(fileInfoPath);
-            return fileInfo;
+            var findPath = currentPath;
+            do
+            {
+                var fileInfoPath = path.Combine(findPath, DefaultFileName);
+                var fileInfo = fileInfoFactory.New(fileInfoPath);
+                if (fileInfo.Exists)
+                {
+                    return fileInfo;
+                }
+
+                findPath = findPath[..findPath.LastIndexOf('\\')];
+                if (findPath.LastIndexOf('\\') == -1)
+                {
+                    findPath = string.Empty;
+                    // last resort, use system folder
+                    var appPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
+                    fileInfoPath = path.Combine(appPath, DefaultFileName);
+                    fileInfo = fileInfoFactory.New(fileInfoPath);
+                    if (fileInfo.Exists)
+                    {
+                        return fileInfo;
+                    }
+                }
+            } while (!string.IsNullOrEmpty(findPath));
+
+            return null;
         }
 
         private AdrSettings Read(AdrSettings settings)
         {
             var fileInfo = GetConfigFileInfo();
-            if (!fileInfo.Exists)
+            if (fileInfo == null || !fileInfo.Exists)
             {
                 settings.DocFolder = DefaultAdrFolder;
                 settings.TemplateFolder = DefaultTemplateFolder;
@@ -176,9 +201,9 @@ namespace adr
                     NullValueHandling = NullValueHandling.Ignore
                 };
 
-                var value = (dynamic)serializer.Deserialize(stream, new { path = "", template = "" }.GetType());
-                settings.DocFolder = value.path;
-                settings.TemplateFolder = value.template;
+                var value = (dynamic)serializer.Deserialize(stream, new { path = "", templates = "" }.GetType());
+                settings.DocFolder = string.IsNullOrEmpty(value.path) ? settings.DocFolder : value.path;
+                settings.TemplateFolder = string.IsNullOrEmpty(value.templates) ? settings.TemplateFolder : value.templates;
                 return settings;
             }
         }

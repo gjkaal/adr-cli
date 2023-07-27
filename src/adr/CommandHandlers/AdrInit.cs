@@ -84,12 +84,21 @@ public class AdrInit : IAdrInit
     /// <returns></returns>
     public async Task<int> InitializeAsync(string adrRootPath = "", string templateRootPath = "")
     {
+        var saveSettings = false;
+        if (!string.IsNullOrEmpty(adrRootPath) || !string.IsNullOrEmpty(adrRootPath))
+        {
+            saveSettings = true;
+        }
+
         adrRootPath = GetPathWithDefault(adrRootPath, settings.DocFolder ?? settings.DefaultDocFolder);
         templateRootPath = GetPathWithDefault(templateRootPath, settings.TemplateFolder ?? settings.DefaultTemplates);
 
         settings.DocFolder = adrRootPath;
         settings.TemplateFolder = templateRootPath;
-        settings.Write();
+        if (saveSettings)
+        {
+            settings.Write();
+        }
 
         if (settings.RepositoryInitialized())
         {

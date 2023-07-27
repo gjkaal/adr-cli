@@ -9,8 +9,6 @@ using System.Threading.Tasks;
 
 namespace adr;
 
-
-
 internal static class Program
 {
     private static async Task<int> Main(string[] args)
@@ -39,19 +37,9 @@ internal static class Program
 
         return await app.InvokeAsync(args);
 
-        //app.Command("list", (command) =>
-        //{
-        //    command.Description = "";
-        //    command.OnExecute(() => {
-        //        return 0;
-        //    });
-        //});
-
-        
-
         //app.Command("link", (command) =>
         //{
-        //    command.Description = "";
+        //    command.Description = "Link 2 ADR's with ammend / clarify or something else";
         //    command.OnExecute(() =>
         //    {
         //        return 0;
@@ -60,22 +48,14 @@ internal static class Program
 
         //app.Command("generate", (command) =>
         //{
-        //    command.Description = "";
+        //    command.Description = "generate a PDF containing the complete ADR set";
         //    command.OnExecute(() =>
         //    {
         //        return 0;
         //    });
         //});
 
-        //app.OnExecute(() =>
-        //{
-        //    app.ShowHelp();
-        //    return 0;
-        //});
-        //app.Execute(args);
     }
-
-
 
     private static void ConfigureServices(ServiceCollection serviceCollection)
     {
