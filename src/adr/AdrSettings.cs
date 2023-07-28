@@ -15,7 +15,7 @@ namespace adr
         private readonly IDirectory directoryService;
         private readonly IFileInfoFactory fileInfoFactory;
         private readonly IDirectoryInfoFactory directoryInfoFactory;
-        private readonly string currentPath;
+        private string currentPath;
 
         public AdrSettings(IFileSystem fs)
         {
@@ -162,6 +162,7 @@ namespace adr
                 var fileInfo = fileInfoFactory.New(fileInfoPath);
                 if (fileInfo.Exists)
                 {
+                    currentPath = findPath;
                     return fileInfo;
                 }
 
@@ -170,6 +171,8 @@ namespace adr
                 {
                     findPath = string.Empty;
                     // last resort, use system folder
+                    // and use current folder as reference
+                    currentPath = directoryService.GetCurrentDirectory();
                     var appPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
                     fileInfoPath = path.Combine(appPath, DefaultFileName);
                     fileInfo = fileInfoFactory.New(fileInfoPath);

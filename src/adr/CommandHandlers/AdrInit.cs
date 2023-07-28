@@ -102,7 +102,7 @@ public class AdrInit : IAdrInit
 
         if (settings.RepositoryInitialized())
         {
-            logger.LogError("Initialization failed, folder contains files.");
+            stdOut.WriteLine($"Initialization is already done for {adrRootPath}.");
             return -1;
         }
 
@@ -115,7 +115,7 @@ public class AdrInit : IAdrInit
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        logger.LogInformation($"Initialization complete, initial ADR is created in {settings.DocFolder}.");
+        stdOut.WriteLine($"Initialization complete, initial ADR is created in {settings.DocFolderInfo().FullName}.");
         return 0;
     }
 

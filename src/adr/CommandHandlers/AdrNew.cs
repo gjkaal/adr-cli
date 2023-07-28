@@ -1,4 +1,5 @@
 ﻿using adr.Extensions;
+using adr.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
@@ -13,17 +14,20 @@ public class AdrNew : IAdrNew
     private readonly IAdrSettings settings;
     private readonly ILogger<AdrNew> logger;
     private readonly IAdrRecordRepository adrRecordRepository;
+    private readonly IStdOut stdOut;
     private readonly IProcessHelper processHelper;
 
     public AdrNew(
         IAdrSettings settings,
         ILogger<AdrNew> logger,
         IAdrRecordRepository adrRecordRepository,
+        IStdOut stdOut,
         IProcessHelper processHelper)
     {
         this.settings = settings;
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
+        this.stdOut = stdOut;
         this.processHelper = processHelper;
     }
 
@@ -72,7 +76,14 @@ public class AdrNew : IAdrNew
     /// Create a new ADR
     /// </summary>
     public async Task<int> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context) {
-        int result;
+
+        if (!settings.RepositoryInitialized())
+        {
+            stdOut.WriteLine($"Architecture Decision folder is not initialized {settings.DocFolderInfo().FullName}.");
+            return -1;
+        }
+
+            int result;
         if (isRequirement)
         {
             logger.LogInformation("Creating Critical Requirement Record.");
@@ -111,7 +122,7 @@ public class AdrNew : IAdrNew
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-         logger.LogInformation($"AD is created in {settings.DocFolder}.");
+        stdOut.WriteLine($"AD is created in {settings.DocFolder}.");
         return 0;
     }
 
@@ -135,7 +146,7 @@ public class AdrNew : IAdrNew
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        logger.LogInformation($"Revision for {recordId:D5} is created in {settings.DocFolder}.");
+        stdOut.WriteLine($"Revision for {recordId:D5} is created in {settings.DocFolder}.");
         return 0;
     }
 
@@ -151,7 +162,7 @@ public class AdrNew : IAdrNew
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        logger.LogInformation($"ASR is created in {settings.DocFolder}.");
+        stdOut.WriteLine($"ASR is created in {settings.DocFolder}.");
         return 0;
     }
 }
