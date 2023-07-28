@@ -2,7 +2,7 @@
   "profiles": {
     "adr-cli": {
       "commandName": "Project",
-      "commandLineArgs": "new --title \"Adr should be in a git repository\""
+      "commandLineArgs": "link -s 2 -t 1 -r References"
     }
   }
 }

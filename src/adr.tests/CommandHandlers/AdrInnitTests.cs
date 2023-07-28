@@ -50,6 +50,7 @@ public class AdrInitTests
         settingsMock.SetupGet(m => m.DefaultDocFolder).Returns("\\adrInit\\tests\\docs");
         settingsMock.SetupGet(m => m.DefaultTemplates).Returns("\\adrInit\\tests\\templates");
         settingsMock.Setup(m => m.GetContentFile(It.IsAny<string>())).Returns(contentFileMock.Object);
+        settingsMock.SetupGet(m => m.DocFolderInfo().FullName).Returns("testFolder");
         contentFileMock.SetupGet(m => m.Exists).Returns(true);
         IAdrInit sut = new AdrInit(settingsMock.Object, logger, repositoryMock.Object, stdOutMock.Object, procesMock.Object);
         var result = await sut.InitializeAsync("doc", "template");

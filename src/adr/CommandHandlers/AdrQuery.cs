@@ -149,7 +149,7 @@ public class AdrQuery : IAdrQuery
                 if (!showRecord && includeContent)
                 {
                     var content = await adrRecordRepository.ReadContentAsync(recordId);
-                    if (content.Contains(word, StringComparison.OrdinalIgnoreCase))
+                    if (content.Any(m => m.Contains(word, StringComparison.OrdinalIgnoreCase)))
                     {
                         showRecord = true;
                         break;

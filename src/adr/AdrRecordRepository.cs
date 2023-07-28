@@ -10,6 +10,8 @@ using System.Linq;
 using adr.Extensions;
 using System.IO;
 using adr.Services;
+using System.Collections.Generic;
+using System.Reflection.Metadata;
 
 namespace adr
 {
@@ -133,14 +135,14 @@ namespace adr
         /// </summary>
         /// <param name="recordId"></param>
         /// <returns></returns>
-        public async Task<string> ReadContentAsync(int recordId)
+        public async Task<string[]> ReadContentAsync(int recordId)
         {
             var adrDocumentFolder = settings.DocFolderInfo();
             var matchFileName = $"{recordId:D5}-*.md";
             var files = adrDocumentFolder.EnumerateFiles(matchFileName).ToArray();
             if (files.Length == 0)
             {
-                return string.Empty;
+                return Array.Empty<string>();
             }
             if (files.Length > 1)
             {
@@ -148,12 +150,41 @@ namespace adr
                 stdOut.WriteLine($"Found more than one matching file, selecting the first from:{Environment.NewLine}{fileNames}");
             }
 
+            logger.LogInformation($"Reading from {files[0].FullName}");
+
+            var contentLines = new List<string>();
             string content = string.Empty;
-            using (var metadataContent = files[0].OpenText())
+            using (var markdownContent = files[0].OpenText())
+            content = await markdownContent.ReadToEndAsync();
+            contentLines.AddRange(content.Split(Environment.NewLine));
+
+            return contentLines.ToArray();
+        }
+
+        public async Task<int> UpdateContentAsync(AdrRecord record, string[] lines)
+        {
+            logger.LogInformation($"Update ADR #{record.RecordId} with new content.");
+            IFileInfo contextRecord = settings.GetContentFile(record.FileName);
+            var backupFileName = record.FileName + ".bak";
+            IFileInfo contextBackup = settings.GetContentFile(backupFileName);
+            if (!contextRecord.Exists) return -1;
+
+            contextRecord.CopyTo(backupFileName, true);
+            var contentLength = 0;
+            var charactersWritten = 0;
+            using (var contentWriter = contextRecord.CreateText())
             {
-                content = await metadataContent.ReadToEndAsync();
+                foreach(var line in lines)
+                {
+                    await contentWriter.WriteLineAsync(line);
+                    contentLength += line.Length;
+                }
+                await contentWriter.FlushAsync();
+                charactersWritten = contentLength;
             }
-            return content;
+            logger.LogDebug($"Update content for {record.Title}");
+            if (contextBackup.Exists) contextBackup.Delete();
+            return charactersWritten;
         }
 
         public async Task<int> UpdateMetadataAsync(int recordId, AdrRecord record)

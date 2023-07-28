@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -95,6 +96,31 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
+    /// Update the referenes in the metadata with a new target
+    /// </summary>
+    /// <param name="record">The AdrRecord.</param>
+    /// <param name="targetId">a target record identification.</param>
+    /// <param name="remark">a short remark</param>
+    public static AdrRecord UpdateReferenceRemark(this AdrRecord record, int targetId, string remark)
+    {
+        if (record.References.TryGetValue(targetId, out var currentRemark))
+        {
+            var newRemark = new List<string>();
+            if (!string.IsNullOrEmpty(currentRemark))
+            {
+                newRemark.AddRange(currentRemark.Split(';', StringSplitOptions.RemoveEmptyEntries));
+            }
+            newRemark.Add(remark);
+            record.References[targetId] = string.Join(';', newRemark.Distinct());
+        }
+        else
+        {
+            record.References.Add(targetId, remark);
+        }
+        return record;
+    }
+
+    /// <summary>
     /// Prepare the AdrRecord metadata so it can be saved with valid metadata.
     /// </summary>
     /// <param name="record">The AdrRecord.</param>
@@ -110,16 +136,51 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
+    /// Add a text part at the end of the markdown element with the provided name.
+    /// </summary>
+    /// <param name="lines">The markdown content</param>
+    /// <param name="mdElement">The paragraph where the text should be appended.</param>
+    /// <param name="newTextPart">The new text part.</param>
+    /// <returns></returns>
+    public static IEnumerable<string> AddTextAtMdElement(this string[] lines,  string mdElement, string newTextPart)
+    {
+        if (string.IsNullOrEmpty(mdElement) || string.IsNullOrEmpty(newTextPart))
+        {
+            foreach (var line in lines)
+            {
+                yield return line;
+            }
+        }
+        else
+        {
+            var marker = $"## {mdElement}";
+            var inTextBlock = false;
+            foreach (var line in lines)
+            {
+                if (inTextBlock && line.StartsWith("## ", StringComparison.Ordinal))
+                {
+                    yield return newTextPart;
+                    inTextBlock = false;
+                }
+                if (line.Equals(marker, StringComparison.OrdinalIgnoreCase))
+                {
+                    inTextBlock = true;
+                }
+                yield return line;
+            }
+        }
+    }
+
+    /// <summary>
     /// Update the <see cref="AdrRecord"/> data using the markdown text content.
     /// The RecordId and Date in the <see cref="AdrRecord"/> are not modified.
     /// </summary>
     /// <param name="record"></param>
-    /// <param name="markdownContent"></param>
+    /// <param name="lines">The file content</param>
     /// <returns></returns>
-    public static AdrRecord UpdateFromMarkdown(this AdrRecord record, int recordId, string markdownContent, out bool metadataMmodified)
+    public static AdrRecord UpdateFromMarkdown(this AdrRecord record, int recordId, string[] lines, out bool metadataMmodified)
     {
         metadataMmodified = false;
-        var lines = markdownContent.Split(Environment.NewLine).Select(s => s.Trim()).ToArray();
         if (lines.Length <= 0) return record;
 
         if (recordId > 0 && recordId != record.RecordId)

@@ -1,0 +1,12 @@
+{
+  "DateTime": "2023-07-28T00:00:00+02:00",
+  "FileName": "00002-use-sqlite-for-database-baseline",
+  "RecordId": 2,
+  "Status": "New",
+  "TemplateType": "Ad",
+  "Title": "Use SQLite for database baseline",
+  "Context": "",
+  "References": {
+    "1": "Extrapolates;References"
+  }
+}

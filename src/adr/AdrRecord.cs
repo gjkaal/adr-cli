@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 
 namespace adr
 {
@@ -23,5 +24,6 @@ namespace adr
         [JsonIgnore]
         public string Consequences { get; set; } = string.Empty;
 
+        public Dictionary<int, string> References { get; set; } = new();
     }
 }

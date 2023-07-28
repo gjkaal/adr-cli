@@ -1,6 +1,7 @@
 ﻿using adr;
 using adr.Extensions;
-
+using System;
+using System.Linq;
 using Xunit;
 
 namespace Tests.Extensions;
@@ -26,7 +27,10 @@ public class AdrRecordExtensionsTests
             RecordId = 6,
             DateTime = new System.DateTime(2022, 10, 10)
         };
-        adr.UpdateFromMarkdown(8, TestSet.MarkdownFile1, out var modified);
+
+        var lines = TestSet.MarkdownFile1.Split(Environment.NewLine).Select(s => s.Trim()).ToArray();
+
+        adr.UpdateFromMarkdown(8, lines, out var modified);
 
         Assert.Equal(8, adr.RecordId);
         Assert.Equal(2022, adr.DateTime.Year);

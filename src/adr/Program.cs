@@ -35,16 +35,11 @@ internal static class Program
         // Query the ADR, lists, searching etc.
         app.AddRange(AdrQuery.CommandHandler(serviceProvider));
 
+        // Add links etc.
+        app.AddRange(AdrLink.CommandHandler(serviceProvider));
+
         return await app.InvokeAsync(args);
 
-        //app.Command("link", (command) =>
-        //{
-        //    command.Description = "Link 2 ADR's with ammend / clarify or something else";
-        //    command.OnExecute(() =>
-        //    {
-        //        return 0;
-        //    });
-        //});
 
         //app.Command("generate", (command) =>
         //{
@@ -76,6 +71,7 @@ internal static class Program
         serviceCollection.AddSingleton<IAdrInit, AdrInit>();
         serviceCollection.AddSingleton<IAdrNew, AdrNew>();
         serviceCollection.AddSingleton<IAdrQuery, AdrQuery>();
+        serviceCollection.AddSingleton<IAdrLink, AdrLink>();
 
     }
 

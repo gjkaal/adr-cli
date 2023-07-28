@@ -1,9 +1,0 @@
-{
-  "DateTime": "2023-07-28T00:00:00+02:00",
-  "FileName": "00002-adr-should-be-in-a-git-repository",
-  "RecordId": 2,
-  "Status": "New",
-  "TemplateType": "Ad",
-  "Title": "Adr should be in a git repository",
-  "Context": ""
-}
