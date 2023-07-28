@@ -81,11 +81,11 @@ namespace adr
 
             sb.Replace("{RecordId}", record.RecordId.ToString("D5"));
             sb.Replace("{Title}", record.Title);
-            sb.Replace("{Status}", record.Status.ToString());
+            sb.Replace("{Status}", $"__{record.Status}__");
             sb.Replace("{Context}", string.IsNullOrEmpty(record.Context) ? DefaultContext : record.Context);
             sb.Replace("{Decision}", string.IsNullOrEmpty(record.Decision) ? DefaultDecision : record.Decision);
             sb.Replace("{Consequences}", string.IsNullOrEmpty(record.Consequences) ? DefaultConsequences : record.Consequences);
-            sb.Replace("{DateTime}", DateTime.Now.ToString("dd-MM-yyyy"));
+            sb.Replace("{DateTime}", DateTime.Now.ToString("yyyy-MM-dd"));
 
             if (record.SuperSedes == null)
             {

@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -135,23 +136,46 @@ public static class AdrRecordExtensions
             record.Title = title;
         }
 
-        if (lines.TryFindMdElement("status", out var statusText)
-            && Enum.TryParse<AdrStatus>(statusText, out var adrStatus)
-            && record.Status != adrStatus)
+        if (lines.TryFindMdElement("status", out var statusText))
         {
-            metadataMmodified = true;
-            record.Status = adrStatus;
+            var statusLine = string.Empty;
+            foreach (var s in statusText)
+            {
+                var line = s.Trim();
+                if (line.StartsWith("__") && line.EndsWith("__"))
+                {
+                    statusLine = s[2..^2];
+                }
+            }
+            if (!string.IsNullOrEmpty(statusLine)
+                && Enum.TryParse<AdrStatus>(statusLine, out var adrStatus)
+                && record.Status != adrStatus)
+            {
+                metadataMmodified = true;
+                record.Status = adrStatus;
+            }
         }
 
-        if (lines.TryFindMdElement("Context", out var context) && record.Context.Trim() != context.Trim())
+        if (lines.TryFindMdElement("Context", out var context))
         {
-            metadataMmodified = true;
-            record.Context = context.Trim();
+            var sb = new StringBuilder();
+            foreach(var s in context)
+            {
+                if (string.IsNullOrEmpty(s)) break;
+                sb.Append(s.Trim());
+                sb.Append(' ');
+            }
+            var metaContext = sb.ToString().Trim();
+            if (record.Context != metaContext)
+            {
+                metadataMmodified = true;
+                record.Context = metaContext;
+            }
         }
 
         // Decision and consequences are not part of the metadata
-        if (lines.TryFindMdElement("Decision", out var decision)) record.Decision = decision;
-        if (lines.TryFindMdElement("Consequences", out var consequences)) record.Consequences = consequences;
+        if (lines.TryFindMdElement("Decision", out var decision)) record.Decision = string.Join(Environment.NewLine, decision);
+        if (lines.TryFindMdElement("Consequences", out var consequences)) record.Consequences = string.Join(Environment.NewLine, consequences);
 
         return record;
     }
@@ -210,26 +234,27 @@ public static class AdrRecordExtensions
     /// <param name="header"></param>
     /// <param name="element"></param>
     /// <returns></returns>
-    private static bool TryFindMdElement(this string[] lines, string header, out string element)
+    private static bool TryFindMdElement(this string[] lines, string header, out string[] element)
     {
         try
         {
-            element = string.Empty;
+            element = Array.Empty<string>();
             var n = FindLineWithHeader(lines, header);
             if (n < 0) return false;
-            var sb = new StringBuilder();
+            var sb = new List<string>();
+            // skip first line after header
+            n++;
             while (n < lines.Length - 1)
             {
                 var text = lines[++n].Trim();
-                if (text == string.Empty) continue;
-                if (text[0] == '#') break;
-                sb.AppendLine(text);
+                if (text.StartsWith("## ", StringComparison.Ordinal)) break;
+                sb.Add(text);
             }
-            element = sb.ToString();
+            element = sb.ToArray();
             return true;
         }
         catch(Exception e) {
-            element = e.Message;
+            element = new string[] { e.Message };
             return false; 
         }
     }
