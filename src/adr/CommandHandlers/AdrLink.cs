@@ -159,9 +159,35 @@ public class AdrLink : IAdrLink
 
    
 
-    public Task<int> RemoveLinkAsync(int sourceId, int targetId) {
-        logger.LogInformation($"Removing all referece link from {sourceId} to {targetId}.");
-        return Task.FromResult(0);
+    public async Task<int> RemoveLinkAsync(int sourceId, int targetId)
+    {
+        logger.LogInformation($"Removing all reference link from {sourceId} to {targetId}.");
+
+        // Find content and metadata
+        var sourceContent = await adrRecordRepository.ReadContentAsync(sourceId);
+        if (sourceContent == null || sourceContent.Length == 0)
+        {
+            stdOut.WriteLine($"Source ADR does not exist: {sourceId:D5}.");
+            return -1;
+        }
+
+        var sourceMeta = await adrRecordRepository.ReadMetadataAsync(sourceId);
+        if (sourceMeta == null)
+        {
+            sourceMeta = new AdrRecord();
+            sourceMeta.UpdateFromMarkdown(sourceId, sourceContent, out _);
+        }
+
+        sourceMeta.References.Remove(targetId);
+
+        var linkText = $"[{targetId:D5}.";
+
+        var newContent = sourceContent.RemoveFromMdElement("Status", linkText).ToArray();
+
+        await adrRecordRepository.UpdateMetadataAsync(sourceId, sourceMeta);
+        await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
+
+        return 0;
     }
 }
 

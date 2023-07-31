@@ -6,9 +6,7 @@
 
 __New__
 
-Extrapolates [00001.Record Architecture Decisions initialization](.\00001-record-architecture-decisions-initialization)
 
-References [00001.Record Architecture Decisions initialization](.\00001-record-architecture-decisions-initialization)
 
 ## Context
 
@@ -22,6 +20,7 @@ SQLite is out baseline for unit testing and integration testing. SQLServer is th
 
 - Stored procedures and other advanced models may not be available.
 - Possibly more work for some advanced data types.
+
 
 
 

@@ -1,5 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -24,7 +23,7 @@ public static class AdrRecordExtensions
     /// <returns>One line of text</returns>
     public static string FormatString(this AdrRecord record)
     {
-        return $"{record.RecordId:D5} {record.DateTime:yyyyMMdd} {record.Status.ToString()??"",-10} {record.Title.PadRight(80)[..80]}";
+        return $"{record.RecordId:D5} {record.DateTime:yyyyMMdd} {record.Status.ToString() ?? "",-10} {record.Title.PadRight(80)[..80]}";
     }
 
     /// <summary>
@@ -138,11 +137,11 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Add a text part at the end of the markdown element with the provided name.
     /// </summary>
-    /// <param name="lines">The markdown content</param>
+    /// <param name="lines">The markdown content.</param>
     /// <param name="mdElement">The paragraph where the text should be appended.</param>
     /// <param name="newTextPart">The new text part.</param>
     /// <returns></returns>
-    public static IEnumerable<string> AddTextAtMdElement(this string[] lines,  string mdElement, string newTextPart)
+    public static IEnumerable<string> AddTextAtMdElement(this string[] lines, string mdElement, string newTextPart)
     {
         if (string.IsNullOrEmpty(mdElement) || string.IsNullOrEmpty(newTextPart))
         {
@@ -160,6 +159,45 @@ public static class AdrRecordExtensions
                 if (inTextBlock && line.StartsWith("## ", StringComparison.Ordinal))
                 {
                     yield return newTextPart;
+                    inTextBlock = false;
+                }
+                if (line.Equals(marker, StringComparison.OrdinalIgnoreCase))
+                {
+                    inTextBlock = true;
+                }
+                yield return line;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Remove all line where 'match' can be found in the markdown element
+    /// </summary>
+    /// <param name="lines">The markdown content.</param>
+    /// <param name="mdElement">The paragraph where the text should be appended.</param>
+    /// <param name="match">The partial match.</param>
+    /// <returns></returns>
+    public static IEnumerable<string> RemoveFromMdElement(this string[] lines,  string mdElement, string match)
+    {
+        if (string.IsNullOrEmpty(mdElement) || string.IsNullOrEmpty(match))
+        {
+            foreach (var line in lines)
+            {
+                yield return line;
+            }
+        }
+        else
+        {
+            var marker = $"## {mdElement}";
+            var inTextBlock = false;
+            foreach (var line in lines)
+            {
+                if (inTextBlock && line.Contains(match, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                if (inTextBlock && line.StartsWith("## ", StringComparison.Ordinal))
+                {
                     inTextBlock = false;
                 }
                 if (line.Equals(marker, StringComparison.OrdinalIgnoreCase))

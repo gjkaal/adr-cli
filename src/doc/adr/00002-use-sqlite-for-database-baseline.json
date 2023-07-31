@@ -6,7 +6,5 @@
   "TemplateType": "Ad",
   "Title": "Use SQLite for database baseline",
   "Context": "",
-  "References": {
-    "1": "Extrapolates;References"
-  }
+  "References": {}
 }

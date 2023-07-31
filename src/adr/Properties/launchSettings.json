@@ -2,7 +2,7 @@
   "profiles": {
     "adr-cli": {
       "commandName": "Project",
-      "commandLineArgs": "link -s 2 -t 1 -r References"
+      "commandLineArgs": "rlink -s 2 -t 1"
     }
   }
 }
