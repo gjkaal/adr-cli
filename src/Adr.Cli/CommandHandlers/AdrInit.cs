@@ -5,7 +5,6 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
-using System.IO;
 using System.Threading.Tasks;
 
 namespace Adr.Cli.CommandHandlers;
@@ -84,21 +83,13 @@ public class AdrInit : IAdrInit
     /// <returns></returns>
     public async Task<int> InitializeAsync(string adrRootPath = "", string templateRootPath = "")
     {
-        var saveSettings = false;
-        if (!string.IsNullOrEmpty(adrRootPath) || !string.IsNullOrEmpty(adrRootPath))
-        {
-            saveSettings = true;
-        }
-
         adrRootPath = GetPathWithDefault(adrRootPath, settings.DocFolder ?? settings.DefaultDocFolder);
         templateRootPath = GetPathWithDefault(templateRootPath, settings.TemplateFolder ?? settings.DefaultTemplates);
 
+        var localFolder = settings.CurrentPath;
         settings.DocFolder = adrRootPath;
         settings.TemplateFolder = templateRootPath;
-        if (saveSettings)
-        {
-            settings.Write();
-        }
+        settings.Write();
 
         if (settings.RepositoryInitialized())
         {

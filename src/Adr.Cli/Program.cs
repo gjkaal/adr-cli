@@ -54,9 +54,13 @@ internal static class Program
     {
         serviceCollection.AddLogging(configure =>
                  {
+#if DEBUG
                      configure.SetMinimumLevel(LogLevel.Debug);
                      configure.AddDebug();
                      configure.AddConsole();
+#else
+                     configure.SetMinimumLevel(LogLevel.Warning);
+#endif
                  });
 
         serviceCollection.AddSingleton<IProcessHelper, ProcessHelper>();

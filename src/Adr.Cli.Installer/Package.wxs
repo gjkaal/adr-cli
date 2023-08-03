@@ -1,0 +1,13 @@
+﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Adr.Cli.Installer" 
+           Manufacturer="Nice2Experience"
+           Version="1.0.0.0" 
+           UpgradeCode="30000001-85b3-4e0f-ae56-0303be75dd98">
+    <MajorUpgrade DowngradeErrorMessage="!(loc.DowngradeError)" />
+
+    <Feature Id="Main">
+      <ComponentGroupRef Id="Adr.Cli.Binaries" />
+      <ComponentGroupRef Id="Adr.Cli.Environment" />
+    </Feature>
+  </Package>
+</Wix>

@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <DirectoryRef Id="Adr.Cli.Binaries">
+      <Component Id="Adr.Cli.Environment.Path" Guid="98A16A17-CE71-471D-9E32-4C0E9023A243">
+        <Environment
+          Id="PATH"
+          Name="PATH"
+          Value="[INSTALLFOLDER]\bin"
+          Permanent="yes"
+          Part="last"
+          Action="set"
+          System="yes" />
+      </Component>
+    </DirectoryRef>
+    <ComponentGroup Id="Adr.Cli.Environment">
+      <ComponentRef Id="Adr.Cli.Environment.Path" />
+    </ComponentGroup>
+  </Fragment>
+</Wix>

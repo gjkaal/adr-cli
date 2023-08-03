@@ -5,6 +5,11 @@ namespace Adr.Cli;
 public interface IAdrSettings
 {
     /// <summary>
+    /// The current folder location.
+    /// </summary>
+    string CurrentPath { get; }
+
+    /// <summary>
     /// The default location for Adr records.
     /// </summary>
     string DefaultDocFolder { get; }

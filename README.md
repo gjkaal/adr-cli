@@ -4,7 +4,8 @@ Architecture for agile projects has to be described and defined differently. Not
 This command line toolset helps with creating and managing ADR's that can easily be added to source control systems like GitHub.
 
 ## adr-cli
-A command-line tool for working with Architecture Decision Records (ADRs), based on the idea of [Michael Nygard](https://cognitect.com/authors/MichaelNygard.html) and his blog about [documenting architecture decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions).
+A command-line tool for working with Architecture Decision Records (ADRs), based on the idea of [Michael Nygard](https://cognitect.com/authors/MichaelNygard.html) 
+and his blog about [documenting architecture decisions](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions).
 
 
 ## Credits

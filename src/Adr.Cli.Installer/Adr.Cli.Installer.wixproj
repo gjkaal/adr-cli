@@ -1,0 +1,19 @@
+﻿<Project Sdk="WixToolset.Sdk/4.0.0">
+  <PropertyGroup>
+    <EnableProjectHarvesting>true</EnableProjectHarvesting>
+    <HarvestProjectsSuppressUniqueIds>true</HarvestProjectsSuppressUniqueIds>
+    <HarvestProjectsVerboseOutput>true</HarvestProjectsVerboseOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Heat" Version="4.0.1" />
+    <PackageReference Include="WixToolset.UI.wixext" Version="4.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Adr.Cli\Adr.Cli.csproj" DoNotHarvest="true">
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <HarvestProject Include="..\Adr.Cli\Adr.Cli.csproj" ProjectOutputGroups="Binaries;Content;">
+    </HarvestProject>
+  </ItemGroup>
+</Project>

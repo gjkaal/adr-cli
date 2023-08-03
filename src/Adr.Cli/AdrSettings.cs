@@ -28,6 +28,11 @@ namespace Adr.Cli
         }
 
         /// <summary>
+        /// Return the current command shell folder.
+        /// </summary>
+        public string CurrentPath => currentPath;
+
+        /// <summary>
         /// If no documentfolder is provided, this is the path that is used.
         /// </summary>
         public string DefaultDocFolder => DefaultAdrFolder;
