@@ -1,6 +1,6 @@
 # 00001. Record Architecture Decisions initialization
 
-28-07-2023
+2023-08-03
 
 ## Status
 
