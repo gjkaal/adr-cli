@@ -166,13 +166,63 @@ __Usage__
 
 `adr-cli find -q "architecture selection" --verbose`
 
+__Options__
+
+  --desc             Show the ADR's with the latest ADR first
+  --verbose          Show the ADR's more information
+  --full             Search the full records (slow)
+
 ### Linking and unlinking
 
+To add references between ADR's, the tool allows you to add and remove links between ADR's
+based on their record Id. You can add as much relations as you want. Removing a relation 
+is always one way. So if you add a link from record 3 to record 1 and another link between
+from record 1 to record 3, removing the link (or links) from record 3 to record 1, will not remove
+any reverse link you made. It's easier that it sounds, try it and examine the markdown files
+and the metadata files to see how it works.
+
+Backward referencing is propably the way you want to work, but the tool doesn't prohibit 
+adding a link referencing a record that did not exist when the ADR was defined.
+
+__Usage__
+
+Add a link to indicate that ADR 3 clarifier ADR 1:
+
+`adr-cli link -s 3 -t 1 -reason clarifies`
+
+Add a link to indicate that ADR 1 is explained in ADR 3:
+
+`adr-cli link --source 1 -- target 3 -r "More information"`
+
+Remove all references from ADR 1 to ADR 3:
+
+`adr-cli rlink --source 1 -- target 3`
+
+__Options__
+
+  -s, --source <source> (REQUIRED)  The source ADR
+  -t, --target <target> (REQUIRED)  The target ADR
+  -r, --reason <reason>             The reason for the link (only while linking).
 
   link   Link 2 ADR's for ammend / clarify or some other reason
   rlink  Remove all links from one ADR to another
 
+## Ideas and Improvements
 
+Currently, version 1.0.0 of the tool is developed to help with managing an ADR on an existing project
+that has some dire need of documentation. There are already some improvements that could be implemented,
+like syncronizing a single record instead of checking all files. Another usefull addition, would be to 
+generate a table of contents markdown file, containing the titles and possibly decisions of all ADR's 
+in the repository.
+
+If you encounter errors or if you have any suggestions for improvements, please send an email to:
+
+[nauplius.software@gmail.com](mailto:nauplius.software@gmail.com)
+
+Please add the version number of the adr-cli tool in the subject, together with a subject describing the issue.
+You can find the version by using:
+
+`adr-cli --version`
 
 
 
