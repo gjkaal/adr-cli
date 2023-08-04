@@ -20,6 +20,6 @@ public interface IAdrInit
     /// </summary>
     /// <param name="startFromRecordId"></param>
     /// <returns></returns>
-    Task<int> SyncMetadataAsync(int startFromRecordId);
+    Task<int> SyncMetadataAsync(int startFromRecordId, int onlyForRecordId);
 }
 

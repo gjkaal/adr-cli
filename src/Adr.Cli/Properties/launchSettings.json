@@ -2,7 +2,7 @@
   "profiles": {
     "adr-cli": {
       "commandName": "Project",
-      "commandLineArgs": "rlink -s 2 -t 1"
+      "commandLineArgs": "sync --record 2"
     }
   }
 }

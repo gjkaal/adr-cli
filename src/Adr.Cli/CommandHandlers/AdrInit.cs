@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
+using System.IO.Abstractions;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace Adr.Cli.CommandHandlers;
@@ -47,17 +49,17 @@ public class AdrInit : IAdrInit
     /// </summary>
     private static Command InitCommand(IServiceProvider serviceProvider)
     {
-        var initCommand = new Command("init", "Initialize a new ADR folder");
+        var cmd = new Command("init", "Initialize a new ADR folder");
         Option<string> adrRoot = new("--adrRoot", "Set the adr root directory");
         Option<string> templateRoot = new("--tmpRoot", "Set the template root directory");
-        initCommand.AddOption(adrRoot);
-        initCommand.AddOption(templateRoot);
-        initCommand.SetHandler(async (adrRootPath, templateRootPath) =>
+        cmd.AddOption(adrRoot);
+        cmd.AddOption(templateRoot);
+        cmd.SetHandler(async (adrRootPath, templateRootPath) =>
         {
             var c = serviceProvider.GetRequiredService<IAdrInit>();
             await c.InitializeAsync(adrRootPath, templateRootPath);
         }, adrRoot, templateRoot);
-        return initCommand;
+        return cmd;
     }
 
     /// <summary>
@@ -66,11 +68,18 @@ public class AdrInit : IAdrInit
     private static Command SyncMetadataCommand(IServiceProvider serviceProvider)
     {
         var cmd = new Command("sync", "Sync the metadata using the content in the markdown files");
-        cmd.SetHandler(async () =>
+        Option<string> startAt = new("--startAt", "Synchronize from this record until the end");
+        Option<string> record = new("--record", "Synchronize only for a single record");
+        cmd.AddOption(record);
+        cmd.SetHandler(async (startAt, record) =>
         {
+            var startAtid = 1;
+            var recordId = 0;
+            if (!string.IsNullOrEmpty(startAt) && !int.TryParse(startAt, out startAtid)) startAtid = -1;
+            if (!string.IsNullOrEmpty(record) && !int.TryParse(record, out recordId)) recordId = -1;
             var c = serviceProvider.GetRequiredService<IAdrInit>();
-            await c.SyncMetadataAsync(1);
-        });
+            await c.SyncMetadataAsync(startAtid, recordId);
+        }, startAt, record);
         return cmd;
     }
 
@@ -122,36 +131,82 @@ public class AdrInit : IAdrInit
             : path;
     }
 
-    public  async Task<int> SyncMetadataAsync(int startFromRecordId) {
+    public  async Task<int> SyncMetadataAsync(int startFromRecordId, int onlyForRecordId)
+    {
         var docFolder = settings.DocFolderInfo();
         var templateFolder = settings.TemplateFolderInfo();
         logger.LogInformation($"Documents in {docFolder.FullName}");
         logger.LogInformation($"Templates in {templateFolder.FullName}");
 
-        foreach(var docInfo in docFolder.EnumerateFiles("*.md"))
+        // check for invalid values
+        if (startFromRecordId <= 0)
+        {
+            stdOut.WriteLine("Invalid start record provided, use positive integer numbers to indicate staring record.");
+            return -1;
+        }
+        if (onlyForRecordId <= 0)
+        {
+            stdOut.WriteLine("Invalid record id provided, use positive integer numbers to identify record for syncronization.");
+            return -1;
+        }
+
+        return (onlyForRecordId > 0)
+         ? await SynchronizeRecord(onlyForRecordId, docFolder)
+         : await SynchronizeRange(startFromRecordId, docFolder);        
+    }
+
+
+    private async Task<int> SynchronizeRecord(int onlyForRecordId, IDirectoryInfo docFolder)
+    {
+        var docInfo = docFolder.EnumerateFiles($"{onlyForRecordId:D5}-*.md").FirstOrDefault();
+        if (docInfo == null)
+        {
+            stdOut.WriteLine($"Could not find ADR with identification {onlyForRecordId}");
+            return -1;
+        }
+        var record = await adrRecordRepository.ReadMetadataAsync(onlyForRecordId);
+        var markdown = await adrRecordRepository.ReadContentAsync(onlyForRecordId);
+        if (record == null || markdown == null)
+        {
+            stdOut.WriteLine($"Could not open record or markdown for ADR {onlyForRecordId}");
+            return -1;
+        }
+        await UpdateFromMarkdown(docInfo, onlyForRecordId, record, markdown);
+        return 0;
+    }
+
+    private async Task<int> SynchronizeRange(int startFromRecordId, IDirectoryInfo docFolder)
+    {
+        foreach (var docInfo in docFolder.EnumerateFiles("*.md"))
         {
             var recordIdPart = docInfo.Name.Split('-')[0];
-            if (int.TryParse(recordIdPart, out var recordId) && recordId >= startFromRecordId) {
+            if (int.TryParse(recordIdPart, out var recordId) && recordId >= startFromRecordId)
+            {
                 var record = await adrRecordRepository.ReadMetadataAsync(recordId);
                 if (record == null) continue;
                 var markdown = await adrRecordRepository.ReadContentAsync(recordId);
                 if (markdown == null) continue;
-                record.UpdateFromMarkdown(recordId, markdown, out var modified);
-                if (modified)
-                {
-                    var bytesWritten = await adrRecordRepository.UpdateMetadataAsync(recordId, record);
-                    if (bytesWritten <= 0)
-                    {
-                        stdOut.WriteLine($"Could not find {docInfo.Name} for update");
-                    }
-                    else
-                    {
-                        stdOut.WriteLine($"Metadatafile {docInfo.Name} is modified.");
-                    }
-                }
+                await UpdateFromMarkdown(docInfo, recordId, record, markdown);
             }
         }
         return 0;
+    }
+
+    private async Task UpdateFromMarkdown(IFileInfo docInfo, int recordId, AdrRecord record, string[] markdown)
+    {
+        record.UpdateFromMarkdown(recordId, markdown, out var modified);
+        if (modified)
+        {
+            var bytesWritten = await adrRecordRepository.UpdateMetadataAsync(recordId, record);
+            if (bytesWritten <= 0)
+            {
+                stdOut.WriteLine($"Could not find {docInfo.Name} for update");
+            }
+            else
+            {
+                stdOut.WriteLine($"Metadatafile {docInfo.Name} is modified.");
+            }
+        }
     }
 }
 

@@ -4,7 +4,7 @@
   "RecordId": 2,
   "Status": "New",
   "TemplateType": "Ad",
-  "Title": "Commands are implemented with System.CommandLine",
-  "Context": "",
+  "Title": "CommandLine",
+  "Context": "The ADR-CLI tool is a command line tool. Upon startup, a list of command line arguments are passed to the applicatiuon and they need to be interpreted. By using a commandline interpreter, it is easier to focus on functionality and leave the handling of command line parameters to a generic library.",
   "References": {}
 }
