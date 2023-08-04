@@ -109,38 +109,26 @@ To create an Architectural requirement
 
 __Options__
 
-```
   --title "<title>" (REQUIRED)  The title for the ADR
   --req                         The ADR is a critical requirement.
   --rev <rev>                   The ADR rivision for an earlier ADR, provide a valid id.
-```
 
 ### Sync Markup documents and metadata
 
 The metadata files contain basic ADR information like the id, title, creation date status and references. This 
 data is available in the markdown as well, but less structured. Although it's possible to deduct all information
-from the markdown files, using the metadata is easier and faster. The downside is that when the documewnts are 
-modified, the metadata will not change automatically. This command goes through all markdown files and modifies 
-or restores the metadata files.
+from the markdown files, using the metadata is easier and faster.
 
-If you want to synchronize a single record, you can provide the identifier for that record.
+But when the documewnts are modified, the metadata will not change automatically. This command goes through all
+markdown files and modifies or restores the metadata files.
 
 __Usage__
 
-Synchronize all records
-
 `adr-cli sync`
-
-Synchronize only record 15
-
-`adr-cli sync --record 15`
 
 __Options__
 
-```
-  --record <recordId>       Synchronize a single record
-```
-
+  --record <recordId>
 
 ### list
 
@@ -154,10 +142,8 @@ __Usage__
 
 __Options__
 
-```
   --desc          Show the ADR's with the latest ADR first
   --verbose       Show the ADR's more information
-```
 
 ### find
 
@@ -182,11 +168,9 @@ __Usage__
 
 __Options__
 
-```
   --desc             Show the ADR's with the latest ADR first
   --verbose          Show the ADR's more information
   --full             Search the full records (slow)
-```
 
 ### Linking and unlinking
 
@@ -216,11 +200,9 @@ Remove all references from ADR 1 to ADR 3:
 
 __Options__
 
-```
   -s, --source <source> (REQUIRED)  The source ADR
   -t, --target <target> (REQUIRED)  The target ADR
   -r, --reason <reason>             The reason for the link (only while linking).
-```
 
   link   Link 2 ADR's for ammend / clarify or some other reason
   rlink  Remove all links from one ADR to another
@@ -241,3 +223,7 @@ Please add the version number of the adr-cli tool in the subject, together with 
 You can find the version by using:
 
 `adr-cli --version`
+
+
+
+
