@@ -10,7 +10,6 @@ and his blog about [documenting architecture decisions](https://cognitect.com/bl
 
 ## Credits
 
-This tool is an extensive rewrite of a tool by GingerTommy as a fork from the adr tools, a set of bash files.
+Based on the bash script ideas by npryce
 
-[GingerTommyl](https://github.com/GingerTommy/adr-cli) <br>
 [npryce](https://github.com/npryce/adr-tools) 
