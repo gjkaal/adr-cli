@@ -1,13 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0-windows</TargetFramework>   
+    <TargetFramework>net7.0</TargetFramework>   
     <StartupObject>Adr.Cli.Program</StartupObject>
     <Nullable>enable</Nullable>
     <AssemblyName>adr-cli</AssemblyName>
     <SignAssembly>False</SignAssembly>
     <Version>1.0.0.1</Version>
   </PropertyGroup>
+  <ItemGroup>
+    <None Remove="Properties\PublishProfiles\FolderProfile1.pubxml" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Properties\PublishProfiles\osx-x64.pubxml" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.logging.abstractions" Version="7.0.1" />
