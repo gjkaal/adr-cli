@@ -1,9 +1,9 @@
+using Adr.Cli.Extensions;
+using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
-using Adr.Cli.Extensions;
-using Newtonsoft.Json;
 
 namespace Adr.Cli
 {
@@ -74,11 +74,11 @@ namespace Adr.Cli
 
         private IFileInfo GetAdrFileInfo(string fileName, string extension)
         {
-            var fullFileName = 
+            var fullFileName =
             fileName.EndsWith("." + extension, StringComparison.OrdinalIgnoreCase)
             ? fileName
             : $"{fileName}.{extension}";
-            
+
             var folderInfo = DocFolderInfo();
             var filePath = path.Combine(folderInfo.FullName, fullFileName);
             return fileInfoFactory.New(filePath);
@@ -111,7 +111,7 @@ namespace Adr.Cli
             var folder = path.Combine(currentPath, DocFolder);
             var directory = directoryInfoFactory.New(folder);
             if (!directory.Exists) directory.Create();
-            return directory;        
+            return directory;
         }
 
         /// <summary>
@@ -225,14 +225,15 @@ namespace Adr.Cli
 
         public bool RepositoryInitialized()
         {
-            var docFolder = DocFolderInfo();            
+            var docFolder = DocFolderInfo();
             return docFolder.EnumerateFiles().Any();
         }
 
         /// <summary>
         /// Get the folder information for the ADR project root.
         /// </summary>
-        public IDirectoryInfo RootFolderInfo() {
+        public IDirectoryInfo RootFolderInfo()
+        {
             var directory = directoryInfoFactory.New(CurrentPath);
             if (!directory.Exists) directory.Create();
             return directory;
@@ -243,7 +244,8 @@ namespace Adr.Cli
         /// </summary>
         /// <param name="fileName">A filename without path information.</param>
         /// <returns>A <see cref="IFileInfo"/> class.</returns>
-        public IFileInfo GetDocumentFile(string fileName) {
+        public IFileInfo GetDocumentFile(string fileName)
+        {
             var sanitizedFile = fileName.SanitizeFileName();
             var folderInfo = DocFolderInfo().Parent?.FullName;
             if (folderInfo == null) folderInfo = RootFolderInfo().FullName;

@@ -47,13 +47,16 @@ decision records
 
 ## Commands
 
-- init  : Initialize a new ADR folder
-- sync  : Sync the metadata using the content in the markdown files
-- new   : Create a new Architecture Decision Record
-- list  : List all Architecture Decision Records
-- find  : Find Architecture Decision Records
-- link  : Link 2 ADR's for ammend / clarify or some other reason
-- rlink : Remove all links from one ADR to another
+| command | description |
+| ------- | ---------- |
+| init         | Initialize a new ADR folder |
+| sync         | Sync the metadata using the content in the markdown files |
+| new          | Create a new Architecture Decision Record |
+| list         | List all Architecture Decision Records |
+| find         | Find Architecture Decision Records |
+| link         | Link 2 ADR's for ammend / clarify or some other reason |
+| rlink        | Remove all links from one ADR to another |
+| generate-toc | Generate a table of contents |
 
 ### Initialization
 
@@ -143,7 +146,7 @@ __Options__
 ```
 
 
-### list
+### List
 
 Display an overview of all current ADR's on the console. The default response is with a single line
 per record. It is possible to get more information using the `--verbose` option. The default sort order 
@@ -160,7 +163,7 @@ __Options__
   --verbose       Show the ADR's more information
 ```
 
-### find
+### Find
 
 The adr-cli tool provides simple search functionality. A full text index search tool
 probably does a much better job, but providing some basic search functionality helps
@@ -225,6 +228,18 @@ __Options__
 
   link   Link 2 ADR's for ammend / clarify or some other reason
   rlink  Remove all links from one ADR to another
+
+### Generating additional documentation
+
+Add or update the table of content in the documentation root (one level above the ADR directory).
+
+__Usage__
+
+`adr-cli generate-toc`
+
+__Options__
+
+No options
 
 ## Ideas and Improvements
 

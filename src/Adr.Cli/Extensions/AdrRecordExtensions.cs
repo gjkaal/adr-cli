@@ -14,7 +14,6 @@ namespace Adr.Cli.Extensions;
 /// </summary>
 public static class AdrRecordExtensions
 {
-
     private const int MinimumTitleLength = 10;
 
     /// <summary>
@@ -28,7 +27,7 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
-    /// Get the metadata for an <see cref="AdrRecord"/> as a stringbuilder 
+    /// Get the metadata for an <see cref="AdrRecord"/> as a stringbuilder
     /// with the json serialized metadata of an AdrRecord.
     /// </summary>
     /// <param name="record">The AdrRecord.</param>
@@ -39,7 +38,7 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
-    /// Get the metadata for an <see cref="AdrRecord"/> as a stringbuilder 
+    /// Get the metadata for an <see cref="AdrRecord"/> as a stringbuilder
     /// with the json serialized metadata of an AdrRecord.
     /// </summary>
     /// <param name="record">The AdrRecord.</param>
@@ -56,7 +55,7 @@ public static class AdrRecordExtensions
     /// </summary>
     /// <param name="record">The AdrRecord.</param>
     /// <param name="settings">
-    /// The <see cref="IAdrSettings"/> service is used to locate the 
+    /// The <see cref="IAdrSettings"/> service is used to locate the
     /// file for the <see cref="AdrRecord"/>.</param>
     /// <returns>The same record as provided as parameter.</returns>
     /// <exception cref="AdrException"></exception>
@@ -125,7 +124,7 @@ public static class AdrRecordExtensions
     /// </summary>
     /// <param name="record">The AdrRecord.</param>
     /// <returns>
-    /// The same record as provided as parameter, 
+    /// The same record as provided as parameter,
     /// or a new record if the entry parameter was null.
     /// </returns>
     public static AdrRecord PrepareForStorage(this AdrRecord record)
@@ -178,7 +177,7 @@ public static class AdrRecordExtensions
     /// <param name="mdElement">The paragraph where the text should be appended.</param>
     /// <param name="match">The partial match.</param>
     /// <returns></returns>
-    public static IEnumerable<string> RemoveFromMdElement(this string[] lines,  string mdElement, string match)
+    public static IEnumerable<string> RemoveFromMdElement(this string[] lines, string mdElement, string match)
     {
         if (string.IsNullOrEmpty(mdElement) || string.IsNullOrEmpty(match))
         {
@@ -259,7 +258,7 @@ public static class AdrRecordExtensions
         if (lines.TryFindMdElement("Context", out var context))
         {
             var sb = new StringBuilder();
-            foreach(var s in context)
+            foreach (var s in context)
             {
                 if (string.IsNullOrEmpty(s)) break;
                 sb.Append(s.Trim());
@@ -302,6 +301,7 @@ public static class AdrRecordExtensions
             + $"Context: {record.Context}" + Environment.NewLine
             + "---";
     }
+
     /// <summary>
     /// Find the line with the header
     /// </summary>
@@ -321,7 +321,7 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
-    /// Remove illegal characters from a file name. 
+    /// Remove illegal characters from a file name.
     /// The filename should not contain path information.
     /// The extension on the filename is allowed.
     /// </summary>
@@ -360,9 +360,10 @@ public static class AdrRecordExtensions
             element = sb.ToArray();
             return true;
         }
-        catch(Exception e) {
+        catch (Exception e)
+        {
             element = new string[] { e.Message };
-            return false; 
+            return false;
         }
     }
 }

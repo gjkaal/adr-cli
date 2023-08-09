@@ -1,10 +1,7 @@
 ﻿using Adr.Cli.Extensions;
 using Adr.Cli.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
-using System.CommandLine;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Text;
@@ -35,68 +32,6 @@ public class AdrInit : IAdrInit
         this.adrRecordRepository = adrRecordRepository;
         this.stdOut = stdOut;
         this.processHelper = processHelper;
-    }
-
-    public static IEnumerable<Command> CommandHandler(IServiceProvider serviceProvider)
-    {
-        return new[] {
-            InitCommand(serviceProvider),
-            SyncMetadataCommand(serviceProvider),
-            GenerateTocCommand(serviceProvider)
-        };
-    }
-
-    /// <summary>
-    /// Define the command for initializing a new ADR reposity.
-    /// </summary>
-    private static Command InitCommand(IServiceProvider serviceProvider)
-    {
-        var cmd = new Command("init", "Initialize a new ADR folder");
-        Option<string> adrRoot = new("--adrRoot", "Set the adr root directory");
-        Option<string> templateRoot = new("--tmpRoot", "Set the template root directory");
-        cmd.AddOption(adrRoot);
-        cmd.AddOption(templateRoot);
-        cmd.SetHandler(async (adrRootPath, templateRootPath) =>
-        {
-            var c = serviceProvider.GetRequiredService<IAdrInit>();
-            await c.InitializeAsync(adrRootPath, templateRootPath);
-        }, adrRoot, templateRoot);
-        return cmd;
-    }
-
-    /// <summary>
-    /// Define the command for synchronizing the metadata documents in the ADR reposity.
-    /// </summary>
-    private static Command SyncMetadataCommand(IServiceProvider serviceProvider)
-    {
-        var cmd = new Command("sync", "Sync the metadata using the content in the markdown files");
-        Option<string> startAt = new("--startAt", "Synchronize from this record until the end");
-        Option<string> record = new("--record", "Synchronize only for a single record");
-        cmd.AddOption(record);
-        cmd.SetHandler(async (startAt, record) =>
-        {
-            var startAtid = 1;
-            var recordId = 0;
-            if (!string.IsNullOrEmpty(startAt) && !int.TryParse(startAt, out startAtid)) startAtid = -1;
-            if (!string.IsNullOrEmpty(record) && !int.TryParse(record, out recordId)) recordId = -1;
-            var c = serviceProvider.GetRequiredService<IAdrInit>();
-            await c.SyncMetadataAsync(startAtid, recordId);
-        }, startAt, record);
-        return cmd;
-    }
-
-    /// <summary>
-    /// Define the command for generating a TOC (table of contents) file.
-    /// </summary>
-    private static Command GenerateTocCommand(IServiceProvider serviceProvider)
-    {
-        var cmd = new Command("generate-toc", "Generate a table of contents markdown file in the project root folder, next to the config file.");
-        cmd.SetHandler(async () =>
-        {
-            var c = serviceProvider.GetRequiredService<IAdrInit>();
-            await c.GenerateTocAsync();
-        });
-        return cmd;
     }
 
     /// <summary>
@@ -147,7 +82,7 @@ public class AdrInit : IAdrInit
             : path;
     }
 
-    public  async Task<int> SyncMetadataAsync(int startFromRecordId, int onlyForRecordId)
+    public async Task<int> SyncMetadataAsync(int startFromRecordId, int onlyForRecordId)
     {
         var docFolder = settings.DocFolderInfo();
         var templateFolder = settings.TemplateFolderInfo();
@@ -168,7 +103,7 @@ public class AdrInit : IAdrInit
 
         return (onlyForRecordId > 0)
          ? await SynchronizeRecord(onlyForRecordId, docFolder)
-         : await SynchronizeRange(startFromRecordId, docFolder);        
+         : await SynchronizeRange(startFromRecordId, docFolder);
     }
 
     private async Task<int> SynchronizeRecord(int onlyForRecordId, IDirectoryInfo docFolder)
@@ -226,7 +161,6 @@ public class AdrInit : IAdrInit
 
     public async Task<int> GenerateTocAsync()
     {
-
         var toc = new StringBuilder();
         var projectName = settings.ProjectName;
 
@@ -266,4 +200,3 @@ public class AdrInit : IAdrInit
         return success ? 0 : 1;
     }
 }
-

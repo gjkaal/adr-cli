@@ -25,4 +25,3 @@ public interface IAdrInit
     /// </summary>
     Task<int> GenerateTocAsync();
 }
-

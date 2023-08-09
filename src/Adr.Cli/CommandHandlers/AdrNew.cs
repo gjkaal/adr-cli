@@ -1,10 +1,6 @@
 ﻿using Adr.Cli.Extensions;
 using Adr.Cli.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.CommandLine;
 using System.Threading.Tasks;
 
 namespace Adr.Cli.CommandHandlers;
@@ -31,59 +27,18 @@ public class AdrNew : IAdrNew
         this.processHelper = processHelper;
     }
 
-    public static IEnumerable<Command> CommandHandler(IServiceProvider serviceProvider)
-    {
-        return new[] { InitNewCommand(serviceProvider) };
-    }
-
-    private static readonly Option<string> title = new("--title", "The title for the ADR")
-    {
-        IsRequired = true
-    };
-
-    private static readonly Option<bool> requirement = new("--req", "The ADR is a critical requirement.")
-    {
-        IsRequired = false
-    };
-
-    private static readonly Option<string> revision = new("--rev", "The ADR rivision for an earlier ADR, provide a valid id.")
-    {
-        IsRequired = false
-    };
-
-    private static readonly Option<string> context = new("--context", "Optional context for the ADR (otherwise a default value will be used)")
-    {
-        IsRequired = false
-    };
-
-    private static Command InitNewCommand(IServiceProvider serviceProvider)
-    {
-        var cmd = new Command("new", "Create a new Architecture Decision Record");
-
-        cmd.AddOption(title);
-        cmd.AddOption(requirement);
-        cmd.AddOption(revision);
-
-        cmd.SetHandler(async (title, requirement, revision, context) =>
-        {
-            var c = serviceProvider.GetRequiredService<IAdrNew>();
-            await c.NewAdrAsync(title, requirement, revision, context);
-        }, title, requirement, revision, context);
-        return cmd;
-    }
-
     /// <summary>
     /// Create a new ADR
     /// </summary>
-    public async Task<int> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context) {
-
+    public async Task<int> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context)
+    {
         if (!settings.RepositoryInitialized())
         {
             stdOut.WriteLine($"Architecture Decision folder is not initialized {settings.DocFolderInfo().FullName}.");
             return -1;
         }
 
-            int result;
+        int result;
         if (isRequirement)
         {
             logger.LogInformation("Creating Critical Requirement Record.");
@@ -110,7 +65,8 @@ public class AdrNew : IAdrNew
         return result;
     }
 
-    private async Task<int> CreateDecisionAsync(string title, string context) {
+    private async Task<int> CreateDecisionAsync(string title, string context)
+    {
         var record = new AdrRecord
         {
             TemplateType = TemplateType.Ad,
@@ -126,7 +82,8 @@ public class AdrNew : IAdrNew
         return 0;
     }
 
-    private async Task<int> CreateRevisionAsync(string title, string context, int recordId) {
+    private async Task<int> CreateRevisionAsync(string title, string context, int recordId)
+    {
         var superSedes = await adrRecordRepository.ReadMetadataAsync(recordId);
         if (superSedes == null)
         {
@@ -141,7 +98,7 @@ public class AdrNew : IAdrNew
             Title = title,
             Status = AdrStatus.New
         };
-        if(!string.IsNullOrEmpty(context)) record.Context = context;
+        if (!string.IsNullOrEmpty(context)) record.Context = context;
 
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
@@ -150,7 +107,8 @@ public class AdrNew : IAdrNew
         return 0;
     }
 
-    private async Task<int> CreateRequirementAsync(string title, string context) {
+    private async Task<int> CreateRequirementAsync(string title, string context)
+    {
         var record = new AdrRecord
         {
             TemplateType = TemplateType.Asr,
@@ -166,4 +124,3 @@ public class AdrNew : IAdrNew
         return 0;
     }
 }
-

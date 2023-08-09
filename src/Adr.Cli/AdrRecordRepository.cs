@@ -1,15 +1,15 @@
-﻿using Newtonsoft.Json;
+﻿using Adr.Cli.Extensions;
+using Adr.Cli.Services;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO.Abstractions;
-using System.Text;
-using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
 using System.Linq;
-using System.Collections.Generic;
-using Adr.Cli.Services;
-using Adr.Cli.Extensions;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Adr.Cli
 {
@@ -41,12 +41,13 @@ namespace Adr.Cli
 
 {Consequences}
 ";
-        private readonly JsonSerializerSettings _serializerSettings = new ()
+
+        private readonly JsonSerializerSettings _serializerSettings = new()
         {
             Formatting = Formatting.Indented,
             NullValueHandling = NullValueHandling.Ignore,
             Culture = CultureInfo.InvariantCulture,
-            DateFormatHandling = DateFormatHandling.IsoDateFormat,            
+            DateFormatHandling = DateFormatHandling.IsoDateFormat,
             Converters = {
                new StringEnumConverter()
             }
@@ -153,7 +154,7 @@ namespace Adr.Cli
             var contentLines = new List<string>();
             string content = string.Empty;
             using (var markdownContent = files[0].OpenText())
-            content = await markdownContent.ReadToEndAsync();
+                content = await markdownContent.ReadToEndAsync();
             contentLines.AddRange(content.Split(Environment.NewLine));
 
             return contentLines.ToArray();
@@ -172,7 +173,7 @@ namespace Adr.Cli
             var charactersWritten = 0;
             using (var contentWriter = contextRecord.CreateText())
             {
-                foreach(var line in lines)
+                foreach (var line in lines)
                 {
                     await contentWriter.WriteLineAsync(line);
                     contentLength += line.Length;
@@ -209,7 +210,7 @@ namespace Adr.Cli
             record.RecordId = settings.GetNextFileNumber();
             record.Validate();
             record.PrepareForStorage();
-            
+
             logger.LogInformation($"Write ADR #{record.RecordId} to {record.FileName}");
 
             IFileInfo contentRecord = settings.GetContentFile(record.FileName);
@@ -253,7 +254,6 @@ namespace Adr.Cli
                 }
                 else
                 {
-
                     logger.LogInformation($"Create new template file for '{templateName}'");
                     template = DefaultTemplate;
                     using (var templateWriter = templateFile.CreateText())
@@ -286,11 +286,11 @@ namespace Adr.Cli
                 try
                 {
                     var record = JsonConvert.DeserializeObject<AdrRecord>(content, SerializerSettings);
-                    if(record.RecordId != recordId)
+                    if (record.RecordId != recordId)
                     {
-                        stdOut.WriteLine($"{fileInfo.Name} contains invalid record id : {record.RecordId}");                        
+                        stdOut.WriteLine($"{fileInfo.Name} contains invalid record id : {record.RecordId}");
                     }
-                    
+
                     return record;
                 }
                 catch (Exception e)
@@ -308,7 +308,8 @@ namespace Adr.Cli
             }
         }
 
-        public async Task<(bool success, string fullFilePath)> CreateRootDocumentAsync(string fileName, StringBuilder fileContent) {
+        public async Task<(bool success, string fullFilePath)> CreateRootDocumentAsync(string fileName, StringBuilder fileContent)
+        {
             var doc = settings.GetDocumentFile(fileName);
             IFileInfo? backupDoc = null;
             var success = false;
@@ -332,12 +333,12 @@ namespace Adr.Cli
             }
             finally
             {
-                if (success && backupDoc!=null)
+                if (success && backupDoc != null)
                 {
                     backupDoc.Delete();
                 }
             }
-            return new (success, doc.FullName);
+            return new(success, doc.FullName);
         }
     }
 }

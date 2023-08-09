@@ -1,10 +1,7 @@
 ﻿using Adr.Cli.Extensions;
 using Adr.Cli.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
-using System.CommandLine;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -24,65 +21,6 @@ public class AdrLink : IAdrLink
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
         this.stdOut = stdOut;
-    }
-
-    public static IEnumerable<Command> CommandHandler(IServiceProvider serviceProvider)
-    {
-        return new[] { 
-            InitLinkCommand(serviceProvider),
-            InitUnLinkCommand(serviceProvider) 
-        };
-    }
-
-    private static readonly Option<string> sourceId = new("--source", "The source ADR" )
-    {
-        IsRequired = true,
-    };
-
-    private static readonly Option<string> reason = new("--reason", "The reason for the link.")
-    {
-        IsRequired = false
-    };
-
-    private static readonly Option<string> targetId = new("--target", "The target ADR")
-    {
-        IsRequired = true
-    };
-
-    private static Command InitLinkCommand(IServiceProvider serviceProvider)
-    {
-        var cmd = new Command("link", "Link 2 ADR's for ammend / clarify or some other reason");
-        sourceId.AddAlias("-s");
-        targetId.AddAlias("-t");
-        reason.AddAlias("-r");
-
-        cmd.AddOption(sourceId);
-        cmd.AddOption(targetId);
-        cmd.AddOption(reason);
-
-        cmd.SetHandler(async (sourceId, targetId, reason) =>
-        {
-            var c = serviceProvider.GetRequiredService<IAdrLink>();
-            await c.HandleLinkAdrAsync(sourceId, targetId, reason, AdrLinkTypeOperation.Create);
-        }, sourceId, targetId, reason);
-        return cmd;
-    }
-
-    private static Command InitUnLinkCommand(IServiceProvider serviceProvider)
-    {
-        var cmd = new Command("rlink", "Remove all links from one ADR to another");
-        sourceId.AddAlias("-s");
-        targetId.AddAlias("-t");
-
-        cmd.AddOption(sourceId);
-        cmd.AddOption(targetId);
-
-        cmd.SetHandler(async (sourceId, targetId) =>
-        {
-            var c = serviceProvider.GetRequiredService<IAdrLink>();
-            await c.HandleLinkAdrAsync(sourceId, targetId, "remove", AdrLinkTypeOperation.Remove);
-        }, sourceId, targetId);
-        return cmd;
     }
 
     public Task<int> HandleLinkAdrAsync(string sourceId, string targetId, string reason, AdrLinkTypeOperation operation)
@@ -120,7 +58,7 @@ public class AdrLink : IAdrLink
         }
 
         var targetContent = await adrRecordRepository.ReadContentAsync(targetId);
-        if (targetContent == null || targetContent.Length==0)
+        if (targetContent == null || targetContent.Length == 0)
         {
             stdOut.WriteLine($"Target ADR does not exist: {targetId:D5}.");
             return -1;
@@ -149,8 +87,6 @@ public class AdrLink : IAdrLink
 
         return 0;
     }
-
-   
 
     public async Task<int> RemoveLinkAsync(int sourceId, int targetId)
     {
@@ -183,4 +119,3 @@ public class AdrLink : IAdrLink
         return 0;
     }
 }
-

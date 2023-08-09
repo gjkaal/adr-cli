@@ -1,10 +1,8 @@
 ﻿using Adr.Cli.Extensions;
 using Adr.Cli.Services;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.CommandLine;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -30,67 +28,8 @@ public class AdrQuery : IAdrQuery
         this.stdOut = stdOut;
     }
 
-    public static IEnumerable<Command> CommandHandler(IServiceProvider serviceProvider)
+    public async Task<int> ListAdrAsync(bool sortReverse, bool verbose)
     {
-        return new[] { 
-            InitListCommand(serviceProvider),
-            InitQueryCommand(serviceProvider)
-        };
-    }
-
-    private static readonly Option<bool> verbose = new("--verbose", "Show the ADR's more information")
-    {
-        IsRequired = false,
-    };
-
-    private static readonly Option<bool> sortReverse = new("--desc", "Show the ADR's with the latest ADR first")
-    {
-        IsRequired = false,        
-    };
-
-    private static readonly Option<bool> includeContent = new("--full", "Search the full records (slow)")
-    {
-        IsRequired = false,
-    };
-
-    private static readonly Option<string> filter = new("-q", "Only show an ADR if a word or words in used the ADR")
-    {
-        IsRequired = true,
-    };
-
-    private static Command InitListCommand(IServiceProvider serviceProvider)
-    {
-        var cmd = new Command("list", "List all Architecture Decision Records");
-
-        cmd.AddOption(sortReverse);
-        cmd.AddOption(verbose);
-        cmd.SetHandler(async (sortReverse, verbose) =>
-        {
-            var c = serviceProvider.GetRequiredService<IAdrQuery>();
-            await c.ListAdrAsync(sortReverse, verbose);
-        }, sortReverse, verbose);
-
-        return cmd;
-    }
-
-    private static Command InitQueryCommand(IServiceProvider serviceProvider)
-    {
-        var cmd = new Command("find", "Find Architecture Decision Records");
-
-        cmd.AddOption(sortReverse);
-        cmd.AddOption(verbose);
-        cmd.AddOption(includeContent);
-        cmd.AddOption(filter);
-        cmd.SetHandler(async (filter, sortReverse, verbose, includeContent) =>
-        {
-            var c = serviceProvider.GetRequiredService<IAdrQuery>();
-            await c.FindAdrAsync(filter, sortReverse, verbose, includeContent);
-        }, filter, sortReverse, verbose, includeContent);
-
-        return cmd;
-    }
-
-    public async Task<int> ListAdrAsync(bool sortReverse, bool verbose) {
         logger.LogDebug($"List ADR {(sortReverse ? "newest first" : "oldest first")}");
 
         var listMeta = new Dictionary<int, string>();
@@ -108,7 +47,7 @@ public class AdrQuery : IAdrQuery
             listMeta.Add(adr.RecordId, information);
         }
 
-        foreach(var recordId in listMeta.Keys)
+        foreach (var recordId in listMeta.Keys)
         {
             stdOut.WriteLine(listMeta[recordId]);
         }
@@ -122,7 +61,7 @@ public class AdrQuery : IAdrQuery
         var listMeta = new Dictionary<int, string>();
         var idList = FindRecordIds(0);
         var words = filter.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (words.Length==0)
+        if (words.Length == 0)
         {
             stdOut.WriteLine("No filter provided");
         }
@@ -135,7 +74,8 @@ public class AdrQuery : IAdrQuery
             var adr = await adrRecordRepository.ReadMetadataAsync(recordId);
             if (adr == null) continue;
 
-            foreach (var word in words) {
+            foreach (var word in words)
+            {
                 if (adr.Title.Contains(word, StringComparison.OrdinalIgnoreCase))
                 {
                     showRecord = true;
@@ -157,7 +97,8 @@ public class AdrQuery : IAdrQuery
                 }
             }
 
-            if (showRecord) { 
+            if (showRecord)
+            {
                 var information = verbose
                     ? adr.VerboseString()
                     : adr.FormatString();
@@ -181,11 +122,10 @@ public class AdrQuery : IAdrQuery
         {
             var parts = metadataFile.Split('-');
             if (parts.Length < 1) continue;
-            if (int.TryParse(parts[0], out var recordId) && recordId>= startFromRecord)
+            if (int.TryParse(parts[0], out var recordId) && recordId >= startFromRecord)
                 idList.Add(recordId);
         }
 
         return idList;
     }
 }
-

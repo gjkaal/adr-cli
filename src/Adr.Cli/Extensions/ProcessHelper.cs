@@ -13,6 +13,7 @@ namespace Adr.Cli.Extensions;
 public class ProcessHelper : IProcessHelper
 {
     private readonly ILogger<ProcessHelper> logger;
+
     public ProcessHelper(ILogger<ProcessHelper> logger)
     {
         this.logger = logger;
@@ -24,12 +25,12 @@ public class ProcessHelper : IProcessHelper
         {
             Process.Start(fullName);
         }
-        catch(FileNotFoundException notFoundEx)
+        catch (FileNotFoundException notFoundEx)
         {
             logger.LogError("File not found", notFoundEx);
             throw new AdrException($"File does not exist: {fullName}");
         }
-        catch(Win32Exception)
+        catch (Win32Exception)
         {
             throw;
         }
@@ -38,12 +39,13 @@ public class ProcessHelper : IProcessHelper
             throw;
         }
     }
+
     public void Start(ProcessStartInfo processStartInfo)
     {
         Process.Start(processStartInfo);
     }
 
-    public void Start(string fileName, string arguments) 
+    public void Start(string fileName, string arguments)
     {
         Process.Start(fileName, arguments);
     }

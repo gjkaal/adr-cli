@@ -1,14 +1,15 @@
 ﻿using Adr.Cli.Extensions;
 using Adr.Cli.Services;
+using Adr.Cli.XLogger;
 using Microsoft.Extensions.Logging;
 using Moq;
 using System.IO.Abstractions;
 using System.Threading.Tasks;
-using Adr.Cli.XLogger;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Adr.Cli.CommandHandlers;
+
 public class AdrInitTests
 {
     private readonly Mock<IAdrSettings> settingsMock = new();
@@ -33,8 +34,8 @@ public class AdrInitTests
     public void AdrInitCommandHandler_CanInitialize()
     {
         IAdrInit sut = new AdrInit(
-            new Mock<IAdrSettings>().Object, 
-            logger, 
+            new Mock<IAdrSettings>().Object,
+            logger,
             new Mock<IAdrRecordRepository>().Object,
             new Mock<IStdOut>().Object,
             new Mock<IProcessHelper>().Object

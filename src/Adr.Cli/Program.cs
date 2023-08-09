@@ -17,8 +17,6 @@ internal static class Program
         ConfigureServices(serviceCollection);
         var serviceProvider = serviceCollection.BuildServiceProvider();
 
-        //var handler = serviceProvider.GetRequiredService<InitializeAdrHandler>();
-
         var app = new RootCommand("Command line tool for Architecture Decision Records");
 
         app.SetHandler((context) =>
@@ -27,27 +25,22 @@ internal static class Program
         });
 
         // Initialize
-        app.AddRange(AdrInit.CommandHandler(serviceProvider));
+        app.Add(CommandHandlerSetup.InitCommand(serviceProvider));
+        app.Add(CommandHandlerSetup.SyncMetadataCommand(serviceProvider));
+        app.Add(CommandHandlerSetup.GenerateTocCommand(serviceProvider));
 
         // Create AD, ACR and revisions
-        app.AddRange(AdrNew.CommandHandler(serviceProvider));
+        app.Add(AdrNewSetup.NewAdrCommand(serviceProvider));
 
         // Query the ADR, lists, searching etc.
-        app.AddRange(AdrQuery.CommandHandler(serviceProvider));
+        app.Add(AdrQuerySetup.QueryCommand(serviceProvider));
+        app.Add(AdrQuerySetup.ListCommand(serviceProvider));
 
-        // Add links etc.
-        app.AddRange(AdrLink.CommandHandler(serviceProvider));
+        // Link and unlink
+        app.Add(AdrLinkSetup.LinkCommand(serviceProvider));
+        app.Add(AdrLinkSetup.UnLinkCommand(serviceProvider));
 
         return await app.InvokeAsync(args);
-
-        //app.Command("generate", (command) =>
-        //{
-        //    command.Description = "generate a PDF containing the complete ADR set";
-        //    command.OnExecute(() =>
-        //    {
-        //        return 0;
-        //    });
-        //});
     }
 
     private static void ConfigureServices(ServiceCollection serviceCollection)
@@ -69,12 +62,9 @@ internal static class Program
         serviceCollection.AddSingleton<IAdrSettings, AdrSettings>();
         serviceCollection.AddSingleton<IAdrRecordRepository, AdrRecordRepository>();
 
-        // Todo: inject commandhandlers based on reflection
         serviceCollection.AddSingleton<IAdrInit, AdrInit>();
         serviceCollection.AddSingleton<IAdrNew, AdrNew>();
         serviceCollection.AddSingleton<IAdrQuery, AdrQuery>();
         serviceCollection.AddSingleton<IAdrLink, AdrLink>();
-
     }
 }
-
