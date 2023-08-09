@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Adr.Cli.Exceptions;
+using Microsoft.Extensions.Logging;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;

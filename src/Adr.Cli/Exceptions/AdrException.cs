@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.Serialization;
 
-namespace Adr.Cli
+namespace Adr.Cli.Exceptions
 {
     public class AdrException : ApplicationException
     {
