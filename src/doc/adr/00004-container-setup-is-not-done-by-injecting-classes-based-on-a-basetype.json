@@ -1,0 +1,10 @@
+{
+  "DateTime": "2023-08-09T00:00:00+02:00",
+  "FileName": "00004-container-setup-is-not-done-by-injecting-classes-based-on-a-basetype",
+  "RecordId": 4,
+  "Status": "Accepted",
+  "TemplateType": "Ad",
+  "Title": "Container setup is not done by injecting classes based on a basetype",
+  "Context": "The project uses dependency injection for setting up the command handlers.",
+  "References": {}
+}

@@ -1,0 +1,10 @@
+{
+  "DateTime": "2023-08-09T00:00:00+02:00",
+  "FileName": "00003-command-handlers-and-command-definitions-are-separated",
+  "RecordId": 3,
+  "Status": "New",
+  "TemplateType": "Ad",
+  "Title": "Command handlers and command definitions are separated",
+  "Context": "The ADR CLI application uses the command structure for defining commands and linking them to executable code. The actual code is implemented in classes that can have state and are managed using Dependency injection. This code can and should be independent of the system.command structure for testing and reuse purposes.",
+  "References": {}
+}
