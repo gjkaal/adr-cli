@@ -2,9 +2,9 @@
   "DateTime": "2023-08-03T00:00:00+02:00",
   "FileName": "00002-commands-are-implemented-with-system.commandline",
   "RecordId": 2,
-  "Status": "New",
+  "Status": "Accepted",
   "TemplateType": "Ad",
-  "Title": "CommandLine",
+  "Title": "Commands are implemented with System.CommandLine",
   "Context": "The ADR-CLI tool is a command line tool. Upon startup, a list of command line arguments are passed to the applicatiuon and they need to be interpreted. By using a commandline interpreter, it is easier to focus on functionality and leave the handling of command line parameters to a generic library.",
   "References": {}
 }

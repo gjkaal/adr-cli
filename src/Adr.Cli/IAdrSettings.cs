@@ -30,6 +30,11 @@ public interface IAdrSettings
     string TemplateFolder { get; set; }
 
     /// <summary>
+    /// The name for the ADR project.
+    /// </summary>
+    string ProjectName { get; }
+
+    /// <summary>
     /// Directory information for the ADR documents.
     /// </summary>
     IDirectoryInfo DocFolderInfo();
@@ -38,6 +43,11 @@ public interface IAdrSettings
     /// Directory information for the ADR templates.
     /// </summary>
     IDirectoryInfo TemplateFolderInfo();
+
+    /// <summary>
+    /// Directory information for the folder where the settings file is located.
+    /// </summary>
+    IDirectoryInfo RootFolderInfo();
 
     /// <summary>
     /// Find a content file with the provided base name.
@@ -65,14 +75,14 @@ public interface IAdrSettings
     /// Find the next file identification for a template.
     /// </summary>
     /// <param name="templateType"></param>
-    /// <returns></returns>
+    /// <returns>A file information class (<see cref="IFileInfo"/>).</returns>
     IFileInfo GetTemplate(string templateType);
 
     /// <summary>
     /// A boolean indicating that the ADR repository is initialized. 
     /// A new initialization should be blocked.
     /// </summary>
-    /// <returns></returns>
+    /// <returns>True if the repository is already initialized.</returns>
     bool RepositoryInitialized();
 
     /// <summary>
@@ -80,4 +90,12 @@ public interface IAdrSettings
     /// </summary>
     /// <returns>The current IAdrSettings settings</returns>
     IAdrSettings Write();
+
+    /// <summary>
+    /// Find a documentation file. Typically, a documentation file resides next to the config 
+    /// file in the <see cref="CurrentPath"/> folder.
+    /// </summary>
+    /// <param name="fileName">A valid file name.</param>
+    /// <returns>A file information class (<see cref="IFileInfo"/>) for managing additional project documents.</returns>
+    IFileInfo GetDocumentFile(string fileName);
 }

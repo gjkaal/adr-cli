@@ -228,7 +228,7 @@ public static class AdrRecordExtensions
         }
 
         // A title should contain at leat 10 characters
-        var title = lines[0].Split('.', StringSplitOptions.RemoveEmptyEntries).Last().Trim();
+        var title = lines[0][9..];
         if (title.Length >= MinimumTitleLength && record.Title != title)
         {
             metadataMmodified = true;
@@ -319,9 +319,16 @@ public static class AdrRecordExtensions
         return -1;
     }
 
-    private static string SanitizeFileName(string title)
+    /// <summary>
+    /// Remove illegal characters from a file name. 
+    /// The filename should not contain path information.
+    /// The extension on the filename is allowed.
+    /// </summary>
+    /// <param name="fileName"></param>
+    /// <returns></returns>
+    public static string SanitizeFileName(this string fileName)
     {
-        return title
+        return fileName
             .Replace(' ', '-')
             .ToLower();
     }

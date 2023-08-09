@@ -5,6 +5,6 @@
   "Status": "Accepted",
   "TemplateType": "Init",
   "Title": "Record Architecture Decisions initialization",
-  "Context": "",
+  "Context": "Architecture for agile projects has to be described and defined differently. Not all decisions will be made at once, nor will all of them be done when the project begins.",
   "References": {}
 }

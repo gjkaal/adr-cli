@@ -12,14 +12,17 @@ public interface IAdrInit
     /// </summary>
     /// <param name="adrRootPath">The (relative) path for the Adr folder.</param>
     /// <param name="templateRootPath">The (relative) path for the template folder.</param>
-    /// <returns></returns>
     Task<int> InitializeAsync(string adrRootPath, string templateRootPath);
 
     /// <summary>
     /// Synchronize the metadata, where possible, using the markdown content.
     /// </summary>
     /// <param name="startFromRecordId"></param>
-    /// <returns></returns>
     Task<int> SyncMetadataAsync(int startFromRecordId, int onlyForRecordId);
+
+    /// <summary>
+    /// Generate a table of content markdown file in the configuration root, next to the config file.
+    /// </summary>
+    Task<int> GenerateTocAsync();
 }
 

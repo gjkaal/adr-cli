@@ -2,7 +2,7 @@
   "profiles": {
     "adr-cli": {
       "commandName": "Project",
-      "commandLineArgs": "sync --record 2"
+      "commandLineArgs": "generate-toc"
     }
   }
 }

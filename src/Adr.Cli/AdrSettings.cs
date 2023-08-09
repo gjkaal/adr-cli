@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
+using Adr.Cli.Extensions;
 using Newtonsoft.Json;
 
 namespace Adr.Cli
@@ -51,6 +52,11 @@ namespace Adr.Cli
         /// Location for markdown templates.
         /// </summary>
         public string TemplateFolder { get; set; } = DefaultTemplateFolder;
+
+        /// <summary>
+        /// A project name for auto genetated content.
+        /// </summary>
+        public string ProjectName { get; set; } = "ADR Documentation";
 
         /// <summary>
         /// Read the content for an ADR.
@@ -209,9 +215,10 @@ namespace Adr.Cli
                     NullValueHandling = NullValueHandling.Ignore
                 };
 
-                var value = (dynamic)serializer.Deserialize(stream, new { path = "", templates = "" }.GetType());
-                settings.DocFolder = string.IsNullOrEmpty(value.path) ? settings.DocFolder : value.path;
-                settings.TemplateFolder = string.IsNullOrEmpty(value.templates) ? settings.TemplateFolder : value.templates;
+                var value = (dynamic)serializer.Deserialize(stream, new { path = "", templates = "", projectName = "" }.GetType());
+                settings.DocFolder = string.IsNullOrEmpty(value.path) ? settings.DocFolder : ((string)value.path).Replace('/', '\\');
+                settings.TemplateFolder = string.IsNullOrEmpty(value.templates) ? settings.TemplateFolder : ((string)value.templates).Replace('/', '\\');
+                settings.ProjectName = string.IsNullOrEmpty(value.projectName) ? settings.ProjectName : value.projectName;
                 return settings;
             }
         }
@@ -220,6 +227,28 @@ namespace Adr.Cli
         {
             var docFolder = DocFolderInfo();            
             return docFolder.EnumerateFiles().Any();
+        }
+
+        /// <summary>
+        /// Get the folder information for the ADR project root.
+        /// </summary>
+        public IDirectoryInfo RootFolderInfo() {
+            var directory = directoryInfoFactory.New(CurrentPath);
+            if (!directory.Exists) directory.Create();
+            return directory;
+        }
+
+        /// <summary>
+        /// Get a file info object in the project root folder.
+        /// </summary>
+        /// <param name="fileName">A filename without path information.</param>
+        /// <returns>A <see cref="IFileInfo"/> class.</returns>
+        public IFileInfo GetDocumentFile(string fileName) {
+            var sanitizedFile = fileName.SanitizeFileName();
+            var folderInfo = DocFolderInfo().Parent?.FullName;
+            if (folderInfo == null) folderInfo = RootFolderInfo().FullName;
+            var filePath = path.Combine(folderInfo, sanitizedFile);
+            return fileInfoFactory.New(filePath);
         }
     }
 }

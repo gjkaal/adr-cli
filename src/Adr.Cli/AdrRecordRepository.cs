@@ -204,7 +204,7 @@ namespace Adr.Cli
             return bytesWritten;
         }
 
-        public async Task WriteRecordAsync(AdrRecord record)
+        public async Task<int> WriteRecordAsync(AdrRecord record)
         {
             record.RecordId = settings.GetNextFileNumber();
             record.Validate();
@@ -229,6 +229,8 @@ namespace Adr.Cli
                 await metaWriter.FlushAsync();
             }
             logger.LogDebug($"Write metadata for {record.Title}");
+
+            return 1;
         }
 
         private async Task<StringBuilder> GetOrCreateTemplateAsync(string templateName)
@@ -304,6 +306,38 @@ namespace Adr.Cli
                     };
                 }
             }
+        }
+
+        public async Task<(bool success, string fullFilePath)> CreateRootDocumentAsync(string fileName, StringBuilder fileContent) {
+            var doc = settings.GetDocumentFile(fileName);
+            IFileInfo? backupDoc = null;
+            var success = false;
+            try
+            {
+                if (doc.Exists)
+                {
+                    var backupFile = doc.FullName + ".back";
+                    if (fileSystem.File.Exists(backupFile))
+                    {
+                        fileSystem.File.Delete(backupFile);
+                    }
+                    backupDoc = doc.CopyTo(backupFile);
+                }
+                using (var writer = doc.CreateText())
+                {
+                    await writer.WriteAsync(fileContent);
+                    writer.Flush();
+                }
+                success = true;
+            }
+            finally
+            {
+                if (success && backupDoc!=null)
+                {
+                    backupDoc.Delete();
+                }
+            }
+            return new (success, doc.FullName);
         }
     }
 }
