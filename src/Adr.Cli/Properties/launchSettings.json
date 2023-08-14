@@ -2,7 +2,7 @@
   "profiles": {
     "adr-cli": {
       "commandName": "Project",
-      "commandLineArgs": "generate-toc"
+      "commandLineArgs": "copy -s 2 --rev"
     }
   }
 }

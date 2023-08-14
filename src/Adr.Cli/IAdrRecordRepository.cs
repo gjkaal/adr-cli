@@ -33,6 +33,14 @@ public interface IAdrRecordRepository
     Task<int> WriteRecordAsync(AdrRecord record);
 
     /// <summary>
+    /// Copy an existing record to a new record
+    /// </summary>
+    /// <param name="record">The original ADR</param>
+    /// <param name="newRecordId">The new id</param>
+    /// <returns>A new ADR</returns>
+    Task<AdrRecord> CopyRecordAsync(AdrRecord record, int newRecordId, bool isRevision);
+
+    /// <summary>
     /// Try to locate the text content for an ADR and update the AdrRecord with textual information.
     /// </summary>
     /// <param name="recordId">A zero of positive number integer.</param>

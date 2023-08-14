@@ -12,19 +12,22 @@ public class AdrNew : IAdrNew
     private readonly IAdrRecordRepository adrRecordRepository;
     private readonly IStdOut stdOut;
     private readonly IProcessHelper processHelper;
+    private readonly IAdrLink linkCommandHandler;
 
     public AdrNew(
         IAdrSettings settings,
         ILogger<AdrNew> logger,
         IAdrRecordRepository adrRecordRepository,
         IStdOut stdOut,
-        IProcessHelper processHelper)
+        IProcessHelper processHelper,
+        IAdrLink linkCommandHandler)
     {
         this.settings = settings;
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
         this.stdOut = stdOut;
         this.processHelper = processHelper;
+        this.linkCommandHandler = linkCommandHandler;
     }
 
     /// <summary>
@@ -98,6 +101,9 @@ public class AdrNew : IAdrNew
             Title = title,
             Status = AdrStatus.New
         };
+
+        await adrRecordRepository.UpdateMetadataAsync(recordId, record);
+
         if (!string.IsNullOrEmpty(context)) record.Context = context;
 
         await adrRecordRepository.WriteRecordAsync(record);
@@ -121,6 +127,44 @@ public class AdrNew : IAdrNew
         record.LaunchEditor(settings, processHelper);
 
         stdOut.WriteLine($"ASR is created in {settings.DocFolder}.");
+        return 0;
+    }
+
+    public async Task<int> CopyAdrAsync(string sourceId, bool isRevision)
+    {
+        if (!int.TryParse(sourceId, out var recordId)) {
+            stdOut.WriteLine($"Expecting a numeric value for source and it was {sourceId}.");
+            return 0; 
+        }
+
+        var record = await adrRecordRepository.ReadMetadataAsync(recordId);
+        if (record == null)
+        {
+            logger.LogCritical($"Cannot find a record for with id: {recordId}");
+            return -1;
+        }
+
+        var newId = settings.GetNextFileNumber();
+        var newRecord = await adrRecordRepository.CopyRecordAsync(record, newId, isRevision);
+
+        int linkResult;
+        if (isRevision)
+        {
+            linkResult = await linkCommandHandler.HandleLinkAdrAsync(newId, recordId, "Supersedes", AdrLinkTypeOperation.Create);
+        }
+        else
+        {
+            linkResult = await linkCommandHandler.HandleLinkAdrAsync(newId, recordId, "Copied from", AdrLinkTypeOperation.Create);
+        }
+
+        if (linkResult != 0)
+        {
+            logger.LogWarning($"Could not link records {recordId} and {newId}.");
+        }
+
+        newRecord.LaunchEditor(settings, processHelper);
+
+        stdOut.WriteLine($"Copy for {recordId:D5} is created as {newId:D5} in {settings.DocFolder}.");
         return 0;
     }
 }

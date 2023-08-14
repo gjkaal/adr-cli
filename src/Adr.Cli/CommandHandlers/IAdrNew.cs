@@ -20,8 +20,8 @@ public interface IAdrNew
     /// <summary>
     /// Copy an existing ADR to a new ADR with or without a revision remark.
     /// </summary>
-    /// <param name="recordId">An existing record</param>
+    /// <param name="sourceId">A numeric reference to an existing ADR.</param>
     /// <param name="isRevision">Defie the new record as a revision for the previous record.</param>
     /// <returns></returns>
-    Task<int> CopyAdrAsync(int recordId, bool isRevision);
+    Task<int> CopyAdrAsync(string sourceId, bool isRevision);
 }

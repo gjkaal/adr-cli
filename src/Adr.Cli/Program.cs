@@ -31,6 +31,7 @@ internal static class Program
 
         // Create AD, ACR and revisions
         app.Add(AdrNewSetup.NewAdrCommand(serviceProvider));
+        app.Add(AdrNewSetup.CopyAdrCommand(serviceProvider));
 
         // Query the ADR, lists, searching etc.
         app.Add(AdrQuerySetup.QueryCommand(serviceProvider));

@@ -18,6 +18,16 @@ public interface IAdrLink
     Task<int> HandleLinkAdrAsync(string sourceId, string targetId, string remark, AdrLinkTypeOperation operation);
 
     /// <summary>
+    /// Wrapper for link or remove with parameter validation.
+    /// </summary>
+    /// <param name="sourceId">The record that extends another record.</param>
+    /// <param name="remark">The keyword that explains the link.</param>
+    /// <param name="targetId">The record that is linked to this record.</param>
+    /// <param name="operation">The type of operation</param>
+    /// <returns></returns>
+    Task<int> HandleLinkAdrAsync(int sourceId, int targetId, string remark, AdrLinkTypeOperation operation);
+
+    /// <summary>
     /// Add a link between two records.
     /// Examples:
     /// <list type="bullet">

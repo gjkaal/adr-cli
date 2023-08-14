@@ -171,6 +171,54 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
+    /// Replace the content for a markdown element with new content.
+    /// </summary>
+    /// <param name="lines">The markdown content.</param>
+    /// <param name="mdElement">The paragraph where the text should be appended.</param>
+    /// <param name="newTextPart">The new text part.</param>
+    /// <returns></returns>
+    public static IEnumerable<string> ReplaceMdContent(this string[] lines, string mdElement, string[] newContent)
+    {
+        if (string.IsNullOrEmpty(mdElement))
+        {
+            foreach (var line in lines)
+            {
+                yield return line;
+            }
+        }
+        else
+        {
+            var marker = $"## {mdElement}";
+            var inTextBlock = false;
+            foreach (var line in lines)
+            {
+                if (inTextBlock && line.StartsWith("## ", StringComparison.Ordinal))
+                {
+                    inTextBlock = false;
+                }
+                if (line.Equals(marker, StringComparison.OrdinalIgnoreCase))
+                {
+                    inTextBlock = true;
+                    yield return line;
+                    yield return string.Empty;
+                    foreach(var s in newContent)
+                    {
+                        yield return s;
+                    }
+                    if (newContent.Length > 0)
+                    {
+                        yield return string.Empty;
+                    }
+                }
+                else
+                {
+                    if (!inTextBlock) yield return line;
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Remove all line where 'match' can be found in the markdown element
     /// </summary>
     /// <param name="lines">The markdown content.</param>
@@ -190,6 +238,7 @@ public static class AdrRecordExtensions
         {
             var marker = $"## {mdElement}";
             var inTextBlock = false;
+            var previousLineWasEmpty = false;
             foreach (var line in lines)
             {
                 if (inTextBlock && line.Contains(match, StringComparison.OrdinalIgnoreCase))
@@ -204,7 +253,21 @@ public static class AdrRecordExtensions
                 {
                     inTextBlock = true;
                 }
-                yield return line;
+
+                // prevent double empty lines
+                if (line.Length == 0)
+                {
+                    if (!previousLineWasEmpty)
+                    {
+                        yield return line;
+                        previousLineWasEmpty = true;
+                    }
+                }
+                else 
+                {
+                    previousLineWasEmpty = false;
+                    yield return line;
+                }                                
             }
         }
     }

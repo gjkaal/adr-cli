@@ -25,7 +25,6 @@ public class AdrLink : IAdrLink
 
     public Task<int> HandleLinkAdrAsync(string sourceId, string targetId, string reason, AdrLinkTypeOperation operation)
     {
-        if (string.IsNullOrEmpty(reason)) reason = "Extends";
         if (!(int.TryParse(sourceId, out var linkId) && int.TryParse(targetId, out var targetLinkId)))
         {
             logger.LogError($"Could not interpret [source: {sourceId}] or [target: {targetId}] as a valid number");
@@ -40,9 +39,16 @@ public class AdrLink : IAdrLink
             stdOut.WriteLine("No link has been made.");
             return Task.FromResult(-1);
         }
+
+        return HandleLinkAdrAsync(linkId, targetLinkId, reason, operation);
+    }
+
+    public Task<int> HandleLinkAdrAsync(int sourceId, int targetId, string reason, AdrLinkTypeOperation operation)
+    {
+        if (string.IsNullOrEmpty(reason)) reason = "Extends";
         return (operation == AdrLinkTypeOperation.Create)
-            ? LinkAdrAsync(linkId, targetLinkId, reason)
-            : RemoveLinkAsync(linkId, targetLinkId);
+        ? LinkAdrAsync(sourceId, targetId, reason)
+        : RemoveLinkAsync(sourceId, targetId);
     }
 
     public async Task<int> LinkAdrAsync(int sourceId, int targetId, string remark)

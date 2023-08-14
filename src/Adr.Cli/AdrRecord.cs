@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace Adr.Cli
 {
-    public class AdrRecord
+    public class AdrRecord : ICloneable
     {
         public DateTime DateTime { get; set; } = DateTime.Today;
         public string FileName { get; set; } = string.Empty;
@@ -25,5 +25,27 @@ namespace Adr.Cli
         public string Consequences { get; set; } = string.Empty;
 
         public Dictionary<int, string> References { get; set; } = new();
+
+        public object Clone() {
+
+            var result = new AdrRecord
+            {
+                DateTime = DateTime,
+                FileName = FileName,
+                RecordId = RecordId,
+                Status = Status,
+                SuperSedes = SuperSedes,
+                TemplateType = TemplateType,
+                Title = Title,
+                Context = Context                
+            };
+            foreach(var key in References.Keys)
+            {
+                var reference = References[key];
+                result.References.Add(key, reference);
+            }
+            return result;
+        }
+
     }
 }

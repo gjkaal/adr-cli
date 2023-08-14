@@ -234,6 +234,43 @@ namespace Adr.Cli
             return 1;
         }
 
+        public async Task<AdrRecord> CopyRecordAsync(AdrRecord record, int newId, bool isRevision)
+        {
+            var newRecord = (AdrRecord)record.Clone();
+            newRecord.RecordId = newId;
+            newRecord.Status = AdrStatus.New;
+            if (isRevision)
+            {
+                newRecord.SuperSedes = record;
+            }
+            newRecord.PrepareForStorage();
+            IFileInfo metaRecord = settings.GetMetaFile(newRecord.FileName);
+            using (var metaWriter = metaRecord.CreateText())
+            {
+                var meta = newRecord.GetMetadata(_serializerSettings);
+                await metaWriter.WriteAsync(meta);
+                await metaWriter.FlushAsync();
+            }
+            logger.LogDebug($"Write metadata for {newRecord.Title}");
+
+            logger.LogInformation($"Write ADR #{newRecord.RecordId} to {newRecord.FileName}");
+            var newContent = await ReadContentAsync(record.RecordId);
+            newContent[0] = $"# {newId:D5}: {newRecord.Title}";
+            newContent = newContent.ReplaceMdContent("Status", new []{ $"__{newRecord.Status}__" } ).ToArray();
+
+            IFileInfo contentRecord = settings.GetContentFile(newRecord.FileName);
+            using (var contentWriter = contentRecord.CreateText())
+            { 
+                foreach(var line in newContent)
+                {
+                    await contentWriter.WriteLineAsync(line);
+                }
+                await contentWriter.FlushAsync();
+            }
+
+            return newRecord;
+        }
+
         private async Task<StringBuilder> GetOrCreateTemplateAsync(string templateName)
         {
             string template;

@@ -6,5 +6,5 @@ public interface IProcessHelper
 {
     void Start(string fullName);
     void Start(ProcessStartInfo processStartInfo);
-    void Start(string v, string fullName);
+    void Start(string fileName, string arguments);
 }
