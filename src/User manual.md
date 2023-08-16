@@ -52,6 +52,7 @@ decision records
 | init         | Initialize a new ADR folder |
 | sync         | Sync the metadata using the content in the markdown files |
 | new          | Create a new Architecture Decision Record |
+| copy         | Copy an existing ADR to as a new ADR |
 | list         | List all Architecture Decision Records |
 | find         | Find Architecture Decision Records |
 | link         | Link 2 ADR's for ammend / clarify or some other reason |
@@ -117,6 +118,33 @@ __Options__
   --title "<title>" (REQUIRED)  The title for the ADR
   --req                         The ADR is a critical requirement.
   --rev <rev>                   The ADR rivision for an earlier ADR, provide a valid id.
+```
+
+### Copy to new record
+
+You can create a new ADR based on an existing ADR (even if they are obsolete) by using th copy command.
+This creates a copy of an existing record, with a new Id and with the state 'New'. A reference to the
+original ADR is added (you could remove the reference with the ulink command).
+
+If you want to make a revision with only minor changes, the copy command might be a better option than
+using the `adr-cli new` command, as it is more compact. The only thing is that you cannot change the 
+title, and with that the filename of the record.
+
+__Usage__
+
+Copy existing record `2` to a new record:
+
+`adr-cli copy -s 2`
+
+Copy existing record `5` to a new record as a revision for record 5:
+
+`adr-cli copy --source 5 --rev`
+
+__Options__
+
+```
+  -s | --source <recordId>  (REQUIRED)   Define the source ADR record
+  --rev                                  Create the copy as a revision
 ```
 
 ### Sync Markup documents and metadata
