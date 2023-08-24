@@ -15,7 +15,9 @@ namespace Adr.Cli
 {
     public class AdrRecordRepository : IAdrRecordRepository
     {
-        private const string DefaultConsequences = "See https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions for more information about ADR's.";
+        private const string DefaultConsequences = @"See [cognitect 2011.11.15](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) for more information about ADR's.
+
+This documentation is created using the (adr-cli tool)[https://github.com/gjkaal/adr-cli].";
 
         private const string DefaultContext = "Architecture for agile projects has to be described and defined differently. Not all decisions will be made at once, nor will all of them be done when the project begins.";
 
