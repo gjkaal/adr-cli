@@ -23,18 +23,18 @@ necessary to add an execution policy to the file.
 
 The suggested location is:
 
-`C:\Program Files (x86)\Nauplius\`
+`C:\Program Files (x86)\Nauplius\adrcli`
 
 Step 2 is to add the path to the executable to the PATH environment setting. This can be done using the
 control panel or by executing a shell command (only with elevated privileges => administrator):
 
-`setx /M path "%path%;C:\Program Files (x86)\Nauplius\"`
+`setx /M "%PATH%;C:\Program Files (x86)\Nauplius\adrcli\"` 
 
 ### Create your first ADR
 
 After installing the tool, decide at what folder you want to initialize
 the ADR repository. This can be at any location, but at the root of a GIT repository
-would be a logical choice. Initialization is done by executing an `ínit` command.
+would be a logical choice. Initialization is done by executing an `init` command.
 Initialization can only be done once and it is required before adding any
 decision records
 
