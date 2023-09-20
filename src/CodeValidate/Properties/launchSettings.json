@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "CodeValidate": {
+      "commandName": "Project",
+      "commandLineArgs": "namespace D:\\_github\\adr-cli\\src\\CodeValidate"
+    }
+  }
+}

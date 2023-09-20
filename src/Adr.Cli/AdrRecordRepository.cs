@@ -188,6 +188,12 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
             return charactersWritten;
         }
 
+        /// <summary>
+        /// Update the metadata file for the specified record.
+        /// </summary>
+        /// <param name="recordId">A numeric value.</param>
+        /// <param name="record">The content for the metadata file.</param>
+        /// <returns></returns>
         public async Task<int> UpdateMetadataAsync(int recordId, AdrRecord record)
         {
             record.RecordId = recordId;
@@ -207,6 +213,11 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
             return bytesWritten;
         }
 
+        /// <summary>
+        /// Write a Markdown file containing the information for the ADR.
+        /// </summary>
+        /// <param name="record">The ADR information.</param>
+        /// <returns>The (newly created) record identifier.</returns>
         public async Task<int> WriteRecordAsync(AdrRecord record)
         {
             record.RecordId = settings.GetNextFileNumber();
