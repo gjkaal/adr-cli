@@ -1,5 +1,5 @@
 ﻿using Adr.Cli.Exceptions;
-using Newtonsoft.Json;
+using System.Text.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -33,7 +33,7 @@ public static class AdrRecordExtensions
     /// <param name="record">The AdrRecord.</param>
     public static StringBuilder GetMetadata(this AdrRecord record)
     {
-        var settings = new JsonSerializerSettings { Formatting = Formatting.Indented };
+        var settings = new JsonSerializerOptions { WriteIndented = true };
         return record.GetMetadata(settings);
     }
 
@@ -44,9 +44,9 @@ public static class AdrRecordExtensions
     /// <param name="record">The AdrRecord.</param>
     /// <param name="settings">Formatting options for the metadata</param>
     /// <returns></returns>
-    public static StringBuilder GetMetadata(this AdrRecord record, JsonSerializerSettings settings)
+    public static StringBuilder GetMetadata(this AdrRecord record, JsonSerializerOptions settings)
     {
-        var data = JsonConvert.SerializeObject(record, settings);
+        var data = JsonSerializer.Serialize(record, settings);
         return new StringBuilder(data);
     }
 

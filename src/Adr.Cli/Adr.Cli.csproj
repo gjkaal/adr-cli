@@ -19,7 +19,6 @@
     <PackageReference Include="Microsoft.Extensions.logging.abstractions" Version="7.0.1" />
     <PackageReference Include="Microsoft.Extensions.logging.console" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="7.0.0" />
-    <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageReference Include="System.IO.Abstractions" Version="19.2.29" />
   </ItemGroup>

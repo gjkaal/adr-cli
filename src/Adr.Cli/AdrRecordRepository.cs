@@ -1,14 +1,13 @@
 ﻿using Adr.Cli.Extensions;
 using Adr.Cli.Services;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace Adr.Cli
@@ -44,14 +43,14 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
 {Consequences}
 ";
 
-        private readonly JsonSerializerSettings _serializerSettings = new()
+        private readonly JsonSerializerOptions jsonOptions = new()
         {
-            Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Ignore,
-            Culture = CultureInfo.InvariantCulture,
-            DateFormatHandling = DateFormatHandling.IsoDateFormat,
+            WriteIndented = true,
+            AllowTrailingCommas = true,
+            PropertyNameCaseInsensitive = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
             Converters = {
-               new StringEnumConverter()
+               new JsonStringEnumConverter()
             }
         };
 
@@ -75,7 +74,7 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
             logger.LogDebug($"Templates located in {settings.TemplateFolderInfo().FullName}");
         }
 
-        public JsonSerializerSettings SerializerSettings => _serializerSettings;
+        public JsonSerializerOptions SerializerSettings => jsonOptions;
 
         public async Task<StringBuilder> GetLayoutAsync(AdrRecord record)
         {
@@ -204,7 +203,7 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
             var bytesWritten = 0;
             using (var metaWriter = metaRecord.CreateText())
             {
-                var meta = record.GetMetadata(_serializerSettings);
+                var meta = record.GetMetadata(jsonOptions);
                 await metaWriter.WriteAsync(meta);
                 await metaWriter.FlushAsync();
                 bytesWritten = meta.Length;
@@ -238,7 +237,7 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
             IFileInfo metaRecord = settings.GetMetaFile(record.FileName);
             using (var metaWriter = metaRecord.CreateText())
             {
-                var meta = record.GetMetadata(_serializerSettings);
+                var meta = record.GetMetadata(jsonOptions);
                 await metaWriter.WriteAsync(meta);
                 await metaWriter.FlushAsync();
             }
@@ -260,7 +259,7 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
             IFileInfo metaRecord = settings.GetMetaFile(newRecord.FileName);
             using (var metaWriter = metaRecord.CreateText())
             {
-                var meta = newRecord.GetMetadata(_serializerSettings);
+                var meta = newRecord.GetMetadata(jsonOptions);
                 await metaWriter.WriteAsync(meta);
                 await metaWriter.FlushAsync();
             }
@@ -335,7 +334,7 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
                 var content = await metadataContent.ReadToEndAsync();
                 try
                 {
-                    var record = JsonConvert.DeserializeObject<AdrRecord>(content, SerializerSettings);
+                    var record = JsonSerializer.Deserialize<AdrRecord>(content, SerializerSettings);
                     if (record.RecordId != recordId)
                     {
                         stdOut.WriteLine($"{fileInfo.Name} contains invalid record id : {record.RecordId}");

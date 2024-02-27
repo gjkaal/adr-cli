@@ -1,9 +1,10 @@
 using Adr.Cli.Extensions;
-using Newtonsoft.Json;
 using System;
 using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Adr.Cli
 {
@@ -146,23 +147,35 @@ namespace Adr.Cli
             var fileInfoPath = path.Combine(currentPath, DefaultFileName);
             var fileInfo = fileInfoFactory.New(fileInfoPath);
 
-            using (var stream = fileInfo.CreateText())
+            using (Stream stream = fileInfo.Open(FileMode.OpenOrCreate))
             {
-                var value = new
+                var value = new AdrSettingsFile
                 {
-                    path = DocFolder,
-                    templates = TemplateFolder
+                    Path = DocFolder,
+                    Templates = TemplateFolder
                 };
-                var serializer = new JsonSerializer
-                {
-                    Formatting = Formatting.Indented,
-                    NullValueHandling = NullValueHandling.Ignore
-                };
-                serializer.Serialize(stream, value);
+                JsonSerializer.Serialize(stream, value, typeof(AdrSettingsFile), jsonOptions);
             }
-
             return this;
         }
+
+        private class AdrSettingsFile
+        {
+            public string Path { get; set; } = string.Empty;
+            public string Templates { get; set; } = string.Empty;
+            public string ProjectName { get; set; } = string.Empty;
+        }
+
+        private readonly JsonSerializerOptions jsonOptions = new()
+        {
+            WriteIndented = true,
+            AllowTrailingCommas = true,
+            PropertyNameCaseInsensitive = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault,
+            Converters = {
+               new JsonStringEnumConverter()
+            }
+        };
 
         private IFileInfo? GetConfigFileInfo()
         {
@@ -207,18 +220,17 @@ namespace Adr.Cli
                 return settings;
             }
 
-            using (var stream = fileInfo.OpenText())
+            using (var stream = fileInfo.Open(FileMode.Open))
             {
-                var serializer = new JsonSerializer
-                {
-                    Formatting = Formatting.Indented,
-                    NullValueHandling = NullValueHandling.Ignore
-                };
 
-                var value = (dynamic)serializer.Deserialize(stream, new { path = "", templates = "", projectName = "" }.GetType());
-                settings.DocFolder = string.IsNullOrEmpty(value.path) ? settings.DocFolder : ((string)value.path).Replace('/', '\\');
-                settings.TemplateFolder = string.IsNullOrEmpty(value.templates) ? settings.TemplateFolder : ((string)value.templates).Replace('/', '\\');
-                settings.ProjectName = string.IsNullOrEmpty(value.projectName) ? settings.ProjectName : value.projectName;
+                var value = JsonSerializer.Deserialize(stream, typeof(AdrSettingsFile), jsonOptions) as AdrSettingsFile;
+                if (value != null)
+                {
+                settings.DocFolder = string.IsNullOrEmpty(value.Path) ? settings.DocFolder : (value.Path).Replace('/', '\\');
+                settings.TemplateFolder = string.IsNullOrEmpty(value.Templates) ? settings.TemplateFolder : (value.Templates).Replace('/', '\\');
+                settings.ProjectName = string.IsNullOrEmpty(value.ProjectName) ? settings.ProjectName : value.ProjectName;
+                }
+
                 return settings;
             }
         }
