@@ -15,11 +15,11 @@
     <None Include="Properties\PublishProfiles\osx-x64.pubxml" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.logging.abstractions" Version="7.0.1" />
-    <PackageReference Include="Microsoft.Extensions.logging.console" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="7.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.logging.abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.logging.console" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <PackageReference Include="System.IO.Abstractions" Version="19.2.29" />
+    <PackageReference Include="System.IO.Abstractions" Version="20.0.15" />
   </ItemGroup>
 </Project>
