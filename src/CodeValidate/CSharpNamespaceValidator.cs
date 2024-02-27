@@ -13,7 +13,7 @@ public class CSharpNamespaceValidator : IValidator
     private readonly IStdIo stdIo;
 
     private readonly string[] ignoreList;
-    public ReadOnlyCollection<string> IgnoreList => new ReadOnlyCollection<string>(ignoreList);
+    public ReadOnlyCollection<string> IgnoreList => new(ignoreList);
 
     public CSharpNamespaceValidator(string[] args, IStdIo stdIo, string[] ignoreList)
     {

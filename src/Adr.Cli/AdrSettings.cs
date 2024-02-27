@@ -222,13 +222,11 @@ namespace Adr.Cli
 
             using (var stream = fileInfo.Open(FileMode.Open))
             {
-
-                var value = JsonSerializer.Deserialize(stream, typeof(AdrSettingsFile), jsonOptions) as AdrSettingsFile;
-                if (value != null)
+                if (JsonSerializer.Deserialize(stream, typeof(AdrSettingsFile), jsonOptions) is AdrSettingsFile value)
                 {
-                settings.DocFolder = string.IsNullOrEmpty(value.Path) ? settings.DocFolder : (value.Path).Replace('/', '\\');
-                settings.TemplateFolder = string.IsNullOrEmpty(value.Templates) ? settings.TemplateFolder : (value.Templates).Replace('/', '\\');
-                settings.ProjectName = string.IsNullOrEmpty(value.ProjectName) ? settings.ProjectName : value.ProjectName;
+                    settings.DocFolder = string.IsNullOrEmpty(value.Path) ? settings.DocFolder : (value.Path).Replace('/', '\\');
+                    settings.TemplateFolder = string.IsNullOrEmpty(value.Templates) ? settings.TemplateFolder : (value.Templates).Replace('/', '\\');
+                    settings.ProjectName = string.IsNullOrEmpty(value.ProjectName) ? settings.ProjectName : value.ProjectName;
                 }
 
                 return settings;
@@ -260,7 +258,7 @@ namespace Adr.Cli
         {
             var sanitizedFile = fileName.SanitizeFileName();
             var folderInfo = DocFolderInfo().Parent?.FullName;
-            if (folderInfo == null) folderInfo = RootFolderInfo().FullName;
+            folderInfo ??= RootFolderInfo().FullName;
             var filePath = path.Combine(folderInfo, sanitizedFile);
             return fileInfoFactory.New(filePath);
         }

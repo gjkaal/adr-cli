@@ -46,7 +46,6 @@ public class AdrInit : IAdrInit
         adrRootPath = GetPathWithDefault(adrRootPath, settings.DocFolder ?? settings.DefaultDocFolder);
         templateRootPath = GetPathWithDefault(templateRootPath, settings.TemplateFolder ?? settings.DefaultTemplates);
 
-        var localFolder = settings.CurrentPath;
         settings.DocFolder = adrRootPath;
         settings.TemplateFolder = templateRootPath;
         settings.Write();

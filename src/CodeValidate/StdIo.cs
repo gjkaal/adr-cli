@@ -31,7 +31,7 @@ public class StdIo : IStdIo
     public bool Silent { get; }
     public bool Verbose { get; }
 
-    private readonly StringBuilder log = new StringBuilder();
+    private readonly StringBuilder log = new();
     private readonly DirectoryInfo currentDirectory;
 
     public void WriteInfo(string message) {
