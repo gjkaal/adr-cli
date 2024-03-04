@@ -9,6 +9,8 @@ namespace Adr.Cli.Extensions;
 
 /// <summary>
 /// Wrapper for System.Diagnostics.Process to enable testing.
+/// The processhelper is used to start a new application.
+/// In this case, the default editor for the generated text files.
 /// </summary>
 public class ProcessHelper : IProcessHelper
 {
@@ -27,7 +29,7 @@ public class ProcessHelper : IProcessHelper
         }
         catch (FileNotFoundException notFoundEx)
         {
-            logger.LogError("File not found", notFoundEx);
+            logger.LogError("File not found: {notFoundEx}", notFoundEx);
             throw new AdrException($"File does not exist: {fullName}");
         }
         catch (Win32Exception)
