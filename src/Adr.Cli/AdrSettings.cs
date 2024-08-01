@@ -13,6 +13,7 @@ namespace Adr.Cli
         private const string DefaultFileName = "adr.config.json";
         private const string DefaultTemplateFolder = "\\docs\\adr-templates";
         private const string DefaultAdrFolder = "\\docs\\adr";
+
         private readonly IPath path;
         private readonly IDirectory directoryService;
         private readonly IFileInfoFactory fileInfoFactory;
@@ -55,7 +56,7 @@ namespace Adr.Cli
         public string TemplateFolder { get; set; } = DefaultTemplateFolder;
 
         /// <summary>
-        /// A project name for auto genetated content.
+        /// A project name for auto generated content.
         /// </summary>
         public string ProjectName { get; set; } = "ADR Documentation";
 
