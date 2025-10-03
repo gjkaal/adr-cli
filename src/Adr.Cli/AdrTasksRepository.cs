@@ -32,8 +32,6 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
 {Related}
 ";
 
-    protected override string DefaultTemplate => defaultTemplate;
-
     public AdrTasksRepository(
         IFileSystem fileSystem,
         IAdrSettings settings,
@@ -46,46 +44,7 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
     }
 
     protected override IDirectoryInfo BaseFolder => settings.TasksFolderInfo();
-
-    /// <summary>
-    /// Write a Markdown file containing the information for the ADR.
-    /// </summary>
-    /// <param name="record">The ADR information.</param>
-    /// <returns>The (newly created) record identifier.</returns>
-    public Task<int> WriteRecordAsync(TaskRecord record)
-    {
-        return WriteRecordAsync(
-            settings.TasksFolderInfo(),
-            record,
-            AdrRecordExtensions.Validate,
-            AdrRecordExtensions.PrepareForStorage,
-            GetLayoutAsync
-            );
-    }
-
-    public Task<int> UpdateMetadataAsync(int recordId, TaskRecord record)
-    {
-        return UpdateMetadataRecordAsync(recordId, record);
-    }
-
-    public Task<int> UpdateContentAsync(TaskRecord record, string[] lines)
-    {
-        return UpdateFileContentAsync(record, lines);
-    }
-
-    public async Task<TaskRecord?> ReadMetadataAsync(int recordId)
-    {
-        var file = GetFileInfoForRecord(recordId);
-        if (file == null) { return null; }
-        var result = await ReadTaskFromFile(recordId, file);
-        return result;
-    }
-
-    private Task<TaskRecord> ReadTaskFromFile(int recordId, IFileInfo fileInfo)
-    {
-        return ReadFromFile<TaskRecord>(recordId, fileInfo);
-    }
-
+    protected override string DefaultTemplate => defaultTemplate;
     public async Task<StringBuilder> GetLayoutAsync(TaskRecord record)
     {
         logger.LogInformation($"Retrieving layout for {TemplateType.Task}");
@@ -123,5 +82,42 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
         }
 
         return sb;
+    }
+
+    public async Task<TaskRecord?> ReadMetadataAsync(int recordId)
+    {
+        var file = GetFileInfoForRecord(recordId);
+        if (file == null) { return null; }
+        var result = await ReadTaskFromFile(recordId, file);
+        return result;
+    }
+
+    public Task<int> UpdateContentAsync(TaskRecord record, string[] lines)
+    {
+        return UpdateFileContentAsync(record, lines);
+    }
+
+    public Task<int> UpdateMetadataAsync(int recordId, TaskRecord record)
+    {
+        return UpdateMetadataRecordAsync(recordId, record);
+    }
+
+    /// <summary>
+    /// Write a Markdown file containing the information for the ADR.
+    /// </summary>
+    /// <param name="record">The ADR information.</param>
+    /// <returns>The (newly created) record identifier.</returns>
+    public Task<int> WriteRecordAsync(TaskRecord record)
+    {
+        return WriteRecordAsync(
+            record,
+            AdrRecordExtensions.Validate,
+            AdrRecordExtensions.PrepareForStorage,
+            GetLayoutAsync
+            );
+    }
+    private Task<TaskRecord> ReadTaskFromFile(int recordId, IFileInfo fileInfo)
+    {
+        return ReadFromFile<TaskRecord>(recordId, fileInfo);
     }
 }

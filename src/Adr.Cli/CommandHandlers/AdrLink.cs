@@ -57,8 +57,6 @@ public class AdrLink : IAdrLink
         return (operation == AdrLinkTypeOperation.Create)
         ? LinkAdrAsync(sourceId, targetId, reason)
         : RemoveLinkAsync(sourceId, targetId);
-
-
     }
 
     public async Task<Response> LinkAdrAsync(int sourceId, int targetId, string remark)

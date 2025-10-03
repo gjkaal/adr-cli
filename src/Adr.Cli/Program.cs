@@ -85,11 +85,13 @@ internal static class Program
         serviceCollection.AddSingleton<IFileSystem, FileSystem>();
         serviceCollection.AddSingleton<IAdrSettings, AdrSettings>();
         serviceCollection.AddSingleton<IAdrRecordRepository, AdrRecordRepository>();
+        serviceCollection.AddSingleton<IAdrTasksRepository, AdrTasksRepository>();
 
         serviceCollection.AddSingleton<IAdrInit, AdrInit>();
         serviceCollection.AddSingleton<IAdrNew, AdrNew>();
         serviceCollection.AddSingleton<IAdrQuery, AdrQuery>();
         serviceCollection.AddSingleton<IAdrLink, AdrLink>();
+        serviceCollection.AddSingleton<IProjectPlanning, ProjectPlanning>();
 
         // MCP Server
         serviceCollection.AddSingleton<IMcpServer, AdrMcpServer>();

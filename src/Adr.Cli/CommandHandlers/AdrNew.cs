@@ -154,7 +154,7 @@ public class AdrNew : IAdrNew
             return Response.Fail($"Cannot find a record for with id: {recordId}");
         }
 
-        var newId = settings.GetNextFileNumber();
+        var newId = settings.GetNextFileNumber(settings.DocFolderInfo());
         var newRecord = await adrRecordRepository.CopyRecordAsync(record, newId, isRevision);
 
         Response linkResult;

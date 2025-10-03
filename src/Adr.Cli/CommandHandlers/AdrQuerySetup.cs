@@ -53,7 +53,6 @@ public static class AdrQuerySetup
             var includeContentValue = ctx.GetValue(includeContent);
             var filterValue = ctx.GetValue(filter) ?? "";
 
-
             var c = serviceProvider.GetRequiredService<IAdrQuery>();
             var result = await c.FindAdrAsync(filterValue, sortReverseValue, verboseValue, includeContentValue);
             stdOut.Write(result);

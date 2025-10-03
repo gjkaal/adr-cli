@@ -47,6 +47,8 @@ decision records
 
 ## Commands
 
+### ADR Commands
+
 | command | description |
 | ------- | ---------- |
 | init         | Initialize a new ADR folder |
@@ -58,6 +60,18 @@ decision records
 | link         | Link 2 ADR's for ammend / clarify or some other reason |
 | rlink        | Remove all links from one ADR to another |
 | generate-toc | Generate a table of contents |
+
+### Task Management Commands
+
+| command | description |
+| ------- | ---------- |
+| task-new  | Create a new task for project planning |
+| task-list | List all tasks |
+| task-find | Find tasks using a filter |
+| task-update | Update a task's status |
+| task-link | Link two tasks together |
+| task-unlink | Remove link between two tasks |
+| task-toc | Generate table of contents for tasks |
 
 ### Initialization
 
@@ -264,6 +278,122 @@ Add or update the table of content in the documentation root (one level above th
 __Usage__
 
 `adr-cli generate-toc`
+
+__Options__
+
+No options
+
+## Task Management
+
+The adr-cli tool includes task management capabilities to help with project planning and tracking.
+
+### Creating a new task
+
+Create a new task for project planning with a title, description, and optional due date.
+
+__Usage__
+
+`adr-cli task-new --title "Implement user authentication" --description "Add OAuth2 support" --dueDate "2024-12-31"`
+
+__Options__
+
+```
+  --title <title> (REQUIRED)        The title for the task
+  --description, -d <description>   Description of the task
+  --dueDate <dueDate>              Due date for the task
+```
+
+### Listing tasks
+
+Display an overview of all tasks. The default response shows one line per task. Use `--verbose` for more information and `--desc` to reverse sort order.
+
+__Usage__
+
+`adr-cli task-list`
+
+`adr-cli task-list --verbose --desc`
+
+__Options__
+
+```
+  --desc          Show tasks with the latest task first
+  --verbose       Show tasks with more information
+```
+
+### Finding tasks
+
+Search for tasks using a filter on title and description. Use `--full` to include content in the search.
+
+__Usage__
+
+`adr-cli task-find -q authentication`
+
+`adr-cli task-find -q "user login" --status InProgress --verbose`
+
+__Options__
+
+```
+  -q <filter> (REQUIRED)    Filter text to search for
+  --status <status>         Filter by task status
+  --desc                    Show tasks with the latest task first
+  --verbose                 Show tasks with more information
+  --full                    Search the full records (slow)
+```
+
+### Updating task status
+
+Update a task's status with an optional justification.
+
+__Usage__
+
+`adr-cli task-update -s 3 --status InProgress --justification "Started implementation"`
+
+__Options__
+
+```
+  -s, --source <source> (REQUIRED)  The task ID to update
+  --status <status> (REQUIRED)      New status for the task
+  --justification, -j <text>        Justification for the status change
+```
+
+### Linking tasks
+
+Create a relationship between two tasks.
+
+__Usage__
+
+`adr-cli task-link -s 5 -t 3 --remark "Depends on"`
+
+__Options__
+
+```
+  -s, --source <source> (REQUIRED)  The source task ID
+  -t, --target <target> (REQUIRED)  The target task ID
+  --remark, -r <remark>            Remark explaining the relationship
+```
+
+### Unlinking tasks
+
+Remove the relationship between two tasks.
+
+__Usage__
+
+`adr-cli task-unlink -s 5 -t 3`
+
+__Options__
+
+```
+  -s, --source <source> (REQUIRED)  The source task ID
+  -t, --target <target> (REQUIRED)  The target task ID
+```
+
+### Generating task table of contents
+
+Generate a table of contents markdown file for all open tasks.
+
+__Usage__
+
+`adr-cli task-toc`
 
 __Options__
 

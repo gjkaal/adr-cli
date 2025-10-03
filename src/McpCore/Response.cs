@@ -39,7 +39,6 @@ public class Response
     }
 }
 
-
 public class Response<T> : Response
 {
     public Response()

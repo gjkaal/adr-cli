@@ -73,5 +73,5 @@ foreach ($line in $output) {
 # Clean up
 Remove-Item $inputFile -ErrorAction SilentlyContinue
 
-Write-Host "`n🎉 MCP Server fully functional!" -ForegroundColor Green
+Write-Host "`n✓ MCP Server fully functional!" -ForegroundColor Green
 Write-Host "Ready for integration with AI tools like Claude and Copilot." -ForegroundColor Cyan

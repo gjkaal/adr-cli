@@ -306,7 +306,16 @@ public static class AdrRecordExtensions
         }
 
         // A title should contain at leat 10 characters
-        var title = lines[0][9..];
+        string title;
+        if (lines[0].Length < 10)
+        {
+            title = string.Empty;
+        }
+        else
+        {
+            title = lines[0][9..];
+        }
+
         if (title.Length >= MinimumTitleLength && record.Title != title)
         {
             metadataMmodified = true;

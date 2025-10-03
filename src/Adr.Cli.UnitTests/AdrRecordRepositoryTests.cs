@@ -1,20 +1,25 @@
-using Microsoft.Extensions.Logging;
-using Moq;
-using System.Text;
 using System;
+using System.IO;
+using System.IO.Abstractions;
+using System.Text;
+using System.Threading.Tasks;
+
+using Adr.Cli;
+using Adr.Cli.Services;
+using Adr.Cli.XLogger;
+
+using Microsoft.Extensions.Logging;
+
+using Moq;
+
+using Newtonsoft.Json;
+
 using Xunit;
 using Xunit.Abstractions;
-using Adr.Cli.XLogger;
-using System.Threading.Tasks;
-using System.IO.Abstractions;
-using System.IO;
-using Newtonsoft.Json;
-using Adr.Cli.Services;
-using Adr.Cli;
 
 namespace Tests
 {
-    public class AdrRecordRepositoryTests 
+    public class AdrRecordRepositoryTests
     {
         private readonly ITestOutputHelper testOutputHelper;
         private readonly ILogger<AdrRecordRepository> logger;
@@ -22,7 +27,7 @@ namespace Tests
         private readonly Mock<IAdrSettings> adrSettingsMock = new();
         private readonly Mock<IFileSystem> fileSystemMock = new();
         private readonly Mock<IDirectoryInfo> docFolderMock = new();
-        private readonly Mock<IDirectoryInfo> templateFolderMock = new();        
+        private readonly Mock<IDirectoryInfo> templateFolderMock = new();
 
         // see https://www.meziantou.net/how-to-get-asp-net-core-logs-in-the-output-of-xunit-tests.htm
         // for information about xunit ilogger interception
@@ -66,9 +71,10 @@ namespace Tests
             adrSettingsMock.Setup(m => m.GetMetaFile(It.IsAny<string>())).Returns(fileStream2.Object);
             adrSettingsMock.Setup(m => m.GetTemplate(It.IsAny<string>())).Returns(fileStream3.Object);
 
-            adrSettingsMock.Setup(m => m.GetNextFileNumber()).Returns(167);
+            adrSettingsMock.Setup(m => m.GetNextFileNumber(It.IsAny<IDirectoryInfo>())).Returns(167);
 
-            var record = new AdrRecord { 
+            var record = new AdrRecord
+            {
                 RecordId = 123,
                 Title = "Test",
             };
@@ -125,7 +131,7 @@ namespace Tests
             var layout = await sut.GetLayoutAsync(record);
 
             Assert.NotNull(layout);
-            Assert.True(layout.Length>0);
+            Assert.True(layout.Length > 0);
             testOutputHelper.WriteLine(layout.ToString());
             Assert.Equal($"THIS IS THE TEMPLATE {template}", layout.ToString());
         }

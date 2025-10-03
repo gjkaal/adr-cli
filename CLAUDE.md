@@ -127,3 +127,4 @@ When working in this repository, Claude Code will automatically have access to a
 - Metadata synchronization keeps JSON files in sync with markdown content
 - The repository auto-detects configuration by walking up directory tree from current location
 - MCP mode enables seamless integration with AI tools for automated ADR management
+- memorize

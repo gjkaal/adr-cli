@@ -290,7 +290,7 @@ public class AdrMcpServer : McpServer
     {
         var adrInit = _serviceProvider.GetRequiredService<IAdrInit>();
 
-        var record = GetIntArgument(arguments, "record") ?? -1;
+        var record = GetIntArgument(arguments, "record") ?? 1;
 
         var result = await adrInit.SyncMetadataAsync(record, 0);
         return result.Success ? result.Message ?? "Metadata synchronized successfully" : $"Failed: {result.Message}";
