@@ -51,10 +51,10 @@ public class AdrNew : IAdrNew
             logger.LogInformation("Creating Critical Requirement Record.");
             result = await CreateRequirementAsync(title, context);
         }
-        else if (!string.IsNullOrEmpty(revisionForRecord))
+        else if (!string.IsNullOrEmpty(revisionForRecord) && revisionForRecord != "0")
         {
             logger.LogInformation($"Creating Revision for {revisionForRecord}.");
-            if (int.TryParse(revisionForRecord, out var recordId))
+            if (int.TryParse(revisionForRecord, out var recordId) && recordId > 0)
             {
                 result = await CreateRevisionAsync(title, context, recordId);
             }

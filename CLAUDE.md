@@ -103,6 +103,23 @@ The tool can run as an MCP (Model Context Protocol) server to enable AI tools li
 adr-cli mcp
 ```
 
+### Claude Code Configuration
+This repository includes a `.claude/config.json` file that automatically configures the adr-cli tool as an MCP server for Claude Code:
+
+```json
+{
+  "mcpServers": {
+    "adr-cli": {
+      "command": "adr-cli",
+      "args": ["mcp"],
+      "description": "Architecture Decision Records management tool for creating, managing, and maintaining ADRs"
+    }
+  }
+}
+```
+
+When working in this repository, Claude Code will automatically have access to all ADR management capabilities through the MCP protocol.
+
 ## Development Notes
 
 - The tool supports both creating new ADRs and managing revisions/links between existing ones
