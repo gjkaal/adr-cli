@@ -35,14 +35,15 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_init",
-                Description = "Initialize a new ADR repository in the current directory",
+                Description = "Initialize a new ADR and planning repository in the current directory",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
                         ["adrRoot"] = new() { Type = "string", Description = "Custom ADR root directory path (optional)" },
-                        ["tmpRoot"] = new() { Type = "string", Description = "Custom template root directory path (optional)" }
+                        ["tmpRoot"] = new() { Type = "string", Description = "Custom template root directory path (optional)" },
+                        ["prjRoot"] = new() { Type = "string", Description = "Custom project planning root directory path (optional)" }
                     },
                     Required = Array.Empty<string>()
                 }
@@ -209,8 +210,9 @@ public class AdrMcpServer : McpServer
 
         var adrRoot = GetStringArgument(arguments, "adrRoot") ?? "";
         var tmpRoot = GetStringArgument(arguments, "tmpRoot") ?? "";
+        var prjRoot = GetStringArgument(arguments, "prjRoot") ?? "";
 
-        var result = await adrInit.InitializeAsync(adrRoot, tmpRoot);
+        var result = await adrInit.InitializeAsync(adrRoot, tmpRoot, prjRoot);
         return result.Success ? result.Message ?? "ADR repository initialized successfully" : $"Failed: {result.Message}";
     }
 

@@ -18,6 +18,7 @@ public static class CommandHandlerSetup
         var cmd = new Command("init", "Initialize a new ADR folder");
         var adrRoot = CommandOptions.AdrRoot;
         var templateRoot = CommandOptions.TemplateRoot;
+        var projectRoot = CommandOptions.ProjectRoot;
 
         cmd.Options.Add(adrRoot);
         cmd.Options.Add(templateRoot);
@@ -26,9 +27,10 @@ public static class CommandHandlerSetup
         {
             var adrRootPath = ctx.GetValue(adrRoot) ?? "";
             var templateRootPath = ctx.GetValue(templateRoot) ?? "";
+            var projectRootPath = ctx.GetValue(projectRoot) ?? "";
 
             var c = serviceProvider.GetRequiredService<IAdrInit>();
-            var result = await c.InitializeAsync(adrRootPath, templateRootPath);
+            var result = await c.InitializeAsync(adrRootPath, templateRootPath, projectRootPath);
             stdOut.Write(result);
         });
 

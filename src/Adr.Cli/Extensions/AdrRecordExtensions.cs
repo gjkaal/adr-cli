@@ -1,11 +1,12 @@
-﻿using Adr.Cli.Exceptions;
-using System.Text.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
+
+using Adr.Cli.Exceptions;
 
 namespace Adr.Cli.Extensions;
 
@@ -26,15 +27,9 @@ public static class AdrRecordExtensions
         return $"{record.RecordId:D5} {record.DateTime:yyyyMMdd} {record.Status.ToString() ?? "",-10} {record.Title.PadRight(80)[..80]}";
     }
 
-    /// <summary>
-    /// Get the metadata for an <see cref="AdrRecord"/> as a stringbuilder
-    /// with the json serialized metadata of an AdrRecord.
-    /// </summary>
-    /// <param name="record">The AdrRecord.</param>
-    public static StringBuilder GetMetadata(this AdrRecord record)
+    public static string FormatString(this TaskRecord record)
     {
-        var settings = new JsonSerializerOptions { WriteIndented = true };
-        return record.GetMetadata(settings);
+        return $"{record.RecordId:D5} {record.DateTime:yyyyMMdd} {record.Status.ToString() ?? "",-10} {record.Title.PadRight(80)[..80]}";
     }
 
     /// <summary>
@@ -44,7 +39,7 @@ public static class AdrRecordExtensions
     /// <param name="record">The AdrRecord.</param>
     /// <param name="settings">Formatting options for the metadata</param>
     /// <returns></returns>
-    public static StringBuilder GetMetadata(this AdrRecord record, JsonSerializerOptions settings)
+    public static StringBuilder GetMetadata<T>(this T record, JsonSerializerOptions settings)
     {
         var data = JsonSerializer.Serialize(record, settings);
         return new StringBuilder(data);
@@ -62,36 +57,50 @@ public static class AdrRecordExtensions
     public static AdrRecord LaunchEditor(this AdrRecord record, IAdrSettings settings, IProcessHelper process)
     {
         var fileInfo = settings.GetContentFile(record.FileName);
+        var fullName = fileInfo.FullName;
+        OpenPreferredEditor(process, fileInfo, fullName);
+        return record;
+    }
+
+    public static TaskRecord LaunchEditor(this TaskRecord record, IAdrSettings settings, IProcessHelper process)
+    {
+        var fileInfo = settings.GetContentFile(record.FileName);
+        var fullName = fileInfo.FullName;
+        OpenPreferredEditor(process, fileInfo, fullName);
+        return record;
+    }
+
+    private static void OpenPreferredEditor(IProcessHelper process, System.IO.Abstractions.IFileInfo fileInfo, string fullName)
+    {
         if (!fileInfo.Exists)
         {
-            throw new AdrException($"Could not locate {fileInfo.FullName}.");
+            throw new AdrException($"Could not locate {fullName}.");
         }
         try
         {
-            process.Start(fileInfo.FullName);
+            process.Start(fullName);
         }
         catch (Exception e)
         {
             // hack because of this: https://github.com/dotnet/corefx/issues/10361
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                var url = fileInfo.FullName.Replace("&", "^&");
+                var url = fullName.Replace("&", "^&");
                 process.Start(new ProcessStartInfo("cmd", $"/c start {url}") { CreateNoWindow = true });
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                process.Start("xdg-open", fileInfo.FullName);
+                process.Start("xdg-open", fullName);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                process.Start("open", fileInfo.FullName);
+                process.Start("open", fullName);
             }
             else
             {
-                throw new AdrException($"Could start an editor for {fileInfo.FullName}.", e);
+                throw new AdrException($"Could not start an editor for {fullName}.", e);
             }
         }
-        return record;
     }
 
     /// <summary>
@@ -127,9 +136,9 @@ public static class AdrRecordExtensions
     /// The same record as provided as parameter,
     /// or a new record if the entry parameter was null.
     /// </returns>
-    public static AdrRecord PrepareForStorage(this AdrRecord record)
+    public static T PrepareForStorage<T>(this T record) where T : AdrRecordBase
     {
-        record ??= new AdrRecord();
+        ArgumentNullException.ThrowIfNull(record);
         record.FileName = $"{record.RecordId:D5}-{SanitizeFileName(record.Title)}";
         return record;
     }
@@ -201,7 +210,7 @@ public static class AdrRecordExtensions
                     inTextBlock = true;
                     yield return line;
                     yield return string.Empty;
-                    foreach(var s in newContent)
+                    foreach (var s in newContent)
                     {
                         yield return s;
                     }
@@ -212,7 +221,10 @@ public static class AdrRecordExtensions
                 }
                 else
                 {
-                    if (!inTextBlock) yield return line;
+                    if (!inTextBlock)
+                    {
+                        yield return line;
+                    }
                 }
             }
         }
@@ -263,11 +275,11 @@ public static class AdrRecordExtensions
                         previousLineWasEmpty = true;
                     }
                 }
-                else 
+                else
                 {
                     previousLineWasEmpty = false;
                     yield return line;
-                }                                
+                }
             }
         }
     }
@@ -282,7 +294,10 @@ public static class AdrRecordExtensions
     public static AdrRecord UpdateFromMarkdown(this AdrRecord record, int recordId, string[] lines, out bool metadataMmodified)
     {
         metadataMmodified = false;
-        if (lines.Length <= 0) return record;
+        if (lines.Length <= 0)
+        {
+            return record;
+        }
 
         if (recordId > 0 && recordId != record.RecordId)
         {
@@ -323,7 +338,11 @@ public static class AdrRecordExtensions
             var sb = new StringBuilder();
             foreach (var s in context)
             {
-                if (string.IsNullOrEmpty(s)) break;
+                if (string.IsNullOrEmpty(s))
+                {
+                    break;
+                }
+
                 sb.Append(s.Trim());
                 sb.Append(' ');
             }
@@ -336,8 +355,15 @@ public static class AdrRecordExtensions
         }
 
         // Decision and consequences are not part of the metadata
-        if (lines.TryFindMdElement("Decision", out var decision)) record.Decision = string.Join(Environment.NewLine, decision);
-        if (lines.TryFindMdElement("Consequences", out var consequences)) record.Consequences = string.Join(Environment.NewLine, consequences);
+        if (lines.TryFindMdElement("Decision", out var decision))
+        {
+            record.Decision = string.Join(Environment.NewLine, decision);
+        }
+
+        if (lines.TryFindMdElement("Consequences", out var consequences))
+        {
+            record.Consequences = string.Join(Environment.NewLine, consequences);
+        }
 
         return record;
     }
@@ -346,10 +372,17 @@ public static class AdrRecordExtensions
     /// Validate critical elements is the <see cref="AdrRecord"/>.
     /// </summary>
     /// <param name="record">The AdrRecord.</param>
-    public static void Validate(this AdrRecord record)
+    public static void Validate<T>(this T record) where T : AdrRecordBase
     {
-        if (record.RecordId < 0) throw new AdrException("Record id must be a positive value");
-        if (string.IsNullOrEmpty(record.Title)) throw new AdrException("Title cannot be empty");
+        if (record.RecordId < 0)
+        {
+            throw new AdrException("Record id must be a positive value");
+        }
+
+        if (string.IsNullOrEmpty(record.Title))
+        {
+            throw new AdrException("Title cannot be empty");
+        }
     }
 
     /// <summary>
@@ -366,6 +399,19 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
+    /// Format the ADR as a string with detailed information.
+    /// </summary>
+    /// <param name="record">The AdrRecord.</param>
+    /// <returns></returns>
+    public static string VerboseString(this TaskRecord record)
+    {
+        return $"{record.RecordId:D5} {record.DateTime:yyyy-MMM-dd} Status: {record.Status}" + Environment.NewLine
+            + $"Title:   {record.Title}" + Environment.NewLine
+            + $"Description: {record.Description}" + Environment.NewLine
+            + "---";
+    }
+
+    /// <summary>
     /// Find the line with the header
     /// </summary>
     /// <param name="lines">Lines from a markdown text.</param>
@@ -377,7 +423,11 @@ public static class AdrRecordExtensions
         var mdHeader = $"# {header}";
         while (n < lines.Length)
         {
-            if (lines[n].Contains(mdHeader, StringComparison.OrdinalIgnoreCase)) return n;
+            if (lines[n].Contains(mdHeader, StringComparison.OrdinalIgnoreCase))
+            {
+                return n;
+            }
+
             n++;
         }
         return -1;
@@ -410,14 +460,22 @@ public static class AdrRecordExtensions
         {
             element = Array.Empty<string>();
             var n = FindLineWithHeader(lines, header);
-            if (n < 0) return false;
+            if (n < 0)
+            {
+                return false;
+            }
+
             var sb = new List<string>();
             // skip first line after header
             n++;
             while (n < lines.Length - 1)
             {
                 var text = lines[++n].Trim();
-                if (text.StartsWith("## ", StringComparison.Ordinal)) break;
+                if (text.StartsWith("## ", StringComparison.Ordinal))
+                {
+                    break;
+                }
+
                 sb.Add(text);
             }
             element = sb.ToArray();

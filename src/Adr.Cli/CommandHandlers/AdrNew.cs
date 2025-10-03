@@ -41,7 +41,6 @@ public class AdrNew : IAdrNew
     {
         if (!settings.RepositoryInitialized())
         {
-            stdOut.WriteLine($"Architecture Decision folder is not initialized {settings.DocFolderInfo().FullName}.");
             return Response.Fail($"Architecture Decision folder is not initialized {settings.DocFolderInfo().FullName}.");
         }
 

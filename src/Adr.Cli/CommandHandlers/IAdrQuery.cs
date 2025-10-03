@@ -12,7 +12,7 @@ public interface IAdrQuery
     /// <summary>
     /// Show a list with all ADR titles with their creation date and current state.
     /// </summary>
-    /// <param name="sortReverse">Show ADR in reverse order (newest first.</param>
+    /// <param name="sortReverse">Show ADR in reverse order (newest first).</param>
     /// <param name="verbose">Show ADR with more details.</param>
     /// <returns>integer indicating success or failure</returns>
     Task<Response> ListAdrAsync(bool sortReverse, bool verbose);

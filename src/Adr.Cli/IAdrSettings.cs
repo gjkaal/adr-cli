@@ -1,4 +1,4 @@
-﻿using System.IO.Abstractions;
+using System.IO.Abstractions;
 
 namespace Adr.Cli;
 
@@ -15,6 +15,11 @@ public interface IAdrSettings
     string DefaultDocFolder { get; }
 
     /// <summary>
+    /// The default location for planning records.
+    /// </summary>
+    string DefaultTasksFolder { get; }
+
+    /// <summary>
     /// The default location for Adr templates.
     /// </summary>
     string DefaultTemplates { get; }
@@ -23,6 +28,11 @@ public interface IAdrSettings
     /// Relative or full file location for the documentation folder.
     /// </summary>
     string DocFolder { get; set; }
+
+    /// <summary>
+    /// Relative or full file location for the documentation folder.
+    /// </summary>
+    string TasksFolder { get; set; }
 
     /// <summary>
     /// Relative or full file location for templates.
@@ -38,6 +48,11 @@ public interface IAdrSettings
     /// Directory information for the ADR documents.
     /// </summary>
     IDirectoryInfo DocFolderInfo();
+
+    /// <summary>
+    /// Directory information for the ADR documents.
+    /// </summary>
+    IDirectoryInfo TasksFolderInfo();
 
     /// <summary>
     /// Directory information for the ADR templates.
@@ -69,7 +84,7 @@ public interface IAdrSettings
     /// Find the next file identification, starting with 0 (zero) for an uninitialized ADR folder.
     /// </summary>
     /// <returns>A positive integer number.</returns>
-    int GetNextFileNumber();
+    int GetNextFileNumber(IDirectoryInfo directoryInfo);
 
     /// <summary>
     /// Find the next file identification for a template.
@@ -79,11 +94,18 @@ public interface IAdrSettings
     IFileInfo GetTemplate(string templateType);
 
     /// <summary>
-    /// A boolean indicating that the ADR repository is initialized. 
+    /// A boolean indicating that the ADR repository is initialized.
     /// A new initialization should be blocked.
     /// </summary>
     /// <returns>True if the repository is already initialized.</returns>
     bool RepositoryInitialized();
+
+    /// <summary>
+    /// A boolean indicating that the tasks repository is initialized.
+    /// A new initialization should be blocked.
+    /// </summary>
+    /// <returns>True if the repository is already initialized.</returns>
+    bool TasksInitialized();
 
     /// <summary>
     /// Save the current settings in a conmfiguration file
@@ -92,7 +114,7 @@ public interface IAdrSettings
     IAdrSettings Write();
 
     /// <summary>
-    /// Find a documentation file. Typically, a documentation file resides next to the config 
+    /// Find a documentation file. Typically, a documentation file resides next to the config
     /// file in the <see cref="CurrentPath"/> folder.
     /// </summary>
     /// <param name="fileName">A valid file name.</param>

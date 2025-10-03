@@ -26,6 +26,7 @@ public static class CommandOptions
     public static Option<string> StartAt => new("--startAt") { Description = "Synchronize from this record until the end." };
     public static Option<string> TargetId => new("--target", "-t") { Description = "The target ADR (numeric value)." };
     public static Option<string> TemplateRoot => new("--tmpRoot") { Description = "Set the template root directory." };
+    public static Option<string> ProjectRoot => new("--prjRoot") { Description = "Set the project planning root directory." };
     public static Option<string> Title => new("--title") { Description = "The title for the ADR." };
     public static Option<bool> Verbose => new("--verbose") { Description = "Show the ADR's more information." };
     public static Option<bool> Silent => new("--silent", "-s") { Description = "Do not show status messages." };

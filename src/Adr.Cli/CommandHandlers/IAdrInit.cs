@@ -14,7 +14,8 @@ public interface IAdrInit
     /// </summary>
     /// <param name="adrRootPath">The (relative) path for the Adr folder.</param>
     /// <param name="templateRootPath">The (relative) path for the template folder.</param>
-    Task<Response> InitializeAsync(string adrRootPath, string templateRootPath);
+    /// <param name="templateRootPath">The (relative) path for the project folder.</param>
+    Task<Response> InitializeAsync(string adrRootPath, string templateRootPath, string projectRootPath);
 
     /// <summary>
     /// Synchronize the metadata, where possible, using the markdown content.

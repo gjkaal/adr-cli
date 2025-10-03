@@ -22,5 +22,9 @@ namespace Adr.Cli
         /// Add a revision document for either an AD or ASR
         /// </summary>
         Revision = 3,
+        /// <summary>
+        /// Template for tasks
+        /// </summary>
+        Task = 4
     }
 }
