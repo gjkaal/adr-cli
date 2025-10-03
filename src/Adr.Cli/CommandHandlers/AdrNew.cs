@@ -1,7 +1,11 @@
-﻿using Adr.Cli.Extensions;
-using Adr.Cli.Services;
-using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
+
+using Adr.Cli.Extensions;
+using Adr.Cli.Services;
+
+using McpCore;
+
+using Microsoft.Extensions.Logging;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -33,15 +37,15 @@ public class AdrNew : IAdrNew
     /// <summary>
     /// Create a new ADR
     /// </summary>
-    public async Task<int> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context)
+    public async Task<Response> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context)
     {
         if (!settings.RepositoryInitialized())
         {
             stdOut.WriteLine($"Architecture Decision folder is not initialized {settings.DocFolderInfo().FullName}.");
-            return -1;
+            return Response.Fail($"Architecture Decision folder is not initialized {settings.DocFolderInfo().FullName}.");
         }
 
-        int result;
+        Response result;
         if (isRequirement)
         {
             logger.LogInformation("Creating Critical Requirement Record.");
@@ -57,7 +61,7 @@ public class AdrNew : IAdrNew
             else
             {
                 logger.LogCritical($"Invalid record id [{revisionForRecord}], it should be a positive integer number.");
-                result = -1;
+                return Response.Fail($"Invalid record id [{revisionForRecord}], it should be a positive integer number.");
             }
         }
         else
@@ -68,7 +72,7 @@ public class AdrNew : IAdrNew
         return result;
     }
 
-    private async Task<int> CreateDecisionAsync(string title, string context)
+    private async Task<Response> CreateDecisionAsync(string title, string context)
     {
         var record = new AdrRecord
         {
@@ -76,22 +80,24 @@ public class AdrNew : IAdrNew
             Title = title,
             Status = AdrStatus.New
         };
-        if (!string.IsNullOrEmpty(context)) record.Context = context;
+        if (!string.IsNullOrEmpty(context))
+        {
+            record.Context = context;
+        }
 
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        stdOut.WriteLine($"AD is created in {settings.DocFolder}.");
-        return 0;
+        return Response.Ok($"AD is created in {settings.DocFolder}.");
     }
 
-    private async Task<int> CreateRevisionAsync(string title, string context, int recordId)
+    private async Task<Response> CreateRevisionAsync(string title, string context, int recordId)
     {
         var superSedes = await adrRecordRepository.ReadMetadataAsync(recordId);
         if (superSedes == null)
         {
-            logger.LogCritical($"Cannot find a record for revision with id: {recordId}");
-            return -1;
+            logger.LogCritical("Cannot find a record for revision with id: {RecordId}", recordId);
+            return Response.Fail($"Cannot find a record for revision with id: {recordId}");
         }
 
         var record = new AdrRecord
@@ -104,16 +110,18 @@ public class AdrNew : IAdrNew
 
         await adrRecordRepository.UpdateMetadataAsync(recordId, record);
 
-        if (!string.IsNullOrEmpty(context)) record.Context = context;
+        if (!string.IsNullOrEmpty(context))
+        {
+            record.Context = context;
+        }
 
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        stdOut.WriteLine($"Revision for {recordId:D5} is created in {settings.DocFolder}.");
-        return 0;
+        return Response.Ok($"Revision for {recordId:D5} is created in {settings.DocFolder}.");
     }
 
-    private async Task<int> CreateRequirementAsync(string title, string context)
+    private async Task<Response> CreateRequirementAsync(string title, string context)
     {
         var record = new AdrRecord
         {
@@ -121,33 +129,36 @@ public class AdrNew : IAdrNew
             Title = title,
             Status = AdrStatus.New
         };
-        if (!string.IsNullOrEmpty(context)) record.Context = context;
+        if (!string.IsNullOrEmpty(context))
+        {
+            record.Context = context;
+        }
 
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        stdOut.WriteLine($"ASR is created in {settings.DocFolder}.");
-        return 0;
+        return Response.Ok($"ASR is created in {settings.DocFolder}.");
     }
 
-    public async Task<int> CopyAdrAsync(string sourceId, bool isRevision)
+    public async Task<Response> CopyAdrAsync(string sourceId, bool isRevision)
     {
-        if (!int.TryParse(sourceId, out var recordId)) {
+        if (!int.TryParse(sourceId, out var recordId))
+        {
             stdOut.WriteLine($"Expecting a numeric value for source and it was {sourceId}.");
-            return 0; 
+            return Response.Fail($"Expecting a numeric value for source and it was {sourceId}.");
         }
 
         var record = await adrRecordRepository.ReadMetadataAsync(recordId);
         if (record == null)
         {
-            logger.LogCritical($"Cannot find a record for with id: {recordId}");
-            return -1;
+            logger.LogCritical("Cannot find a record for with id: {RecordId}", recordId);
+            return Response.Fail($"Cannot find a record for with id: {recordId}");
         }
 
         var newId = settings.GetNextFileNumber();
         var newRecord = await adrRecordRepository.CopyRecordAsync(record, newId, isRevision);
 
-        int linkResult;
+        Response linkResult;
         if (isRevision)
         {
             linkResult = await linkCommandHandler.HandleLinkAdrAsync(newId, recordId, "Supersedes", AdrLinkTypeOperation.Create);
@@ -157,14 +168,13 @@ public class AdrNew : IAdrNew
             linkResult = await linkCommandHandler.HandleLinkAdrAsync(newId, recordId, "Copied from", AdrLinkTypeOperation.Create);
         }
 
-        if (linkResult != 0)
+        if (!linkResult.Success)
         {
-            logger.LogWarning($"Could not link records {recordId} and {newId}.");
+            logger.LogWarning("Could not link records {RecordId} and {NewId}.", recordId, newId);
         }
 
         newRecord.LaunchEditor(settings, processHelper);
 
-        stdOut.WriteLine($"Copy for {recordId:D5} is created as {newId:D5} in {settings.DocFolder}.");
-        return 0;
+        return Response.Ok($"Copy for {recordId:D5} is created as {newId:D5} in {settings.DocFolder}.");
     }
 }

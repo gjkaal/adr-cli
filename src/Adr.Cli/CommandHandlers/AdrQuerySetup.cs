@@ -1,6 +1,8 @@
 using System;
 using System.CommandLine;
 
+using Adr.Cli.Services;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Adr.Cli.CommandHandlers;
@@ -9,6 +11,7 @@ public static class AdrQuerySetup
 {
     public static Command ListCommand(IServiceProvider serviceProvider)
     {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("list", "List all Architecture Decision Records");
         var sortReverse = CommandOptions.SortReverse;
         var verbose = CommandOptions.Verbose;
@@ -22,7 +25,8 @@ public static class AdrQuerySetup
             var verboseValue = ctx.GetValue(verbose);
 
             var c = serviceProvider.GetRequiredService<IAdrQuery>();
-            await c.ListAdrAsync(sortReverseValue, verboseValue);
+            var result = await c.ListAdrAsync(sortReverseValue, verboseValue);
+            stdOut.Write(result);
         });
 
         return cmd;
@@ -30,6 +34,7 @@ public static class AdrQuerySetup
 
     public static Command QueryCommand(IServiceProvider serviceProvider)
     {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("find", "Find Architecture Decision Records");
         var sortReverse = CommandOptions.SortReverse;
         var verbose = CommandOptions.Verbose;
@@ -50,7 +55,8 @@ public static class AdrQuerySetup
 
 
             var c = serviceProvider.GetRequiredService<IAdrQuery>();
-            await c.FindAdrAsync(filterValue, sortReverseValue, verboseValue, includeContentValue);
+            var result = await c.FindAdrAsync(filterValue, sortReverseValue, verboseValue, includeContentValue);
+            stdOut.Write(result);
         });
 
         return cmd;

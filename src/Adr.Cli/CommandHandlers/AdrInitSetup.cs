@@ -1,6 +1,8 @@
 using System;
 using System.CommandLine;
 
+using Adr.Cli.Services;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Adr.Cli.CommandHandlers;
@@ -12,6 +14,7 @@ public static class CommandHandlerSetup
     /// </summary>
     public static Command InitCommand(IServiceProvider serviceProvider)
     {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("init", "Initialize a new ADR folder");
         var adrRoot = CommandOptions.AdrRoot;
         var templateRoot = CommandOptions.TemplateRoot;
@@ -25,7 +28,8 @@ public static class CommandHandlerSetup
             var templateRootPath = ctx.GetValue(templateRoot) ?? "";
 
             var c = serviceProvider.GetRequiredService<IAdrInit>();
-            await c.InitializeAsync(adrRootPath, templateRootPath);
+            var result = await c.InitializeAsync(adrRootPath, templateRootPath);
+            stdOut.Write(result);
         });
 
         return cmd;
@@ -36,6 +40,7 @@ public static class CommandHandlerSetup
     /// </summary>
     public static Command SyncMetadataCommand(IServiceProvider serviceProvider)
     {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("sync", "Sync the metadata using the content in the markdown files");
         var record = CommandOptions.Record;
         var startAt = CommandOptions.StartAt;
@@ -61,7 +66,8 @@ public static class CommandHandlerSetup
             }
 
             var c = serviceProvider.GetRequiredService<IAdrInit>();
-            await c.SyncMetadataAsync(startAtid, recordId);
+            var result = await c.SyncMetadataAsync(startAtid, recordId);
+            stdOut.Write(result);
         });
         return cmd;
     }
@@ -71,11 +77,13 @@ public static class CommandHandlerSetup
     /// </summary>
     public static Command GenerateTocCommand(IServiceProvider serviceProvider)
     {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("generate-toc", "Generate a table of contents markdown file in the project root folder, next to the config file.");
         cmd.SetAction(async (ParseResult ctx) =>
         {
             var c = serviceProvider.GetRequiredService<IAdrInit>();
-            await c.GenerateTocAsync();
+            var result = await c.GenerateTocAsync();
+            stdOut.Write(result);
         });
         return cmd;
     }

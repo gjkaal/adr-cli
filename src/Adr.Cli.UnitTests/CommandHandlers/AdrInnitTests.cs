@@ -1,10 +1,14 @@
-﻿using Adr.Cli.Extensions;
-using Adr.Cli.Services;
-using Adr.Cli.XLogger;
-using Microsoft.Extensions.Logging;
-using Moq;
 using System.IO.Abstractions;
 using System.Threading.Tasks;
+
+using Adr.Cli.Extensions;
+using Adr.Cli.Services;
+using Adr.Cli.XLogger;
+
+using Microsoft.Extensions.Logging;
+
+using Moq;
+
 using Xunit;
 using Xunit.Abstractions;
 
@@ -54,6 +58,6 @@ public class AdrInitTests
         contentFileMock.SetupGet(m => m.Exists).Returns(true);
         IAdrInit sut = new AdrInit(settingsMock.Object, logger, repositoryMock.Object, stdOutMock.Object, procesMock.Object);
         var result = await sut.InitializeAsync("doc", "template");
-        Assert.Equal(0, result);
+        Assert.True(result.Success);
     }
 }

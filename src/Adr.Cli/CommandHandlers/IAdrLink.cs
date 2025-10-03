@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
+
+using McpCore;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -15,7 +17,7 @@ public interface IAdrLink
     /// <param name="targetId">The record that is linked to this record.</param>
     /// <param name="operation">The type of operation</param>
     /// <returns></returns>
-    Task<int> HandleLinkAdrAsync(string sourceId, string targetId, string remark, AdrLinkTypeOperation operation);
+    Task<Response> HandleLinkAdrAsync(string sourceId, string targetId, string remark, AdrLinkTypeOperation operation);
 
     /// <summary>
     /// Wrapper for link or remove with parameter validation.
@@ -25,7 +27,7 @@ public interface IAdrLink
     /// <param name="targetId">The record that is linked to this record.</param>
     /// <param name="operation">The type of operation</param>
     /// <returns></returns>
-    Task<int> HandleLinkAdrAsync(int sourceId, int targetId, string remark, AdrLinkTypeOperation operation);
+    Task<Response> HandleLinkAdrAsync(int sourceId, int targetId, string remark, AdrLinkTypeOperation operation);
 
     /// <summary>
     /// Add a link between two records.
@@ -39,7 +41,7 @@ public interface IAdrLink
     /// <param name="remark">The keyword that explains the link.</param>
     /// <param name="targetId">The record that is linked to this record.</param>
     /// <returns></returns>
-    Task<int> LinkAdrAsync(int sourceId, int targetId, string remark);
+    Task<Response> LinkAdrAsync(int sourceId, int targetId, string remark);
 
     /// <summary>
     /// Remove all links from the source to the target (reverse links are not removed).
@@ -47,5 +49,5 @@ public interface IAdrLink
     /// <param name="sourceId">The record that extends another record.</param>
     /// <param name="targetId">The record that is linked to this record.</param>
     /// <returns></returns>
-    Task<int> RemoveLinkAsync(int sourceId, int targetId);
+    Task<Response> RemoveLinkAsync(int sourceId, int targetId);
 }

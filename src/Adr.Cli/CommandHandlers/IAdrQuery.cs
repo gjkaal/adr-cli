@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
+
+using McpCore;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -13,7 +15,7 @@ public interface IAdrQuery
     /// <param name="sortReverse">Show ADR in reverse order (newest first.</param>
     /// <param name="verbose">Show ADR with more details.</param>
     /// <returns>integer indicating success or failure</returns>
-    Task<int> ListAdrAsync(bool sortReverse, bool verbose);
+    Task<Response> ListAdrAsync(bool sortReverse, bool verbose);
 
     /// <summary>
     /// Show a list with ADR titles using a filter on title and content.
@@ -23,5 +25,5 @@ public interface IAdrQuery
     /// <param name="sortReverse">Show ADR in reverse order (newest first.</param>
     /// <param name="verbose">Show ADR with more details.</param>
     /// <returns>integer indicating success or failure</returns>
-    Task<int> FindAdrAsync(string filter, bool sortReverse, bool verbose, bool includeContent);
+    Task<Response> FindAdrAsync(string filter, bool sortReverse, bool verbose, bool includeContent);
 }

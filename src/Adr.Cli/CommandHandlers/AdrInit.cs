@@ -1,11 +1,15 @@
-﻿using Adr.Cli.Extensions;
-using Adr.Cli.Services;
-using Microsoft.Extensions.Logging;
 using System;
 using System.IO.Abstractions;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+
+using Adr.Cli.Extensions;
+using Adr.Cli.Services;
+
+using McpCore;
+
+using Microsoft.Extensions.Logging;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -41,7 +45,7 @@ public class AdrInit : IAdrInit
     /// <param name="adrRootPath">An alternate for the document folder, default is '\docs\adr'.</param>
     /// <param name="templateRootPath">An alternate for the template folder, default is '\docs\adr\template' </param>
     /// <returns></returns>
-    public async Task<int> InitializeAsync(string adrRootPath = "", string templateRootPath = "")
+    public async Task<Response> InitializeAsync(string adrRootPath = "", string templateRootPath = "")
     {
         adrRootPath = GetPathWithDefault(adrRootPath, settings.DocFolder ?? settings.DefaultDocFolder);
         templateRootPath = GetPathWithDefault(templateRootPath, settings.TemplateFolder ?? settings.DefaultTemplates);
@@ -52,8 +56,7 @@ public class AdrInit : IAdrInit
 
         if (settings.RepositoryInitialized())
         {
-            stdOut.WriteLine($"Initialization is already done for {adrRootPath}.");
-            return -1;
+            return Response.Fail($"Initialization is already done for {adrRootPath}.");
         }
 
         var record = new AdrRecord
@@ -65,8 +68,7 @@ public class AdrInit : IAdrInit
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        stdOut.WriteLine($"Initialization complete, initial ADR is created in {settings.DocFolderInfo().FullName}.");
-        return 0;
+        return Response.Ok($"Initialization complete, initial ADR is created in {settings.DocFolderInfo().FullName}.");
     }
 
     private static string GetPathWithDefault(string? folder, string defaultPath)
@@ -76,12 +78,12 @@ public class AdrInit : IAdrInit
         var path = string.IsNullOrEmpty(folder)
             ? defaultPath
             : folder;
-        return (path.StartsWith("\\"))
+        return path.StartsWith("\\")
             ? path[1..]
             : path;
     }
 
-    public async Task<int> SyncMetadataAsync(int startFromRecordId, int onlyForRecordId)
+    public async Task<Response> SyncMetadataAsync(int startFromRecordId, int onlyForRecordId)
     {
         var docFolder = settings.DocFolderInfo();
         var templateFolder = settings.TemplateFolderInfo();
@@ -91,13 +93,11 @@ public class AdrInit : IAdrInit
         // check for invalid values
         if (startFromRecordId <= 0)
         {
-            stdOut.WriteLine("Invalid start record provided, use positive integer numbers to indicate staring record.");
-            return -1;
+            return Response.Fail("Invalid start record provided, use positive integer numbers to indicate staring record.");
         }
         if (onlyForRecordId < 0)
         {
-            stdOut.WriteLine("Invalid record id provided, use positive integer numbers to identify record for synchronization.");
-            return -1;
+            return Response.Fail("Invalid record id provided, use positive integer numbers to identify record for synchronization.");
         }
 
         return (onlyForRecordId > 0)
@@ -105,43 +105,50 @@ public class AdrInit : IAdrInit
          : await SynchronizeRange(startFromRecordId, docFolder);
     }
 
-    private async Task<int> SynchronizeRecord(int onlyForRecordId, IDirectoryInfo docFolder)
+    private async Task<Response> SynchronizeRecord(int onlyForRecordId, IDirectoryInfo docFolder)
     {
         var docInfo = docFolder.EnumerateFiles($"{onlyForRecordId:D5}-*.md").FirstOrDefault();
         if (docInfo == null)
         {
-            stdOut.WriteLine($"Could not find ADR with identification {onlyForRecordId}");
-            return -1;
+            return Response.Fail($"Could not find ADR with identification {onlyForRecordId}");
         }
         var record = await adrRecordRepository.ReadMetadataAsync(onlyForRecordId);
         var markdown = await adrRecordRepository.ReadContentAsync(onlyForRecordId);
         if (record == null || markdown == null)
         {
-            stdOut.WriteLine($"Could not open record or markdown for ADR {onlyForRecordId}");
-            return -1;
+            return Response.Fail($"Could not open record or markdown for ADR {onlyForRecordId}");
         }
-        await UpdateFromMarkdown(docInfo, onlyForRecordId, record, markdown);
-        return 0;
+        return await UpdateFromMarkdown(docInfo, onlyForRecordId, record, markdown);
     }
 
-    private async Task<int> SynchronizeRange(int startFromRecordId, IDirectoryInfo docFolder)
+    private async Task<Response> SynchronizeRange(int startFromRecordId, IDirectoryInfo docFolder)
     {
+        var sb = new StringBuilder();
         foreach (var docInfo in docFolder.EnumerateFiles("*.md"))
         {
             var recordIdPart = docInfo.Name.Split('-')[0];
             if (int.TryParse(recordIdPart, out var recordId) && recordId >= startFromRecordId)
             {
                 var record = await adrRecordRepository.ReadMetadataAsync(recordId);
-                if (record == null) continue;
+                if (record == null)
+                {
+                    continue;
+                }
+
                 var markdown = await adrRecordRepository.ReadContentAsync(recordId);
-                if (markdown == null) continue;
-                await UpdateFromMarkdown(docInfo, recordId, record, markdown);
+                if (markdown == null)
+                {
+                    continue;
+                }
+
+                var result = await UpdateFromMarkdown(docInfo, recordId, record, markdown);
+                sb.AppendLine($"File: {docInfo.FullName}, Synchronized:{result.Success} {result.Message}");
             }
         }
-        return 0;
+        return Response.Ok(sb.ToString());
     }
 
-    private async Task UpdateFromMarkdown(IFileInfo docInfo, int recordId, AdrRecord record, string[] markdown)
+    private async Task<Response> UpdateFromMarkdown(IFileInfo docInfo, int recordId, AdrRecord record, string[] markdown)
     {
         record.UpdateFromMarkdown(recordId, markdown, out var modified);
         if (modified)
@@ -149,16 +156,20 @@ public class AdrInit : IAdrInit
             var bytesWritten = await adrRecordRepository.UpdateMetadataAsync(recordId, record);
             if (bytesWritten <= 0)
             {
-                stdOut.WriteLine($"Could not find {docInfo.Name} for update");
+                return Response.Fail($"Could not find {docInfo.Name} for update");
             }
             else
             {
-                stdOut.WriteLine($"Metadatafile {docInfo.Name} is modified.");
+                return Response.Ok($"Metadatafile {docInfo.Name} is modified.");
             }
+        }
+        else
+        {
+            return Response.Ok($"No changes in {docInfo.Name}.");
         }
     }
 
-    public async Task<int> GenerateTocAsync()
+    public async Task<Response> GenerateTocAsync()
     {
         var toc = new StringBuilder();
         var projectName = settings.ProjectName;
@@ -186,7 +197,11 @@ public class AdrInit : IAdrInit
             if (int.TryParse(recordIdPart, out var recordId))
             {
                 var record = await adrRecordRepository.ReadMetadataAsync(recordId);
-                if (record == null) continue;
+                if (record == null)
+                {
+                    continue;
+                }
+
                 var link = $"..\\{settings.DocFolder}\\{record.FileName}";
                 toc.AppendLine($"| {record.RecordId} | [{record.Title}]({link}) | {record.Status} |");
             }
@@ -195,7 +210,8 @@ public class AdrInit : IAdrInit
 
         var (success, generatedFile) = await adrRecordRepository.CreateRootDocumentAsync("adr-toc.md", toc);
 
-        stdOut.WriteLine($"Generated TOC in {generatedFile}");
-        return success ? 0 : 1;
+        return success
+            ? Response.Ok($"Generated TOC in {generatedFile}")
+            : Response.Fail($"Generating TOC in {generatedFile} is not completed.");
     }
 }

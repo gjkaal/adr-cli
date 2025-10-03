@@ -1,9 +1,13 @@
-﻿using Adr.Cli.Extensions;
-using Adr.Cli.Services;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+
+using Adr.Cli.Extensions;
+using Adr.Cli.Services;
+
+using McpCore;
+
+using Microsoft.Extensions.Logging;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -23,35 +27,41 @@ public class AdrLink : IAdrLink
         this.stdOut = stdOut;
     }
 
-    public Task<int> HandleLinkAdrAsync(string sourceId, string targetId, string reason, AdrLinkTypeOperation operation)
+    public Task<Response> HandleLinkAdrAsync(string sourceId, string targetId, string reason, AdrLinkTypeOperation operation)
     {
         if (!(int.TryParse(sourceId, out var linkId) && int.TryParse(targetId, out var targetLinkId)))
         {
             logger.LogError($"Could not interpret [source: {sourceId}] or [target: {targetId}] as a valid number");
             stdOut.WriteLine("Source id and target id should be valid identifiers.");
             stdOut.WriteLine("No link has been made.");
-            return Task.FromResult(-1);
+            return Task.FromResult(Response.Fail("Source id and target id should be valid identifiers. No link has been made."));
         }
         if (linkId <= 0 || targetLinkId <= 0)
         {
             logger.LogError($"Identifier not valid [source: {sourceId}] or [target: {targetId}].");
             stdOut.WriteLine("Source id and target id should be positive numbers.");
             stdOut.WriteLine("No link has been made.");
-            return Task.FromResult(-1);
+            return Task.FromResult(Response.Fail("Source id and target id should be positive numbers. No link has been made."));
         }
 
         return HandleLinkAdrAsync(linkId, targetLinkId, reason, operation);
     }
 
-    public Task<int> HandleLinkAdrAsync(int sourceId, int targetId, string reason, AdrLinkTypeOperation operation)
+    public Task<Response> HandleLinkAdrAsync(int sourceId, int targetId, string reason, AdrLinkTypeOperation operation)
     {
-        if (string.IsNullOrEmpty(reason)) reason = "Extends";
+        if (string.IsNullOrEmpty(reason))
+        {
+            reason = "Extends";
+        }
+
         return (operation == AdrLinkTypeOperation.Create)
         ? LinkAdrAsync(sourceId, targetId, reason)
         : RemoveLinkAsync(sourceId, targetId);
+
+
     }
 
-    public async Task<int> LinkAdrAsync(int sourceId, int targetId, string remark)
+    public async Task<Response> LinkAdrAsync(int sourceId, int targetId, string remark)
     {
         logger.LogInformation($"Creating link between {sourceId} and {targetId} for {remark}.");
 
@@ -60,14 +70,14 @@ public class AdrLink : IAdrLink
         if (sourceContent == null || sourceContent.Length == 0)
         {
             stdOut.WriteLine($"Source ADR does not exist: {sourceId:D5}.");
-            return -1;
+            return Response.Fail($"Source ADR does not exist: {sourceId:D5}.");
         }
 
         var targetContent = await adrRecordRepository.ReadContentAsync(targetId);
         if (targetContent == null || targetContent.Length == 0)
         {
             stdOut.WriteLine($"Target ADR does not exist: {targetId:D5}.");
-            return -1;
+            return Response.Fail($"Target ADR does not exist: {sourceId:D5}.");
         }
         var sourceMeta = await adrRecordRepository.ReadMetadataAsync(sourceId);
         if (sourceMeta == null)
@@ -91,10 +101,10 @@ public class AdrLink : IAdrLink
         await adrRecordRepository.UpdateMetadataAsync(sourceId, newMetadata);
         await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
 
-        return 0;
+        return Response.Ok($"Created link between {sourceId} and {targetId} for {remark}.");
     }
 
-    public async Task<int> RemoveLinkAsync(int sourceId, int targetId)
+    public async Task<Response> RemoveLinkAsync(int sourceId, int targetId)
     {
         logger.LogInformation($"Removing all reference link from {sourceId} to {targetId}.");
 
@@ -103,7 +113,7 @@ public class AdrLink : IAdrLink
         if (sourceContent == null || sourceContent.Length == 0)
         {
             stdOut.WriteLine($"Source ADR does not exist: {sourceId:D5}.");
-            return -1;
+            return Response.Fail($"Source ADR does not exist: {sourceId:D5}.");
         }
 
         var sourceMeta = await adrRecordRepository.ReadMetadataAsync(sourceId);
@@ -122,6 +132,6 @@ public class AdrLink : IAdrLink
         await adrRecordRepository.UpdateMetadataAsync(sourceId, sourceMeta);
         await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
 
-        return 0;
+        return Response.Ok($"Removed all reference link from {sourceId} to {targetId}.");
     }
 }

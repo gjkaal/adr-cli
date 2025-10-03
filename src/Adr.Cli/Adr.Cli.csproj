@@ -21,5 +21,10 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.9" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-rc.1.25451.107" />
     <PackageReference Include="System.IO.Abstractions" Version="22.0.16" />
+    <PackageReference Include="System.Text.Json" Version="9.0.9" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <ProjectReference Include="..\McpCore\McpCore.csproj" />
   </ItemGroup>
 </Project>

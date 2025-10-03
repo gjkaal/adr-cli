@@ -1,6 +1,8 @@
 using System;
 using System.CommandLine;
 
+using Adr.Cli.Services;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Adr.Cli.CommandHandlers;
@@ -9,6 +11,7 @@ public static class AdrLinkSetup
 {
     public static Command LinkCommand(IServiceProvider serviceProvider)
     {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("link", "Link 2 ADR's for ammend / clarify or some other reason");
         var sourceId = CommandOptions.SourceId;
         var targetId = CommandOptions.TargetId;
@@ -31,13 +34,15 @@ public static class AdrLinkSetup
             var reasonValue = ctx.GetValue(reason) ?? "";
 
             var c = serviceProvider.GetRequiredService<IAdrLink>();
-            await c.HandleLinkAdrAsync(sourceIdValue, targetIdValue, reasonValue, AdrLinkTypeOperation.Create);
+            var result = await c.HandleLinkAdrAsync(sourceIdValue, targetIdValue, reasonValue, AdrLinkTypeOperation.Create);
+            stdOut.Write(result);
         });
         return cmd;
     }
 
     public static Command UnLinkCommand(IServiceProvider serviceProvider)
     {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("rlink", "Remove all links from one ADR to another");
         var sourceId = CommandOptions.SourceId;
         var targetId = CommandOptions.TargetId;
@@ -53,7 +58,8 @@ public static class AdrLinkSetup
             var sourceIdValue = ctx.GetValue(sourceId) ?? "";
             var targetIdValue = ctx.GetValue(targetId) ?? "";
             var c = serviceProvider.GetRequiredService<IAdrLink>();
-            await c.HandleLinkAdrAsync(sourceIdValue, targetIdValue, "remove", AdrLinkTypeOperation.Remove);
+            var result = await c.HandleLinkAdrAsync(sourceIdValue, targetIdValue, "remove", AdrLinkTypeOperation.Remove);
+            stdOut.Write(result);
         });
         return cmd;
     }

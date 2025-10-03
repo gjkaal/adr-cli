@@ -1,10 +1,15 @@
-﻿using Adr.Cli.Extensions;
-using Adr.Cli.Services;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
+
+using Adr.Cli.Extensions;
+using Adr.Cli.Services;
+
+using McpCore;
+
+using Microsoft.Extensions.Logging;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -28,51 +33,68 @@ public class AdrQuery : IAdrQuery
         this.stdOut = stdOut;
     }
 
-    public async Task<int> ListAdrAsync(bool sortReverse, bool verbose)
+    public async Task<Response> ListAdrAsync(bool sortReverse, bool verbose)
     {
-        logger.LogDebug($"List ADR {(sortReverse ? "newest first" : "oldest first")}");
+        logger.LogDebug("List ADR {SortOrder}", sortReverse ? "newest first" : "oldest first");
 
         var listMeta = new Dictionary<int, string>();
         var idList = FindRecordIds(0);
 
         var items = idList.Distinct();
-        if (sortReverse) items = items.Reverse();
+        if (sortReverse)
+        {
+            items = items.Reverse();
+        }
+
         foreach (var recordId in items)
         {
             var adr = await adrRecordRepository.ReadMetadataAsync(recordId);
-            if (adr == null) continue;
+            if (adr == null)
+            {
+                continue;
+            }
+
             var information = verbose
                 ? adr.VerboseString()
                 : adr.FormatString();
             listMeta.Add(adr.RecordId, information);
         }
 
+        var sb = new StringBuilder();
         foreach (var recordId in listMeta.Keys)
         {
-            stdOut.WriteLine(listMeta[recordId]);
+            sb.AppendLine(listMeta[recordId]);
         }
-        return 0;
+        return Response.Ok(sb.ToString());
     }
 
-    public async Task<int> FindAdrAsync(string filter, bool sortReverse, bool verbose, bool includeContent)
+    public async Task<Response> FindAdrAsync(string filter, bool sortReverse, bool verbose, bool includeContent)
     {
-        logger.LogDebug($"Find ADR containing '{filter}' {(sortReverse ? "newest first" : "oldest first")}");
+        logger.LogDebug("Find ADR containing '{Filter}' {SortOrder}", filter, sortReverse ? "newest first" : "oldest first");
 
+        var sb = new StringBuilder();
         var listMeta = new Dictionary<int, string>();
         var idList = FindRecordIds(0);
         var words = filter.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         if (words.Length == 0)
         {
-            stdOut.WriteLine("No filter provided");
+            sb.AppendLine("-- No filter provided --");
         }
 
         var items = idList.Distinct();
-        if (sortReverse) items = items.Reverse();
+        if (sortReverse)
+        {
+            items = items.Reverse();
+        }
+
         foreach (var recordId in items)
         {
             var showRecord = false;
             var adr = await adrRecordRepository.ReadMetadataAsync(recordId);
-            if (adr == null) continue;
+            if (adr == null)
+            {
+                continue;
+            }
 
             foreach (var word in words)
             {
@@ -108,9 +130,9 @@ public class AdrQuery : IAdrQuery
 
         foreach (var recordId in listMeta.Keys)
         {
-            stdOut.WriteLine(listMeta[recordId]);
+            sb.AppendLine(listMeta[recordId]);
         }
-        return 0;
+        return Response.Ok(sb.ToString());
     }
 
     private List<int> FindRecordIds(int startFromRecord)
@@ -121,9 +143,15 @@ public class AdrQuery : IAdrQuery
         foreach (var metadataFile in metadataFiles)
         {
             var parts = metadataFile.Split('-');
-            if (parts.Length < 1) continue;
+            if (parts.Length < 1)
+            {
+                continue;
+            }
+
             if (int.TryParse(parts[0], out var recordId) && recordId >= startFromRecord)
+            {
                 idList.Add(recordId);
+            }
         }
 
         return idList;

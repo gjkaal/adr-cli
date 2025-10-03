@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
+
+using McpCore;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -15,7 +17,7 @@ public interface IAdrNew
     /// <param name="revisionForRecord">This AD is a revision for a previous record.</param>
     /// <param name="context">The context for this decision.</param>
     /// <returns>integer indicating success or failure</returns>
-    Task<int> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context);
+    Task<Response> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context);
 
     /// <summary>
     /// Copy an existing ADR to a new ADR with or without a revision remark.
@@ -23,5 +25,5 @@ public interface IAdrNew
     /// <param name="sourceId">A numeric reference to an existing ADR.</param>
     /// <param name="isRevision">Defie the new record as a revision for the previous record.</param>
     /// <returns></returns>
-    Task<int> CopyAdrAsync(string sourceId, bool isRevision);
+    Task<Response> CopyAdrAsync(string sourceId, bool isRevision);
 }

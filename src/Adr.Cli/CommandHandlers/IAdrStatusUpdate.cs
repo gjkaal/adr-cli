@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
+
+using McpCore;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -14,7 +16,7 @@ public interface IAdrStatusUpdate
     /// <param name="record">A record identification.</param>
     /// <param name="remark">An optional remark that will be added to the document.</param>
     /// <returns>0 is the task completed successful</returns>
-    Task<int> SetProposed(int record, string remark);
+    Task<Response> SetProposed(int record, string remark);
 
     /// <summary>
     /// Change the status to 'Final'. The state change is valid when the
@@ -23,7 +25,7 @@ public interface IAdrStatusUpdate
     /// <param name="record">A record identification.</param>
     /// <param name="remark">An optional remark that will be added to the document.</param>
     /// <returns>0 is the task completed successful</returns>
-    Task<int> SetFinal(int record, string remark);
+    Task<Response> SetFinal(int record, string remark);
 
     /// <summary>
     /// Change the status to 'Accepted'. This is an end state. An ADR with a state
@@ -35,7 +37,7 @@ public interface IAdrStatusUpdate
     /// <param name="record">A record identification.</param>
     /// <param name="remark">An optional remark that will be added to the document.</param>
     /// <returns>0 is the task completed successful</returns>
-    Task<int> SetAccepted(int record, string remark);
+    Task<Response> SetAccepted(int record, string remark);
 
     /// <summary>
     /// Change the status to 'Obsolete'. This is an end state. No changes to any other state 
@@ -44,5 +46,5 @@ public interface IAdrStatusUpdate
     /// <param name="record">A record identification.</param>
     /// <param name="remark">An optional remark that will be added to the document.</param>
     /// <returns>0 is the task completed successful</returns>
-    Task<int> SetObsolete(int record, string remark);
+    Task<Response> SetObsolete(int record, string remark);
 }
