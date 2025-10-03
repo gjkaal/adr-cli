@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is adr-cli, a .NET 7.0 command-line tool for managing Architecture Decision Records (ADRs). The tool helps create, manage, and maintain ADR repositories with structured markdown and JSON metadata files.
+This is adr-cli, a .NET 9.0 command-line tool for managing Architecture Decision Records (ADRs). The tool helps create, manage, and maintain ADR repositories with structured markdown and JSON metadata files. It also supports the Model Context Protocol (MCP) for integration with AI tools like Claude and Copilot.
 
 ## Build and Development Commands
 
@@ -23,6 +23,9 @@ dotnet build Adr.Cli/Adr.Cli.csproj
 # Run the CLI tool during development
 dotnet run --project Adr.Cli/Adr.Cli.csproj -- [command] [options]
 
+# Run as MCP server for AI tools
+dotnet run --project Adr.Cli/Adr.Cli.csproj -- mcp
+
 # Create release build
 dotnet build -c Release
 
@@ -35,10 +38,16 @@ dotnet publish Adr.Cli/Adr.Cli.csproj -c Release -r win-x64 --self-contained
 The codebase follows a modular architecture with clear separation of concerns:
 
 ### Core Components
-- **Program.cs**: Entry point with dependency injection setup and command registration
+- **Program.cs**: Entry point with dependency injection setup, command registration, and MCP server mode
 - **AdrRecord.cs**: Core domain model representing an ADR with metadata
 - **AdrRecordRepository.cs**: Data access layer handling file I/O for ADR content and metadata
 - **AdrSettings.cs**: Configuration management for ADR repository paths and settings
+
+### MCP (Model Context Protocol) Support
+- **McpCore/**: Separate project containing MCP protocol implementation
+- **Mcp/AdrMcpServer.cs**: MCP server implementation for ADR operations
+- **JsonRpc/**: JSON-RPC 2.0 protocol models and infrastructure
+- **Protocol/**: MCP-specific protocol models and constants
 
 ### Command Structure
 Commands are organized using System.CommandLine with separate handler and setup classes:
@@ -73,9 +82,31 @@ The project uses xUnit for testing with:
 - **System.IO.Abstractions**: File system abstraction for testability
 - **System.Text.Json**: JSON serialization for metadata
 
+## MCP Integration
+
+The tool can run as an MCP (Model Context Protocol) server to enable AI tools like Claude and Copilot to interact with ADR repositories:
+
+### Available MCP Tools
+- `adr_init`: Initialize new ADR repository
+- `adr_new`: Create new Architecture Decision Record
+- `adr_list`: List all ADRs with optional filtering
+- `adr_find`: Search ADRs by text query
+- `adr_link`: Link two ADRs with relationship
+- `adr_unlink`: Remove links between ADRs
+- `adr_copy`: Copy existing ADR to create new one
+- `adr_sync`: Synchronize metadata with content
+- `adr_generate_toc`: Generate table of contents
+
+### Usage
+```bash
+# Start MCP server (listens on stdin/stdout for JSON-RPC)
+adr-cli mcp
+```
+
 ## Development Notes
 
 - The tool supports both creating new ADRs and managing revisions/links between existing ones
 - Templates are created on-demand when first used
 - Metadata synchronization keeps JSON files in sync with markdown content
 - The repository auto-detects configuration by walking up directory tree from current location
+- MCP mode enables seamless integration with AI tools for automated ADR management
