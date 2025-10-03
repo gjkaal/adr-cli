@@ -1,0 +1,81 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is adr-cli, a .NET 7.0 command-line tool for managing Architecture Decision Records (ADRs). The tool helps create, manage, and maintain ADR repositories with structured markdown and JSON metadata files.
+
+## Build and Development Commands
+
+This is a .NET solution built with Visual Studio. Common development commands:
+
+```bash
+# Build the solution (from src/ directory)
+dotnet build adr.sln
+
+# Run tests
+dotnet test
+
+# Build specific project
+dotnet build Adr.Cli/Adr.Cli.csproj
+
+# Run the CLI tool during development
+dotnet run --project Adr.Cli/Adr.Cli.csproj -- [command] [options]
+
+# Create release build
+dotnet build -c Release
+
+# Publish for specific runtime
+dotnet publish Adr.Cli/Adr.Cli.csproj -c Release -r win-x64 --self-contained
+```
+
+## Architecture
+
+The codebase follows a modular architecture with clear separation of concerns:
+
+### Core Components
+- **Program.cs**: Entry point with dependency injection setup and command registration
+- **AdrRecord.cs**: Core domain model representing an ADR with metadata
+- **AdrRecordRepository.cs**: Data access layer handling file I/O for ADR content and metadata
+- **AdrSettings.cs**: Configuration management for ADR repository paths and settings
+
+### Command Structure
+Commands are organized using System.CommandLine with separate handler and setup classes:
+- **CommandHandlers/**: Contains business logic for each command (AdrInit, AdrNew, AdrQuery, AdrLink)
+- **[Command]Setup.cs**: Command definition and registration logic
+- **I[Command].cs**: Interfaces for command handlers
+
+### Key Patterns
+- **Dual file approach**: Each ADR consists of a .md file (content) and .json file (metadata)
+- **Template system**: Customizable markdown templates in docs/templates/
+- **Repository pattern**: AdrRecordRepository abstracts file system operations
+- **Dependency injection**: Full DI container setup in Program.cs
+
+### File Structure
+- ADR documents stored in `docs/adr/` by default
+- Templates in `docs/templates/`
+- Configuration in `adr.config.json` at repository root
+- Filenames follow pattern: `{id:D5}-{title-slug}.{md|json}`
+
+## Testing
+
+The project uses xUnit for testing with:
+- **Moq** for mocking dependencies
+- **System.IO.Abstractions** for file system abstraction (testable file operations)
+- Test project: `Adr.Cli.UnitTests`
+
+## Key Dependencies
+
+- **System.CommandLine**: Command-line parsing and structure
+- **Microsoft.Extensions.DependencyInjection**: Dependency injection
+- **Microsoft.Extensions.Logging**: Structured logging
+- **System.IO.Abstractions**: File system abstraction for testability
+- **System.Text.Json**: JSON serialization for metadata
+
+## Development Notes
+
+- The tool supports both creating new ADRs and managing revisions/links between existing ones
+- Templates are created on-demand when first used
+- Metadata synchronization keeps JSON files in sync with markdown content
+- The repository auto-detects configuration by walking up directory tree from current location

@@ -1,11 +1,14 @@
-﻿using Adr.Cli.CommandHandlers;
-using Adr.Cli.Extensions;
-using Adr.Cli.Services;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using System;
 using System.CommandLine;
 using System.IO.Abstractions;
 using System.Threading.Tasks;
+
+using Adr.Cli.CommandHandlers;
+using Adr.Cli.Extensions;
+using Adr.Cli.Services;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Adr.Cli;
 
@@ -19,9 +22,9 @@ internal static class Program
 
         var app = new RootCommand("Command line tool for Architecture Decision Records");
 
-        app.SetHandler((context) =>
+        app.SetAction((context) =>
         {
-            context.Console.WriteLine("Use -help to see the available commands.");
+            Console.WriteLine("Use -help to see the available commands.");
         });
 
         // Initialize
@@ -41,7 +44,9 @@ internal static class Program
         app.Add(AdrLinkSetup.LinkCommand(serviceProvider));
         app.Add(AdrLinkSetup.UnLinkCommand(serviceProvider));
 
-        return await app.InvokeAsync(args);
+        var parseResult = app.Parse(args);
+        var executeResult = await parseResult.InvokeAsync();
+        return executeResult;
     }
 
     private static void ConfigureServices(ServiceCollection serviceCollection)

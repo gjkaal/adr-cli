@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.CommandLine;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -14,17 +15,22 @@ public static class AdrNewSetup
         var revision = CommandOptions.Revision;
         var context = CommandOptions.Context;
 
-        title.IsRequired = true;
+        title.Required = true;
 
-        cmd.AddOption(title);
-        cmd.AddOption(requirement);
-        cmd.AddOption(revision);
+        cmd.Options.Add(title);
+        cmd.Options.Add(requirement);
+        cmd.Options.Add(revision);
 
-        cmd.SetHandler(async (title, requirement, revision, context) =>
+        cmd.SetAction(async (ParseResult ctx) =>
         {
+            var titleValue = ctx.GetValue(title) ?? "";
+            var revisionValue = ctx.GetValue(revision) ?? "";
+            var requirementValue = ctx.GetValue(requirement);
+            var contextValue = ctx.GetValue(context) ?? "";
+
             var c = serviceProvider.GetRequiredService<IAdrNew>();
-            await c.NewAdrAsync(title, requirement, revision, context);
-        }, title, requirement, revision, context);
+            await c.NewAdrAsync(titleValue, requirementValue, revisionValue, contextValue);
+        });
         return cmd;
     }
 
@@ -34,16 +40,19 @@ public static class AdrNewSetup
         var sourceId = CommandOptions.SourceId;
         var revision = CommandOptions.AsRevision;
 
-        sourceId.IsRequired = true;
+        sourceId.Required = true;
 
-        cmd.AddOption(sourceId);
-        cmd.AddOption(revision);
+        cmd.Options.Add(sourceId);
+        cmd.Options.Add(revision);
 
-        cmd.SetHandler(async (sourceId, revision) =>
-        { 
+        cmd.SetAction(async (ParseResult ctx) =>
+        {
+            var sourceIdValue = ctx.GetValue(sourceId) ?? "";
+            var revisionValue = ctx.GetValue(revision);
+
             var c = serviceProvider.GetRequiredService<IAdrNew>();
-            await c.CopyAdrAsync(sourceId, revision);
-        }, sourceId, revision);
+            await c.CopyAdrAsync(sourceIdValue, revisionValue);
+        });
         return cmd;
     }
 }

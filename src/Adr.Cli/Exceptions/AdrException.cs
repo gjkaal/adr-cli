@@ -1,5 +1,4 @@
-﻿using System;
-using System.Runtime.Serialization;
+using System;
 
 namespace Adr.Cli.Exceptions
 {
@@ -14,10 +13,6 @@ namespace Adr.Cli.Exceptions
         }
 
         public AdrException(string message, Exception innerException) : base(message, innerException)
-        {
-        }
-
-        protected AdrException(SerializationInfo info, StreamingContext context) : base(info, context)
         {
         }
     }

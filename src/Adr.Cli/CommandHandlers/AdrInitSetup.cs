@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.CommandLine;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -15,13 +16,18 @@ public static class CommandHandlerSetup
         var adrRoot = CommandOptions.AdrRoot;
         var templateRoot = CommandOptions.TemplateRoot;
 
-        cmd.AddOption(adrRoot);
-        cmd.AddOption(templateRoot);
-        cmd.SetHandler(async (adrRootPath, templateRootPath) =>
+        cmd.Options.Add(adrRoot);
+        cmd.Options.Add(templateRoot);
+
+        cmd.SetAction(async (ParseResult ctx) =>
         {
+            var adrRootPath = ctx.GetValue(adrRoot) ?? "";
+            var templateRootPath = ctx.GetValue(templateRoot) ?? "";
+
             var c = serviceProvider.GetRequiredService<IAdrInit>();
             await c.InitializeAsync(adrRootPath, templateRootPath);
-        }, adrRoot, templateRoot);
+        });
+
         return cmd;
     }
 
@@ -34,16 +40,29 @@ public static class CommandHandlerSetup
         var record = CommandOptions.Record;
         var startAt = CommandOptions.StartAt;
 
-        cmd.AddOption(record);
-        cmd.SetHandler(async (startAt, record) =>
+        cmd.Options.Add(record);
+        cmd.Options.Add(startAt);
+
+        cmd.SetAction(async (ParseResult ctx) =>
         {
+            var startAtValue = ctx.GetValue(startAt) ?? "-1";
+            var recordValue = ctx.GetValue(record) ?? "-1";
+
             var startAtid = 1;
             var recordId = 0;
-            if (!string.IsNullOrEmpty(startAt) && !int.TryParse(startAt, out startAtid)) startAtid = -1;
-            if (!string.IsNullOrEmpty(record) && !int.TryParse(record, out recordId)) recordId = -1;
+            if (!string.IsNullOrEmpty(startAtValue) && !int.TryParse(startAtValue, out startAtid))
+            {
+                startAtid = -1;
+            }
+
+            if (!string.IsNullOrEmpty(recordValue) && !int.TryParse(recordValue, out recordId))
+            {
+                recordId = -1;
+            }
+
             var c = serviceProvider.GetRequiredService<IAdrInit>();
             await c.SyncMetadataAsync(startAtid, recordId);
-        }, startAt, record);
+        });
         return cmd;
     }
 
@@ -53,7 +72,7 @@ public static class CommandHandlerSetup
     public static Command GenerateTocCommand(IServiceProvider serviceProvider)
     {
         var cmd = new Command("generate-toc", "Generate a table of contents markdown file in the project root folder, next to the config file.");
-        cmd.SetHandler(async () =>
+        cmd.SetAction(async (ParseResult ctx) =>
         {
             var c = serviceProvider.GetRequiredService<IAdrInit>();
             await c.GenerateTocAsync();

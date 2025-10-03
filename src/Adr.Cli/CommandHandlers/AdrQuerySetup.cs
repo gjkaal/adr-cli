@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.CommandLine;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -12,13 +13,17 @@ public static class AdrQuerySetup
         var sortReverse = CommandOptions.SortReverse;
         var verbose = CommandOptions.Verbose;
 
-        cmd.AddOption(sortReverse);
-        cmd.AddOption(verbose);
-        cmd.SetHandler(async (sortReverse, verbose) =>
+        cmd.Options.Add(sortReverse);
+        cmd.Options.Add(verbose);
+
+        cmd.SetAction(async (ParseResult ctx) =>
         {
+            var sortReverseValue = ctx.GetValue(sortReverse);
+            var verboseValue = ctx.GetValue(verbose);
+
             var c = serviceProvider.GetRequiredService<IAdrQuery>();
-            await c.ListAdrAsync(sortReverse, verbose);
-        }, sortReverse, verbose);
+            await c.ListAdrAsync(sortReverseValue, verboseValue);
+        });
 
         return cmd;
     }
@@ -31,15 +36,22 @@ public static class AdrQuerySetup
         var includeContent = CommandOptions.IncludeContent;
         var filter = CommandOptions.Filter;
 
-        cmd.AddOption(sortReverse);
-        cmd.AddOption(verbose);
-        cmd.AddOption(includeContent);
-        cmd.AddOption(filter);
-        cmd.SetHandler(async (filter, sortReverse, verbose, includeContent) =>
+        cmd.Options.Add(sortReverse);
+        cmd.Options.Add(verbose);
+        cmd.Options.Add(includeContent);
+        cmd.Options.Add(filter);
+
+        cmd.SetAction(async (ParseResult ctx) =>
         {
+            var sortReverseValue = ctx.GetValue(sortReverse);
+            var verboseValue = ctx.GetValue(verbose);
+            var includeContentValue = ctx.GetValue(includeContent);
+            var filterValue = ctx.GetValue(filter) ?? "";
+
+
             var c = serviceProvider.GetRequiredService<IAdrQuery>();
-            await c.FindAdrAsync(filter, sortReverse, verbose, includeContent);
-        }, filter, sortReverse, verbose, includeContent);
+            await c.FindAdrAsync(filterValue, sortReverseValue, verboseValue, includeContentValue);
+        });
 
         return cmd;
     }

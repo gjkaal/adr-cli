@@ -1,6 +1,7 @@
-﻿using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.CommandLine;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -13,21 +14,25 @@ public static class AdrLinkSetup
         var targetId = CommandOptions.TargetId;
         var reason = CommandOptions.Reason;
 
-        sourceId.IsRequired = true;
-        sourceId.AddAlias("-s");
+        sourceId.Required = true;
+        sourceId.Aliases.Add("-s");
 
-        targetId.AddAlias("-t");
-        reason.AddAlias("-r");
+        targetId.Aliases.Add("-t");
+        reason.Aliases.Add("-r");
 
-        cmd.AddOption(sourceId);
-        cmd.AddOption(targetId);
-        cmd.AddOption(reason);
+        cmd.Options.Add(sourceId);
+        cmd.Options.Add(targetId);
+        cmd.Options.Add(reason);
 
-        cmd.SetHandler(async (sourceId, targetId, reason) =>
+        cmd.SetAction(async (ParseResult ctx) =>
         {
+            var sourceIdValue = ctx.GetValue(sourceId) ?? "";
+            var targetIdValue = ctx.GetValue(targetId) ?? "";
+            var reasonValue = ctx.GetValue(reason) ?? "";
+
             var c = serviceProvider.GetRequiredService<IAdrLink>();
-            await c.HandleLinkAdrAsync(sourceId, targetId, reason, AdrLinkTypeOperation.Create);
-        }, sourceId, targetId, reason);
+            await c.HandleLinkAdrAsync(sourceIdValue, targetIdValue, reasonValue, AdrLinkTypeOperation.Create);
+        });
         return cmd;
     }
 
@@ -37,17 +42,19 @@ public static class AdrLinkSetup
         var sourceId = CommandOptions.SourceId;
         var targetId = CommandOptions.TargetId;
 
-        sourceId.AddAlias("-s");
-        targetId.AddAlias("-t");
+        sourceId.Aliases.Add("-s");
+        targetId.Aliases.Add("-t");
 
-        cmd.AddOption(sourceId);
-        cmd.AddOption(targetId);
+        cmd.Options.Add(sourceId);
+        cmd.Options.Add(targetId);
 
-        cmd.SetHandler(async (sourceId, targetId) =>
+        cmd.SetAction(async (ParseResult ctx) =>
         {
+            var sourceIdValue = ctx.GetValue(sourceId) ?? "";
+            var targetIdValue = ctx.GetValue(targetId) ?? "";
             var c = serviceProvider.GetRequiredService<IAdrLink>();
-            await c.HandleLinkAdrAsync(sourceId, targetId, "remove", AdrLinkTypeOperation.Remove);
-        }, sourceId, targetId);
+            await c.HandleLinkAdrAsync(sourceIdValue, targetIdValue, "remove", AdrLinkTypeOperation.Remove);
+        });
         return cmd;
     }
 }

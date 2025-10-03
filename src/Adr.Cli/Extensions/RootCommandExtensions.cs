@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.CommandLine;
 
 namespace Adr.Cli.Extensions;
@@ -9,7 +9,7 @@ internal static class RootCommandExtensions
     {
         foreach (var command in commands)
         {
-            rootCommand.AddCommand(command);
+            rootCommand.Add(command);
         }
         return rootCommand;
     }
