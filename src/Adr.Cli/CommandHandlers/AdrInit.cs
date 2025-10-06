@@ -39,12 +39,17 @@ public class AdrInit : IAdrInit
     }
 
     /// <summary>
-    /// Initialize an ADR, with optionally providing a path where the documents are stored and
-    /// a path where the templates can be found. The settings are stored in a config file.
+    /// Initialize an ADR, with optionally providing a path where the documents are stored and a
+    /// path where the templates can be found. The settings are stored in a config file.
     /// </summary>
-    /// <param name="adrRootPath">An alternate for the document folder, default is '\docs\adr'.</param>
-    /// <param name="templateRootPath">An alternate for the template folder, default is '\docs\adr\template' </param>
-    /// <returns></returns>
+    /// <param name="adrRootPath">
+    /// An alternate for the document folder, default is '\docs\adr'.
+    /// </param>
+    /// <param name="templateRootPath">
+    /// An alternate for the template folder, default is '\docs\adr\template'
+    /// </param>
+    /// <returns>
+    /// </returns>
     public async Task<Response> InitializeAsync(string adrRootPath = "", string templateRootPath = "", string projectRootPath = "")
     {
         adrRootPath = GetPathWithDefault(adrRootPath, settings.DocFolder ?? settings.DefaultDocFolder);

@@ -29,7 +29,8 @@ namespace Tests
         private readonly Mock<IDirectoryInfo> docFolderMock = new();
         private readonly Mock<IDirectoryInfo> templateFolderMock = new();
 
-        // see https://www.meziantou.net/how-to-get-asp-net-core-logs-in-the-output-of-xunit-tests.htm
+        // see
+        // https://www.meziantou.net/how-to-get-asp-net-core-logs-in-the-output-of-xunit-tests.htm
         // for information about xunit ilogger interception
 
         public AdrRecordRepositoryTests(ITestOutputHelper testOutputHelper)

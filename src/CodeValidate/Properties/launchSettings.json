@@ -1,8 +1,8 @@
 {
-  "profiles": {
-    "CodeValidate": {
-      "commandName": "Project",
-      "commandLineArgs": "cs-namespace D:\\clients\\level\\WebApi -ignore:DataContext.cs"
+    "profiles": {
+        "CodeValidate": {
+            "commandName": "Project",
+            "commandLineArgs": "cs-namespace D:\\clients\\level\\WebApi -ignore:DataContext.cs"
+        }
     }
-  }
 }

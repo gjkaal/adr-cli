@@ -27,7 +27,6 @@ namespace Adr.Cli
 
         public object Clone()
         {
-
             var result = new TaskRecord
             {
                 DateTime = DateTime,

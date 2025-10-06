@@ -9,6 +9,7 @@ using Adr.Cli.Services;
 using Microsoft.Extensions.Logging;
 
 namespace Adr.Cli;
+
 public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
 {
     private const string DefaultTaskDescription = "New task.";
@@ -45,6 +46,7 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
 
     protected override IDirectoryInfo BaseFolder => settings.TasksFolderInfo();
     protected override string DefaultTemplate => defaultTemplate;
+
     public async Task<StringBuilder> GetLayoutAsync(TaskRecord record)
     {
         logger.LogInformation($"Retrieving layout for {TemplateType.Task}");
@@ -105,8 +107,12 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
     /// <summary>
     /// Write a Markdown file containing the information for the ADR.
     /// </summary>
-    /// <param name="record">The ADR information.</param>
-    /// <returns>The (newly created) record identifier.</returns>
+    /// <param name="record">
+    /// The ADR information.
+    /// </param>
+    /// <returns>
+    /// The (newly created) record identifier.
+    /// </returns>
     public Task<int> WriteRecordAsync(TaskRecord record)
     {
         return WriteRecordAsync(
@@ -116,6 +122,7 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
             GetLayoutAsync
             );
     }
+
     private Task<TaskRecord> ReadTaskFromFile(int recordId, IFileInfo fileInfo)
     {
         return ReadFromFile<TaskRecord>(recordId, fileInfo);

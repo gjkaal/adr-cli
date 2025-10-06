@@ -1,16 +1,17 @@
-﻿using Adr.Cli.Exceptions;
-using Microsoft.Extensions.Logging;
 using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 
+using Adr.Cli.Exceptions;
+
+using Microsoft.Extensions.Logging;
+
 namespace Adr.Cli.Extensions;
 
 /// <summary>
-/// Wrapper for System.Diagnostics.Process to enable testing.
-/// The processhelper is used to start a new application.
-/// In this case, the default editor for the generated text files.
+/// Wrapper for System.Diagnostics.Process to enable testing. The processhelper is used to start a
+/// new application. In this case, the default editor for the generated text files.
 /// </summary>
 public class ProcessHelper : IProcessHelper
 {

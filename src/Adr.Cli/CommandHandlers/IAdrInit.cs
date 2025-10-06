@@ -12,15 +12,22 @@ public interface IAdrInit
     /// <summary>
     /// Initialize an ADR set at the current location.
     /// </summary>
-    /// <param name="adrRootPath">The (relative) path for the Adr folder.</param>
-    /// <param name="templateRootPath">The (relative) path for the template folder.</param>
-    /// <param name="templateRootPath">The (relative) path for the project folder.</param>
+    /// <param name="adrRootPath">
+    /// The (relative) path for the Adr folder.
+    /// </param>
+    /// <param name="templateRootPath">
+    /// The (relative) path for the template folder.
+    /// </param>
+    /// <param name="templateRootPath">
+    /// The (relative) path for the project folder.
+    /// </param>
     Task<Response> InitializeAsync(string adrRootPath, string templateRootPath, string projectRootPath);
 
     /// <summary>
     /// Synchronize the metadata, where possible, using the markdown content.
     /// </summary>
-    /// <param name="startFromRecordId"></param>
+    /// <param name="startFromRecordId">
+    /// </param>
     Task<Response> SyncMetadataAsync(int startFromRecordId, int onlyForRecordId);
 
     /// <summary>

@@ -1,4 +1,4 @@
-﻿namespace CodeValidate;
+namespace CodeValidate;
 
 internal class Program
 {
@@ -23,6 +23,7 @@ internal class Program
             case "cs-namespace":
                 validator = new CSharpNamespaceValidator(args[1..], stdIo, ignoreList);
                 break;
+
             case "-help":
                 Console.WriteLine("Usage: CodeValidate <validator> <directory> [-log] [-silent] [-verbose] [-ignore:<file>]");
                 Console.WriteLine("Validators:");
@@ -33,6 +34,7 @@ internal class Program
                 Console.WriteLine("  -verbose: Write verbose output to the console and the logfile");
                 Console.WriteLine("  -ignore:  Ignore the specified file (partial name)");
                 return 0;
+
             default:
                 Console.WriteLine($"Unknown validator: {args[0]}.");
                 return -1;
@@ -43,13 +45,14 @@ internal class Program
         return result;
     }
 
-    private static string[] FindIgnoreList(string[] args) { 
+    private static string[] FindIgnoreList(string[] args)
+    {
         var ignoreList = new List<string>();
-        foreach(var arg in args)
+        foreach (var arg in args)
         {
             if (arg.StartsWith("-ignore:"))
             {
-                ignoreList.Add( arg[8..]);
+                ignoreList.Add(arg[8..]);
             }
         }
         return ignoreList.ToArray();

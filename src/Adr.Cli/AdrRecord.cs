@@ -32,7 +32,6 @@ namespace Adr.Cli
 
         public object Clone()
         {
-
             var result = new AdrRecord
             {
                 DateTime = DateTime,

@@ -1,4 +1,5 @@
 using System.Text.Json;
+
 using McpCore.JsonRpc;
 using McpCore.Protocol;
 
@@ -18,7 +19,7 @@ public class McpServer : IMcpServer
     {
         _serverInfo = serverInfo;
         _capabilities = capabilities;
-        
+
         RegisterDefaultHandlers();
     }
 
@@ -40,7 +41,7 @@ public class McpServer : IMcpServer
             }
 
             var result = await handler(request.Params);
-            
+
             return new JsonRpcResponse
             {
                 Id = request.Id,
@@ -76,7 +77,7 @@ public class McpServer : IMcpServer
     public virtual Task<McpInitializeResult> InitializeAsync(McpInitializeParams parameters)
     {
         _initialized = true;
-        
+
         return Task.FromResult(new McpInitializeResult
         {
             ProtocolVersion = "2024-11-05",
@@ -142,15 +143,15 @@ public class McpServer : IMcpServer
     {
         if (params_ is JsonElement element)
         {
-            return JsonSerializer.Deserialize<T>(element, N2ConfigurationExtensions.options) 
+            return JsonSerializer.Deserialize<T>(element, N2ConfigurationExtensions.options)
                    ?? throw new ArgumentException($"Failed to deserialize parameters to {typeof(T).Name}");
         }
-        
+
         if (params_ is T directParams)
         {
             return directParams;
         }
-        
+
         throw new ArgumentException($"Invalid parameters type for {typeof(T).Name}");
     }
 }

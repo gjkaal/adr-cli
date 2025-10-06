@@ -1,8 +1,8 @@
 namespace McpCore;
 
 /// <summary>
-/// Generates short, unique session codes for client connections Uses a combination of letters
-/// and numbers to create human-friendly codes
+/// Generates short, unique session codes for client connections Uses a combination of letters and
+/// numbers to create human-friendly codes
 /// </summary>
 public class SessionCodeGenerator : ISessionCodeGenerator
 {

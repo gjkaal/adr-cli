@@ -11,7 +11,7 @@ using Adr.Cli.Exceptions;
 namespace Adr.Cli.Extensions;
 
 /// <summary>
-/// Helper methods for <see cref="AdrRecord"/> objects.
+/// Helper methods for <see cref="AdrRecord" /> objects.
 /// </summary>
 public static class AdrRecordExtensions
 {
@@ -20,8 +20,12 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Format the ADR as a string.
     /// </summary>
-    /// <param name="record">The AdrRecord.</param>
-    /// <returns>One line of text</returns>
+    /// <param name="record">
+    /// The AdrRecord.
+    /// </param>
+    /// <returns>
+    /// One line of text
+    /// </returns>
     public static string FormatString(this AdrRecord record)
     {
         return $"{record.RecordId:D5} {record.DateTime:yyyyMMdd} {record.Status.ToString() ?? "",-10} {record.Title.PadRight(80)[..80]}";
@@ -33,12 +37,17 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
-    /// Get the metadata for an <see cref="AdrRecord"/> as a stringbuilder
-    /// with the json serialized metadata of an AdrRecord.
+    /// Get the metadata for an <see cref="AdrRecord" /> as a stringbuilder with the json serialized
+    /// metadata of an AdrRecord.
     /// </summary>
-    /// <param name="record">The AdrRecord.</param>
-    /// <param name="settings">Formatting options for the metadata</param>
-    /// <returns></returns>
+    /// <param name="record">
+    /// The AdrRecord.
+    /// </param>
+    /// <param name="settings">
+    /// Formatting options for the metadata
+    /// </param>
+    /// <returns>
+    /// </returns>
     public static StringBuilder GetMetadata<T>(this T record, JsonSerializerOptions settings)
     {
         var data = JsonSerializer.Serialize(record, settings);
@@ -48,12 +57,17 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Launch the default editor for markdown with the AdrRecord file as starup parameter.
     /// </summary>
-    /// <param name="record">The AdrRecord.</param>
+    /// <param name="record">
+    /// The AdrRecord.
+    /// </param>
     /// <param name="settings">
-    /// The <see cref="IAdrSettings"/> service is used to locate the
-    /// file for the <see cref="AdrRecord"/>.</param>
-    /// <returns>The same record as provided as parameter.</returns>
-    /// <exception cref="AdrException"></exception>
+    /// The <see cref="IAdrSettings" /> service is used to locate the file for the <see cref="AdrRecord" />.
+    /// </param>
+    /// <returns>
+    /// The same record as provided as parameter.
+    /// </returns>
+    /// <exception cref="AdrException">
+    /// </exception>
     public static AdrRecord LaunchEditor(this AdrRecord record, IAdrSettings settings, IProcessHelper process)
     {
         var fileInfo = settings.GetContentFile(record.FileName);
@@ -106,9 +120,15 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Update the referenes in the metadata with a new target
     /// </summary>
-    /// <param name="record">The AdrRecord.</param>
-    /// <param name="targetId">a target record identification.</param>
-    /// <param name="remark">a short remark</param>
+    /// <param name="record">
+    /// The AdrRecord.
+    /// </param>
+    /// <param name="targetId">
+    /// a target record identification.
+    /// </param>
+    /// <param name="remark">
+    /// a short remark
+    /// </param>
     public static AdrRecord UpdateReferenceRemark(this AdrRecord record, int targetId, string remark)
     {
         if (record.References.TryGetValue(targetId, out var currentRemark))
@@ -131,10 +151,11 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Prepare the AdrRecord metadata so it can be saved with valid metadata.
     /// </summary>
-    /// <param name="record">The AdrRecord.</param>
+    /// <param name="record">
+    /// The AdrRecord.
+    /// </param>
     /// <returns>
-    /// The same record as provided as parameter,
-    /// or a new record if the entry parameter was null.
+    /// The same record as provided as parameter, or a new record if the entry parameter was null.
     /// </returns>
     public static T PrepareForStorage<T>(this T record) where T : AdrRecordBase
     {
@@ -146,10 +167,17 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Add a text part at the end of the markdown element with the provided name.
     /// </summary>
-    /// <param name="lines">The markdown content.</param>
-    /// <param name="mdElement">The paragraph where the text should be appended.</param>
-    /// <param name="newTextPart">The new text part.</param>
-    /// <returns></returns>
+    /// <param name="lines">
+    /// The markdown content.
+    /// </param>
+    /// <param name="mdElement">
+    /// The paragraph where the text should be appended.
+    /// </param>
+    /// <param name="newTextPart">
+    /// The new text part.
+    /// </param>
+    /// <returns>
+    /// </returns>
     public static IEnumerable<string> AddTextAtMdElement(this string[] lines, string mdElement, string newTextPart)
     {
         if (string.IsNullOrEmpty(mdElement) || string.IsNullOrEmpty(newTextPart))
@@ -182,10 +210,17 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Replace the content for a markdown element with new content.
     /// </summary>
-    /// <param name="lines">The markdown content.</param>
-    /// <param name="mdElement">The paragraph where the text should be appended.</param>
-    /// <param name="newTextPart">The new text part.</param>
-    /// <returns></returns>
+    /// <param name="lines">
+    /// The markdown content.
+    /// </param>
+    /// <param name="mdElement">
+    /// The paragraph where the text should be appended.
+    /// </param>
+    /// <param name="newTextPart">
+    /// The new text part.
+    /// </param>
+    /// <returns>
+    /// </returns>
     public static IEnumerable<string> ReplaceMdContent(this string[] lines, string mdElement, string[] newContent)
     {
         if (string.IsNullOrEmpty(mdElement))
@@ -233,10 +268,17 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Remove all line where 'match' can be found in the markdown element
     /// </summary>
-    /// <param name="lines">The markdown content.</param>
-    /// <param name="mdElement">The paragraph where the text should be appended.</param>
-    /// <param name="match">The partial match.</param>
-    /// <returns></returns>
+    /// <param name="lines">
+    /// The markdown content.
+    /// </param>
+    /// <param name="mdElement">
+    /// The paragraph where the text should be appended.
+    /// </param>
+    /// <param name="match">
+    /// The partial match.
+    /// </param>
+    /// <returns>
+    /// </returns>
     public static IEnumerable<string> RemoveFromMdElement(this string[] lines, string mdElement, string match)
     {
         if (string.IsNullOrEmpty(mdElement) || string.IsNullOrEmpty(match))
@@ -285,12 +327,16 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
-    /// Update the <see cref="AdrRecord"/> data using the markdown text content.
-    /// The RecordId and Date in the <see cref="AdrRecord"/> are not modified.
+    /// Update the <see cref="AdrRecord" /> data using the markdown text content. The RecordId and
+    /// Date in the <see cref="AdrRecord" /> are not modified.
     /// </summary>
-    /// <param name="record"></param>
-    /// <param name="lines">The file content</param>
-    /// <returns></returns>
+    /// <param name="record">
+    /// </param>
+    /// <param name="lines">
+    /// The file content
+    /// </param>
+    /// <returns>
+    /// </returns>
     public static AdrRecord UpdateFromMarkdown(this AdrRecord record, int recordId, string[] lines, out bool metadataMmodified)
     {
         metadataMmodified = false;
@@ -378,9 +424,11 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
-    /// Validate critical elements is the <see cref="AdrRecord"/>.
+    /// Validate critical elements is the <see cref="AdrRecord" />.
     /// </summary>
-    /// <param name="record">The AdrRecord.</param>
+    /// <param name="record">
+    /// The AdrRecord.
+    /// </param>
     public static void Validate<T>(this T record) where T : AdrRecordBase
     {
         if (record.RecordId < 0)
@@ -397,8 +445,11 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Format the ADR as a string with detailed information.
     /// </summary>
-    /// <param name="record">The AdrRecord.</param>
-    /// <returns></returns>
+    /// <param name="record">
+    /// The AdrRecord.
+    /// </param>
+    /// <returns>
+    /// </returns>
     public static string VerboseString(this AdrRecord record)
     {
         return $"{record.RecordId:D5} {record.DateTime:yyyy-MMM-dd} Status: {record.Status}" + Environment.NewLine
@@ -410,8 +461,11 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Format the ADR as a string with detailed information.
     /// </summary>
-    /// <param name="record">The AdrRecord.</param>
-    /// <returns></returns>
+    /// <param name="record">
+    /// The AdrRecord.
+    /// </param>
+    /// <returns>
+    /// </returns>
     public static string VerboseString(this TaskRecord record)
     {
         return $"{record.RecordId:D5} {record.DateTime:yyyy-MMM-dd} Status: {record.Status}" + Environment.NewLine
@@ -423,9 +477,14 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Find the line with the header
     /// </summary>
-    /// <param name="lines">Lines from a markdown text.</param>
-    /// <param name="header">The header</param>
-    /// <returns></returns>
+    /// <param name="lines">
+    /// Lines from a markdown text.
+    /// </param>
+    /// <param name="header">
+    /// The header
+    /// </param>
+    /// <returns>
+    /// </returns>
     private static int FindLineWithHeader(this string[] lines, string header)
     {
         var n = 0;
@@ -443,12 +502,13 @@ public static class AdrRecordExtensions
     }
 
     /// <summary>
-    /// Remove illegal characters from a file name.
-    /// The filename should not contain path information.
-    /// The extension on the filename is allowed.
+    /// Remove illegal characters from a file name. The filename should not contain path
+    /// information. The extension on the filename is allowed.
     /// </summary>
-    /// <param name="fileName"></param>
-    /// <returns></returns>
+    /// <param name="fileName">
+    /// </param>
+    /// <returns>
+    /// </returns>
     public static string SanitizeFileName(this string fileName)
     {
         return fileName
@@ -459,10 +519,14 @@ public static class AdrRecordExtensions
     /// <summary>
     /// Find the text in between markdown tags.
     /// </summary>
-    /// <param name="lines"></param>
-    /// <param name="header"></param>
-    /// <param name="element"></param>
-    /// <returns></returns>
+    /// <param name="lines">
+    /// </param>
+    /// <param name="header">
+    /// </param>
+    /// <param name="element">
+    /// </param>
+    /// <returns>
+    /// </returns>
     private static bool TryFindMdElement(this string[] lines, string header, out string[] element)
     {
         try

@@ -9,13 +9,13 @@ public record JsonRpcRequest
 {
     [JsonPropertyName("jsonrpc")]
     public string JsonRpc { get; init; } = "2.0";
-    
+
     [JsonPropertyName("id")]
     public object? Id { get; init; }
-    
+
     [JsonPropertyName("method")]
     public string Method { get; init; } = string.Empty;
-    
+
     [JsonPropertyName("params")]
     public object? Params { get; init; }
 }
@@ -27,13 +27,13 @@ public record JsonRpcResponse
 {
     [JsonPropertyName("jsonrpc")]
     public string JsonRpc { get; init; } = "2.0";
-    
+
     [JsonPropertyName("id")]
     public object? Id { get; init; }
-    
+
     [JsonPropertyName("result")]
     public object? Result { get; init; }
-    
+
     [JsonPropertyName("error")]
     public JsonRpcError? Error { get; init; }
 }
@@ -45,10 +45,10 @@ public record JsonRpcError
 {
     [JsonPropertyName("code")]
     public int Code { get; init; }
-    
+
     [JsonPropertyName("message")]
     public string Message { get; init; } = string.Empty;
-    
+
     [JsonPropertyName("data")]
     public object? Data { get; init; }
 }
@@ -60,10 +60,10 @@ public record JsonRpcNotification
 {
     [JsonPropertyName("jsonrpc")]
     public string JsonRpc { get; init; } = "2.0";
-    
+
     [JsonPropertyName("method")]
     public string Method { get; init; } = string.Empty;
-    
+
     [JsonPropertyName("params")]
     public object? Params { get; init; }
 }

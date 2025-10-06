@@ -19,6 +19,7 @@ public abstract class DocumentBasedRepository
     protected readonly ILogger logger;
     protected readonly IAdrSettings settings;
     protected readonly IStdOut stdOut;
+
     protected DocumentBasedRepository(
         IFileSystem fileSystem,
             IAdrSettings settings,
@@ -33,6 +34,7 @@ public abstract class DocumentBasedRepository
 
     protected abstract IDirectoryInfo BaseFolder { get; }
     protected abstract string DefaultTemplate { get; }
+
     public async Task<(bool success, string fullFilePath)> CreateRootDocumentAsync(string fileName, StringBuilder fileContent)
     {
         var doc = settings.GetDocumentFile(fileName);
@@ -69,8 +71,10 @@ public abstract class DocumentBasedRepository
     /// <summary>
     /// Read the content file
     /// </summary>
-    /// <param name="recordId"></param>
-    /// <returns></returns>
+    /// <param name="recordId">
+    /// </param>
+    /// <returns>
+    /// </returns>
     public async Task<string[]> ReadContentAsync(int recordId)
     {
         var file = GetFileInfoForRecord(recordId);

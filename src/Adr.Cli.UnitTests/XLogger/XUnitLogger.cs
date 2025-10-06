@@ -1,6 +1,8 @@
-﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Text;
+
+using Microsoft.Extensions.Logging;
+
 using Xunit.Abstractions;
 
 namespace Adr.Cli.XLogger;
@@ -12,6 +14,7 @@ public class XUnitLogger : ILogger
     private readonly LoggerExternalScopeProvider _scopeProvider;
 
     public static ILogger CreateLogger(ITestOutputHelper testOutputHelper) => new XUnitLogger(testOutputHelper, new LoggerExternalScopeProvider(), "");
+
     public static ILogger<T> CreateLogger<T>(ITestOutputHelper testOutputHelper) => new XUnitLogger<T>(testOutputHelper, new LoggerExternalScopeProvider());
 
     public XUnitLogger(ITestOutputHelper testOutputHelper, LoggerExternalScopeProvider scopeProvider, string categoryName)

@@ -1,4 +1,4 @@
-﻿namespace CodeValidate;
+namespace CodeValidate;
 
 public interface IValidator
 {

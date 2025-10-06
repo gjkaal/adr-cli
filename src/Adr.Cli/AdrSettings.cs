@@ -76,15 +76,23 @@ namespace Adr.Cli
         /// <summary>
         /// Read the content for an ADR.
         /// </summary>
-        /// <param name="fileName">The base name for an ADR, without path or extensions.</param>
-        /// <returns>A FileInformation object.</returns>
+        /// <param name="fileName">
+        /// The base name for an ADR, without path or extensions.
+        /// </param>
+        /// <returns>
+        /// A FileInformation object.
+        /// </returns>
         public IFileInfo GetContentFile(string fileName) => GetAdrFileInfo(fileName, "md");
 
         /// <summary>
         /// Read the meta data for an ADR.
         /// </summary>
-        /// <param name="fileName">The base name for an ADR, without path or extensions.</param>
-        /// <returns>A FileInformation object.</returns>
+        /// <param name="fileName">
+        /// The base name for an ADR, without path or extensions.
+        /// </param>
+        /// <returns>
+        /// A FileInformation object.
+        /// </returns>
         public IFileInfo GetMetaFile(string fileName) => GetAdrFileInfo(fileName, "json");
 
         private IFileInfo GetAdrFileInfo(string fileName, string extension)
@@ -102,7 +110,9 @@ namespace Adr.Cli
         /// <summary>
         /// Generate the next free file number for an ADR.
         /// </summary>
-        /// <returns>0 is no ADR's are found, or the next increment in the file numbers.</returns>
+        /// <returns>
+        /// 0 is no ADR's are found, or the next increment in the file numbers.
+        /// </returns>
         public int GetNextFileNumber(IDirectoryInfo directoryInfo)
         {
             var fileNumOut = 0;
@@ -173,7 +183,9 @@ namespace Adr.Cli
         /// <summary>
         /// Get the file information for a template.
         /// </summary>
-        /// <param name="templateType">The template type should be formatted using a controlled set.</param>
+        /// <param name="templateType">
+        /// The template type should be formatted using a controlled set.
+        /// </param>
         public IFileInfo GetTemplate(string templateType)
         {
             var folderInfo = TemplateFolderInfo();
@@ -184,7 +196,8 @@ namespace Adr.Cli
         /// <summary>
         /// Write current settings
         /// </summary>
-        /// <returns></returns>
+        /// <returns>
+        /// </returns>
         public IAdrSettings Write()
         {
             var fileInfoPath = path.Combine(currentPath, DefaultFileName);
@@ -238,8 +251,7 @@ namespace Adr.Cli
                 if (findPath.LastIndexOf('\\') == -1)
                 {
                     findPath = string.Empty;
-                    // last resort, use system folder
-                    // and use current folder as reference
+                    // last resort, use system folder and use current folder as reference
                     currentPath = directoryService.GetCurrentDirectory();
                     var appPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
                     fileInfoPath = path.Combine(appPath, DefaultFileName);
@@ -319,8 +331,12 @@ namespace Adr.Cli
         /// <summary>
         /// Get a file info object in the project root folder.
         /// </summary>
-        /// <param name="fileName">A filename without path information.</param>
-        /// <returns>A <see cref="IFileInfo"/> class.</returns>
+        /// <param name="fileName">
+        /// A filename without path information.
+        /// </param>
+        /// <returns>
+        /// A <see cref="IFileInfo" /> class.
+        /// </returns>
         public IFileInfo GetDocumentFile(string fileName)
         {
             var sanitizedFile = fileName.SanitizeFileName();
