@@ -166,6 +166,113 @@ public class AdrMcpServer : McpServer
                     Properties = new Dictionary<string, McpPropertyDefinition>(),
                     Required = Array.Empty<string>()
                 }
+            },
+            new McpTool
+            {
+                Name = "task_new",
+                Description = "Create a new task for project planning",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["title"] = new() { Type = "string", Description = "Title for the task (required)" },
+                        ["description"] = new() { Type = "string", Description = "Description of the task" },
+                        ["dueDate"] = new() { Type = "string", Description = "Due date for the task (ISO format or parseable date string)" }
+                    },
+                    Required = new[] { "title" }
+                }
+            },
+            new McpTool
+            {
+                Name = "task_list",
+                Description = "List all tasks",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["desc"] = new() { Type = "boolean", Description = "Show tasks in descending order (latest first)", Default = false },
+                        ["verbose"] = new() { Type = "boolean", Description = "Show detailed information", Default = false }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new McpTool
+            {
+                Name = "task_find",
+                Description = "Find tasks using a filter",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["query"] = new() { Type = "string", Description = "Search query text (required)" },
+                        ["status"] = new() { Type = "string", Description = "Filter by status (None, New, OnHold, Planned, Active, Related, ReviewPending, ReviewComplete, AcceptancePending, Completed, Abandoned)" },
+                        ["includeContent"] = new() { Type = "boolean", Description = "Search full content (slower)", Default = false },
+                        ["desc"] = new() { Type = "boolean", Description = "Show results in descending order", Default = false },
+                        ["verbose"] = new() { Type = "boolean", Description = "Show detailed information", Default = false }
+                    },
+                    Required = new[] { "query" }
+                }
+            },
+            new McpTool
+            {
+                Name = "task_update",
+                Description = "Update a task's status",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["taskId"] = new() { Type = "integer", Description = "Task ID to update (required)" },
+                        ["status"] = new() { Type = "string", Description = "New status (New, OnHold, Planned, Active, Related, ReviewPending, ReviewComplete, AcceptancePending, Completed, Abandoned) (required)" },
+                        ["justification"] = new() { Type = "string", Description = "Justification for the status change" }
+                    },
+                    Required = new[] { "taskId", "status" }
+                }
+            },
+            new McpTool
+            {
+                Name = "task_link",
+                Description = "Link two tasks together",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["source"] = new() { Type = "integer", Description = "Source task ID (required)" },
+                        ["target"] = new() { Type = "integer", Description = "Target task ID (required)" },
+                        ["remark"] = new() { Type = "string", Description = "Remark explaining the relationship" }
+                    },
+                    Required = new[] { "source", "target" }
+                }
+            },
+            new McpTool
+            {
+                Name = "task_unlink",
+                Description = "Remove link between two tasks",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["source"] = new() { Type = "integer", Description = "Source task ID (required)" },
+                        ["target"] = new() { Type = "integer", Description = "Target task ID (required)" }
+                    },
+                    Required = new[] { "source", "target" }
+                }
+            },
+            new McpTool
+            {
+                Name = "task_generate_toc",
+                Description = "Generate table of contents for tasks",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>(),
+                    Required = Array.Empty<string>()
+                }
             }
         };
     }
@@ -185,6 +292,13 @@ public class AdrMcpServer : McpServer
                 "adr_copy" => await HandleAdrCopyAsync(parameters.Arguments),
                 "adr_sync" => await HandleAdrSyncAsync(parameters.Arguments),
                 "adr_generate_toc" => await HandleAdrGenerateTocAsync(),
+                "task_new" => await HandleTaskNewAsync(parameters.Arguments),
+                "task_list" => await HandleTaskListAsync(parameters.Arguments),
+                "task_find" => await HandleTaskFindAsync(parameters.Arguments),
+                "task_update" => await HandleTaskUpdateAsync(parameters.Arguments),
+                "task_link" => await HandleTaskLinkAsync(parameters.Arguments),
+                "task_unlink" => await HandleTaskUnlinkAsync(parameters.Arguments),
+                "task_generate_toc" => await HandleTaskGenerateTocAsync(),
                 _ => throw new ArgumentException($"Unknown tool: {parameters.Name}")
             };
 
@@ -302,6 +416,90 @@ public class AdrMcpServer : McpServer
 
         var result = await adrInit.GenerateTocAsync();
         return result.Success ? result.Message ?? "Table of contents generated successfully" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskNewAsync(Dictionary<string, object?> arguments)
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var title = GetStringArgument(arguments, "title") ?? throw new ArgumentException("Title is required");
+        var description = GetStringArgument(arguments, "description") ?? string.Empty;
+        var dueDate = GetStringArgument(arguments, "dueDate");
+
+        var result = await projectPlanning.NewTaskAsync(title, description, dueDate);
+        return result.Success ? result.Message ?? "Task created successfully" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskListAsync(Dictionary<string, object?> arguments)
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var desc = GetBoolArgument(arguments, "desc");
+        var verbose = GetBoolArgument(arguments, "verbose");
+
+        var result = await projectPlanning.ListTasksAsync(desc, verbose);
+        return result.Success ? result.Message ?? "Listed tasks" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskFindAsync(Dictionary<string, object?> arguments)
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var query = GetStringArgument(arguments, "query") ?? throw new ArgumentException("Query is required");
+        var statusStr = GetStringArgument(arguments, "status") ?? "None";
+        var status = Enum.TryParse<PlanningStatus>(statusStr, true, out var parsedStatus) ? parsedStatus : PlanningStatus.None;
+        var includeContent = GetBoolArgument(arguments, "includeContent");
+        var desc = GetBoolArgument(arguments, "desc");
+        var verbose = GetBoolArgument(arguments, "verbose");
+
+        var result = await projectPlanning.FindTasksAsync(query, status, desc, verbose, includeContent);
+        return result.Success ? result.Message ?? "Search completed" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskUpdateAsync(Dictionary<string, object?> arguments)
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var taskId = GetIntArgument(arguments, "taskId") ?? throw new ArgumentException("Task ID is required");
+        var statusStr = GetStringArgument(arguments, "status") ?? throw new ArgumentException("Status is required");
+        var status = Enum.TryParse<PlanningStatus>(statusStr, true, out var parsedStatus)
+            ? parsedStatus
+            : throw new ArgumentException($"Invalid status: {statusStr}");
+        var justification = GetStringArgument(arguments, "justification") ?? string.Empty;
+
+        var result = await projectPlanning.UpdateTaskAsync(taskId.ToString(), status, justification);
+        return result.Success ? result.Message ?? "Task updated successfully" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskLinkAsync(Dictionary<string, object?> arguments)
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var source = GetIntArgument(arguments, "source") ?? throw new ArgumentException("Source task ID is required");
+        var target = GetIntArgument(arguments, "target") ?? throw new ArgumentException("Target task ID is required");
+        var remark = GetStringArgument(arguments, "remark") ?? string.Empty;
+
+        var result = await projectPlanning.LinkTaskAsync(source, target, remark);
+        return result.Success ? result.Message ?? "Tasks linked successfully" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskUnlinkAsync(Dictionary<string, object?> arguments)
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var source = GetIntArgument(arguments, "source") ?? throw new ArgumentException("Source task ID is required");
+        var target = GetIntArgument(arguments, "target") ?? throw new ArgumentException("Target task ID is required");
+
+        var result = await projectPlanning.RemoveTaskLinkAsync(source, target);
+        return result.Success ? result.Message ?? "Tasks unlinked successfully" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskGenerateTocAsync()
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var result = await projectPlanning.GeneratePlanningTocAsync();
+        return result.Success ? result.Message ?? "Task table of contents generated successfully" : $"Failed: {result.Message}";
     }
 
     private static string? GetStringArgument(Dictionary<string, object?> arguments, string key)
