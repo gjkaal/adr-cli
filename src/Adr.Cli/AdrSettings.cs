@@ -150,10 +150,10 @@ namespace Adr.Cli
             if (!directory.Exists)
             {
                 directory.Create();
-                var initFile = path.Combine(directory.FullName, "Initialized.md");
+                var initFile = path.Combine(directory.FullName, "Initialized.txt");
                 var file = fileInfoFactory.New(initFile);
                 using var stream = file.OpenWrite();
-                var data = Encoding.UTF8.GetBytes($"# Folder initialized on {DateTime.UtcNow} UTC");
+                var data = Encoding.UTF8.GetBytes($"Folder initialized on {DateTime.UtcNow} UTC");
                 stream.Write(data);
             }
 
