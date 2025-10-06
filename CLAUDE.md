@@ -112,7 +112,7 @@ This repository includes a `.claude/config.json` file that automatically configu
     "adr-cli": {
       "command": "adr-cli",
       "args": ["mcp"],
-      "description": "Architecture Decision Records management tool for creating, managing, and maintaining ADRs"
+      "description": "Architecture Decision Records management tool for creating, managing, and maintaining ADRs and project planning tasks."
     }
   }
 }
