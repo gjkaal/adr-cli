@@ -87,6 +87,8 @@ The project uses xUnit for testing with:
 The tool can run as an MCP (Model Context Protocol) server to enable AI tools like Claude and Copilot to interact with ADR repositories:
 
 ### Available MCP Tools
+
+#### ADR Management Tools
 - `adr_init`: Initialize new ADR repository
 - `adr_new`: Create new Architecture Decision Record
 - `adr_list`: List all ADRs with optional filtering
@@ -97,6 +99,15 @@ The tool can run as an MCP (Model Context Protocol) server to enable AI tools li
 - `adr_sync`: Synchronize metadata with content
 - `adr_generate_toc`: Generate table of contents
 
+#### Task/Project Planning Tools
+- `task_new`: Create new task for project planning
+- `task_list`: List all tasks with optional filtering
+- `task_find`: Search tasks by query with status filtering
+- `task_update`: Update task status with justification
+- `task_link`: Link two tasks together with relationship
+- `task_unlink`: Remove links between tasks
+- `task_generate_toc`: Generate table of contents for tasks
+
 ### Usage
 ```bash
 # Start MCP server (listens on stdin/stdout for JSON-RPC)
@@ -104,7 +115,9 @@ adr-cli mcp
 ```
 
 ### Claude Code Configuration
-This repository includes a `.claude/config.json` file that automatically configures the adr-cli tool as an MCP server for Claude Code:
+
+#### Local Configuration (This Repository Only)
+This repository includes a `.claude/config.json` file that automatically configures the adr-cli tool as an MCP server for Claude Code when working in this repository:
 
 ```json
 {
@@ -119,6 +132,28 @@ This repository includes a `.claude/config.json` file that automatically configu
 ```
 
 When working in this repository, Claude Code will automatically have access to all ADR management capabilities through the MCP protocol.
+
+#### Global Configuration (All Projects)
+To make adr-cli available in any project, add the same configuration to your global Claude Code config file:
+
+**Windows**: `C:\Users\<username>\.claude\config.json`
+**macOS/Linux**: `~/.claude/config.json`
+
+```json
+{
+  "mcpServers": {
+    "adr-cli": {
+      "command": "adr-cli",
+      "args": ["mcp"],
+      "description": "Architecture Decision Records management tool for creating, managing, and maintaining ADRs and project planning tasks."
+    }
+  }
+}
+```
+
+**Note**: The `command` should point to the installed `adr-cli` executable. If it's not in your PATH, use the full path (e.g., `C:\Program Files (x86)\Nauplius\AdrCli\adr-cli.exe` on Windows or `/usr/local/bin/adr-cli` on macOS/Linux).
+
+**Tool Discovery**: Claude Code automatically discovers available tools from the MCP server at runtime - no need to list individual tools in the configuration.
 
 ## Development Notes
 

@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "adr-cli": {
-      "command": "adr-cli",
-      "args": ["mcp"],
-      "description": "Architecture Decision Records management tool for creating, managing, and maintaining ADRs"
-    }
-  }
-}

@@ -21,7 +21,7 @@ public class AdrMcpServer : McpServer
 
     public AdrMcpServer(IServiceProvider serviceProvider)
         : base(
-            new McpServerInfo { Name = "adr-cli", Version = "1.0.0.2" },
+            new McpServerInfo { Name = "adr-cli", Version = "1.0.0.3" },
             new McpServerCapabilities { Tools = new McpToolsCapability() }
         )
     {
@@ -30,8 +30,8 @@ public class AdrMcpServer : McpServer
 
     protected override McpTool[] GetAvailableTools()
     {
-        return new[]
-        {
+        return
+        [
             new McpTool
             {
                 Name = "adr_init",
@@ -274,7 +274,7 @@ public class AdrMcpServer : McpServer
                     Required = Array.Empty<string>()
                 }
             }
-        };
+        ];
     }
 
     public override async Task<McpToolCallResult> CallToolAsync(McpToolCallParams parameters)
