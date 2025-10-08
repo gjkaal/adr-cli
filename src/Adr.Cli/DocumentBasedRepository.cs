@@ -177,10 +177,12 @@ public abstract class DocumentBasedRepository
 
     protected async Task<int> UpdateFileContentAsync<T>(T record, string[] lines) where T : AdrRecordBase
     {
+        var documentType = DocumentTypeForRecord(record);
+
         logger.LogInformation("Update #{RecordId} with new content.", record.RecordId);
-        var contextRecord = settings.GetContentFile(record.FileName);
+        var contextRecord = settings.GetContentFile(documentType, record.FileName);
         var backupFileName = record.FileName + ".bak";
-        var contextBackup = settings.GetContentFile(backupFileName);
+        var contextBackup = settings.GetContentFile(documentType, backupFileName);
         if (!contextRecord.Exists)
         {
             return -1;
@@ -208,11 +210,28 @@ public abstract class DocumentBasedRepository
         return charactersWritten;
     }
 
+    private static DocumentType DocumentTypeForRecord<T>(T record) where T : AdrRecordBase
+    {
+        var documentType = DocumentType.None;
+        if (record is AdrRecord)
+        {
+            documentType = DocumentType.Adr;
+        }
+
+        if (record is TaskRecord)
+        {
+            documentType = DocumentType.Task;
+        }
+
+        return documentType;
+    }
+
     protected async Task<int> UpdateMetadataRecordAsync<T>(int recordId, T record) where T : AdrRecordBase
     {
+        var documentType = DocumentTypeForRecord(record);
         record.RecordId = recordId;
         logger.LogInformation("Update #{RecordId} to {FileName}", record.RecordId, record.FileName);
-        var metaRecord = settings.GetMetaFile(record.FileName);
+        var metaRecord = settings.GetMetaFile(documentType, record.FileName);
         if (!metaRecord.Exists)
         {
             return -1;
@@ -243,16 +262,19 @@ public abstract class DocumentBasedRepository
 
         logger.LogInformation("Write #{RecordId} to {FileName}", record.RecordId, record.FileName);
 
-        var contentRecord = settings.GetContentFile(record.FileName);
+        // Use BaseFolder instead of settings methods to support both ADR and Tasks folders
+        var contentFilePath = fileSystem.Path.Combine(BaseFolder.FullName, $"{record.FileName}.md");
+        var contentRecord = fileSystem.FileInfo.New(contentFilePath);
         using (var contentWriter = contentRecord.CreateText())
         {
             var content = await getLayoutAsync.Invoke(record);
             await contentWriter.WriteAsync(content);
             await contentWriter.FlushAsync();
         }
-        logger.LogDebug("Write content for {Title}", record.Title);
+        logger.LogDebug("Write content for {RecordType} {Title}", record.GetType().Name, record.Title);
 
-        var metaRecord = settings.GetMetaFile(record.FileName);
+        var metaFilePath = fileSystem.Path.Combine(BaseFolder.FullName, $"{record.FileName}.json");
+        var metaRecord = fileSystem.FileInfo.New(metaFilePath);
         using (var metaWriter = metaRecord.CreateText())
         {
             var meta = record.GetMetadata(Constants.JsonOptions);

@@ -66,7 +66,7 @@ public class ProjectPlanning : IProjectPlanning
         await repository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        return Response.Ok($"Task is created in {settings.DocFolder}.");
+        return Response.Ok($"Task is created in {settings.TasksFolder}.");
     }
 
     public async Task<Response> FindTasksAsync(string filter, PlanningStatus status, bool sortReverse, bool verbose, bool includeContent)
@@ -157,7 +157,7 @@ public class ProjectPlanning : IProjectPlanning
         toc.AppendLine("| --- | ----- | ------ | -------- |");
 
         // Add table content
-        var docFolder = settings.DocFolderInfo();
+        var docFolder = settings.TasksFolderInfo();
         foreach (var docInfo in docFolder.EnumerateFiles("*.md").OrderBy(x => x.Name))
         {
             var recordIdPart = docInfo.Name.Split('-')[0];
@@ -175,7 +175,7 @@ public class ProjectPlanning : IProjectPlanning
                     continue;
                 }
 
-                var link = $"..\\{settings.TasksFolder}\\{record.FileName}";
+                var link = $"..\\{settings.TasksFolder}\\{record.FileName}.md";
                 toc.AppendLine($"| {record.RecordId} | [{record.Title}]({link}) | {record.Status} | {record.DueDate} |");
             }
         }

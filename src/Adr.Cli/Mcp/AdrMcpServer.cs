@@ -21,7 +21,7 @@ public class AdrMcpServer : McpServer
 
     public AdrMcpServer(IServiceProvider serviceProvider)
         : base(
-            new McpServerInfo { Name = "adr-cli", Version = "1.0.0.3" },
+            new McpServerInfo { Name = "n2adr", Version = "1.0.0.3" },
             new McpServerCapabilities { Tools = new McpToolsCapability() }
         )
     {

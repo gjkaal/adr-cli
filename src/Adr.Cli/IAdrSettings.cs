@@ -2,6 +2,13 @@ using System.IO.Abstractions;
 
 namespace Adr.Cli;
 
+public enum DocumentType
+{
+    None,
+    Adr,
+    Task
+}
+
 public interface IAdrSettings
 {
     /// <summary>
@@ -76,7 +83,7 @@ public interface IAdrSettings
     /// <returns>
     /// a file information object that can be used to manage the content file.
     /// </returns>
-    IFileInfo GetContentFile(string fileName);
+    IFileInfo GetContentFile(DocumentType documentType, string fileName);
 
     /// <summary>
     /// Find a metadata file with the provided base name.
@@ -90,7 +97,7 @@ public interface IAdrSettings
     /// <returns>
     /// a file information object that can be used to manage the metadata file.
     /// </returns>
-    IFileInfo GetMetaFile(string fileName);
+    IFileInfo GetMetaFile(DocumentType documentType, string fileName);
 
     /// <summary>
     /// Find the next file identification, starting with 0 (zero) for an uninitialized ADR folder.

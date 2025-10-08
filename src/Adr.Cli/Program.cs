@@ -2,6 +2,7 @@ using System;
 using System.CommandLine;
 using System.IO.Abstractions;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 using Adr.Cli.CommandHandlers;
@@ -26,7 +27,8 @@ internal static class Program
         var serviceProvider = serviceCollection.BuildServiceProvider();
 
         // Check if running in MCP mode (expecting JSON-RPC over stdin)
-        if (args.Length == 1 && args[0] == "--mcp")
+        // Support both --mcp flag and mcp command for flexibility
+        if (args.Length == 1 && (args[0] == "--mcp" || args[0] == "mcp"))
         {
             return await RunMcpServerAsync(serviceProvider);
         }
@@ -36,13 +38,14 @@ internal static class Program
 
         // Add MCP command
         var mcpCommand = new Command("mcp", "Run as MCP (Model Context Protocol) server");
+        mcpCommand.Aliases.Add("--mcp");
         mcpCommand.SetAction(async (ParseResult ctx) => await RunMcpServerAsync(serviceProvider));
         app.Add(mcpCommand);
 
         app.SetAction((context) =>
         {
             Console.WriteLine("Use -help to see the available commands.");
-            Console.WriteLine("Use 'mcp' command to run as MCP server for AI tools.");
+            Console.WriteLine("Use '--mcp' command to run as MCP server for AI tools.");
         });
 
         // Initialize
@@ -61,6 +64,15 @@ internal static class Program
         // Link and unlink
         app.Add(AdrLinkSetup.LinkCommand(serviceProvider));
         app.Add(AdrLinkSetup.UnLinkCommand(serviceProvider));
+
+        // Tasks tools
+        app.Add(ProjectPlanningSetup.FindTasksCommand(serviceProvider));
+        app.Add(ProjectPlanningSetup.LinkTaskCommand(serviceProvider));
+        app.Add(ProjectPlanningSetup.UnlinkTaskCommand(serviceProvider));
+        app.Add(ProjectPlanningSetup.GenerateTocCommand(serviceProvider));
+        app.Add(ProjectPlanningSetup.NewTaskCommand(serviceProvider));
+        app.Add(ProjectPlanningSetup.ListTasksCommand(serviceProvider));
+        app.Add(ProjectPlanningSetup.UpdateTaskCommand(serviceProvider));
 
         var parseResult = app.Parse(args);
         var executeResult = parseResult.Invoke();
@@ -106,8 +118,14 @@ internal static class Program
         }
 
         var mcpServer = serviceProvider.GetRequiredService<IMcpServer>();
+        var startTime = DateTime.UtcNow;
 
-        Console.Error.WriteLine("Starting ADR CLI MCP Server...");
+        Console.Error.WriteLine($"[{startTime:yyyy-MM-dd HH:mm:ss}] Starting n2adr MCP Server v1.0.0.3");
+        Console.Error.WriteLine($"[{startTime:yyyy-MM-dd HH:mm:ss}] Protocol: JSON-RPC 2.0 over stdio");
+        Console.Error.WriteLine($"[{startTime:yyyy-MM-dd HH:mm:ss}] Working Directory: {Environment.CurrentDirectory}");
+        Console.Error.WriteLine($"[{startTime:yyyy-MM-dd HH:mm:ss}] Ready to accept requests...");
+
+        var requestCount = 0;
 
         try
         {
@@ -117,6 +135,8 @@ internal static class Program
                 var line = await Console.In.ReadLineAsync();
                 if (line == null)
                 {
+                    Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] EOF received on stdin. Shutting down gracefully.");
+                    Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Total requests processed: {requestCount}");
                     break; // EOF
                 }
 
@@ -125,23 +145,45 @@ internal static class Program
                     continue;
                 }
 
+                requestCount++;
+                var requestStartTime = DateTime.UtcNow;
+
                 try
                 {
                     var request = JsonSerializer.Deserialize<JsonRpcRequest>(line);
                     if (request == null)
                     {
+                        Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Warning: Null request after deserialization");
                         continue;
                     }
 
-                    var response = await mcpServer.ProcessRequestAsync(request);
-                    var responseJson = JsonSerializer.Serialize(response);
+                    Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Request #{requestCount}: method='{request.Method}', id={request.Id}");
 
-                    await Console.Out.WriteLineAsync(responseJson);
-                    await Console.Out.FlushAsync();
+                    var response = await mcpServer.ProcessRequestAsync(request);
+
+                    // Only send response if this is not a notification (id is not null)
+                    // According to JSON-RPC 2.0, notifications don't expect a response
+                    if (request.Id != null)
+                    {
+                        var responseJson = JsonSerializer.Serialize(response, new JsonSerializerOptions
+                        {
+                            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                        });
+                        await Console.Out.WriteLineAsync(responseJson);
+                        await Console.Out.FlushAsync();
+                    }
+                    else
+                    {
+                        Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Notification processed (no response sent)");
+                    }
+
+                    var duration = DateTime.UtcNow - requestStartTime;
+                    Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Response #{requestCount}: completed in {duration.TotalMilliseconds:F2}ms");
                 }
                 catch (JsonException ex)
                 {
-                    Console.Error.WriteLine($"JSON parsing error: {ex.Message}");
+                    Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] JSON parsing error: {ex.Message}");
+                    Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Invalid JSON: {line.Substring(0, Math.Min(100, line.Length))}...");
 
                     // Send JSON-RPC error response
                     var errorResponse = new JsonRpcResponse
@@ -150,26 +192,58 @@ internal static class Program
                         Error = new JsonRpcError
                         {
                             Code = JsonRpcErrorCodes.ParseError,
-                            Message = "Parse error"
+                            Message = "Parse error: Invalid JSON"
                         }
                     };
 
-                    var errorJson = JsonSerializer.Serialize(errorResponse);
+                    var errorJson = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
+                    {
+                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                    });
                     await Console.Out.WriteLineAsync(errorJson);
                     await Console.Out.FlushAsync();
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Error processing request: {ex.Message}");
+                    Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Error processing request #{requestCount}: {ex.GetType().Name}: {ex.Message}");
+                    Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Stack trace: {ex.StackTrace}");
+
+                    // Try to send error response
+                    try
+                    {
+                        var errorResponse = new JsonRpcResponse
+                        {
+                            Id = null,
+                            Error = new JsonRpcError
+                            {
+                                Code = JsonRpcErrorCodes.InternalError,
+                                Message = $"Internal error: {ex.Message}"
+                            }
+                        };
+
+                        var errorJson = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
+                        {
+                            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                        });
+                        await Console.Out.WriteLineAsync(errorJson);
+                        await Console.Out.FlushAsync();
+                    }
+                    catch
+                    {
+                        // Best effort - don't crash if we can't send error response
+                    }
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"MCP Server error: {ex.Message}");
+            Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Fatal MCP Server error: {ex.GetType().Name}: {ex.Message}");
+            Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] Stack trace: {ex.StackTrace}");
             return 1;
         }
 
+        var totalDuration = DateTime.UtcNow - startTime;
+        Console.Error.WriteLine($"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] MCP Server shut down cleanly after {totalDuration.TotalSeconds:F2}s");
         return 0;
     }
 }

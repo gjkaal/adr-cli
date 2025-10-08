@@ -1,8 +1,8 @@
 {
-    "profiles": {
-        "adr-cli": {
-            "commandName": "Project",
-            "commandLineArgs": "list"
-        }
+  "profiles": {
+    "adr-cli": {
+      "commandName": "Project",
+      "commandLineArgs": "new-task --title \"some task\""
     }
+  }
 }

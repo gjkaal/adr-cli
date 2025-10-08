@@ -76,8 +76,7 @@ public class McpServer : IMcpServer
 
     public virtual Task<McpInitializeResult> InitializeAsync(McpInitializeParams parameters)
     {
-        _initialized = true;
-
+        // Don't set _initialized here - wait for the initialized notification
         return Task.FromResult(new McpInitializeResult
         {
             ProtocolVersion = "2024-11-05",
@@ -125,6 +124,18 @@ public class McpServer : IMcpServer
         {
             var parameters = DeserializeParams<McpInitializeParams>(params_);
             return await InitializeAsync(parameters);
+        });
+
+        RegisterMethodHandler(McpMethods.Initialized, async (_) =>
+        {
+            // The initialized notification is sent by the client after receiving the initialize response
+            // This is part of the MCP handshake protocol
+            // Mark the server as fully initialized now
+            await Task.Delay(1);
+
+            _initialized = true;
+            // We don't need to return anything for notifications, but we need to handle them
+            return new { };
         });
 
         RegisterMethodHandler(McpMethods.ToolsList, async (_) =>

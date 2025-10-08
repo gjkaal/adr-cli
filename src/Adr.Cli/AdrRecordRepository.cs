@@ -71,7 +71,7 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
                 newRecord.SuperSedes = record;
             }
             newRecord.PrepareForStorage();
-            var metaRecord = settings.GetMetaFile(newRecord.FileName);
+            var metaRecord = settings.GetMetaFile(DocumentType.Adr, newRecord.FileName);
             using (var metaWriter = metaRecord.CreateText())
             {
                 var meta = newRecord.GetMetadata(Constants.JsonOptions);
@@ -83,9 +83,9 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
             logger.LogInformation("Write ADR #{RecordId} to {FileName}", newRecord.RecordId, newRecord.FileName);
             var newContent = await ReadContentAsync(record.RecordId);
             newContent[0] = $"# {newId:D5}: {newRecord.Title}";
-            newContent = newContent.ReplaceMdContent("Status", new[] { $"__{newRecord.Status}__" }).ToArray();
+            newContent = newContent.ReplaceMdContent("Status", [$"__{newRecord.Status}__"]).ToArray();
 
-            var contentRecord = settings.GetContentFile(newRecord.FileName);
+            var contentRecord = settings.GetContentFile(DocumentType.Adr, newRecord.FileName);
             using (var contentWriter = contentRecord.CreateText())
             {
                 foreach (var line in newContent)

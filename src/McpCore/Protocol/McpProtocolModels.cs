@@ -80,10 +80,10 @@ public record McpToolsCapability
 public record McpServerInfo
 {
     [JsonPropertyName("name")]
-    public string Name { get; init; } = "adr-cli";
+    public string Name { get; init; }
 
     [JsonPropertyName("version")]
-    public string Version { get; init; } = "1.0.0.2";
+    public string Version { get; init; }
 }
 
 /// <summary>

@@ -13,6 +13,9 @@ public static class ProjectPlanningSetup
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("task-new", "Create a new task for project planning");
+        cmd.Aliases.Add("new-task");
+        cmd.Aliases.Add("nt");
+
         var title = CommandOptions.Title;
         var description = new Option<string>("--description", "-d") { Description = "Description of the task." };
         var dueDate = new Option<string>("--dueDate") { Description = "Due date for the task." };
@@ -40,6 +43,9 @@ public static class ProjectPlanningSetup
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("task-list", "List all tasks");
+        cmd.Aliases.Add("list-tasks");
+        cmd.Aliases.Add("tasks");
+
         var sortReverse = CommandOptions.SortReverse;
         var verbose = CommandOptions.Verbose;
 
@@ -62,6 +68,9 @@ public static class ProjectPlanningSetup
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("task-find", "Find tasks using a filter");
+        cmd.Aliases.Add("find-task");
+        cmd.Aliases.Add("ft");
+
         var filter = CommandOptions.Filter;
         var status = new Option<PlanningStatus>("--status") { Description = "Filter by task status." };
         var sortReverse = CommandOptions.SortReverse;
@@ -95,6 +104,9 @@ public static class ProjectPlanningSetup
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("task-update", "Update a task's status");
+        cmd.Aliases.Add("update-task");
+        cmd.Aliases.Add("sts");
+
         var sourceId = CommandOptions.SourceId;
         var status = new Option<PlanningStatus>("--status") { Description = "New status for the task." };
         var justification = new Option<string>("--justification", "-j") { Description = "Justification for the status change." };
@@ -124,6 +136,9 @@ public static class ProjectPlanningSetup
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("task-link", "Link two tasks together");
+        cmd.Aliases.Add("link-task");
+        cmd.Aliases.Add("lt");
+
         var sourceId = CommandOptions.SourceId;
         var targetId = CommandOptions.TargetId;
         var remark = new Option<string>("--remark", "-r") { Description = "Remark explaining the relationship." };
@@ -160,6 +175,8 @@ public static class ProjectPlanningSetup
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
         var cmd = new Command("task-unlink", "Remove link between two tasks");
+        cmd.Aliases.Add("unlink-task");
+        cmd.Aliases.Add("ult");
         var sourceId = CommandOptions.SourceId;
         var targetId = CommandOptions.TargetId;
 

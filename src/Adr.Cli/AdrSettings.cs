@@ -82,7 +82,20 @@ namespace Adr.Cli
         /// <returns>
         /// A FileInformation object.
         /// </returns>
-        public IFileInfo GetContentFile(string fileName) => GetAdrFileInfo(fileName, "md");
+        public IFileInfo GetContentFile(DocumentType documentType, string fileName)
+        {
+            if (documentType == DocumentType.Adr)
+            {
+                return GetAdrFileInfo(DocFolderInfo(), fileName, "md");
+            }
+
+            if (documentType == DocumentType.Task)
+            {
+                return GetAdrFileInfo(TasksFolderInfo(), fileName, "md");
+            }
+
+            throw new NotImplementedException($"{documentType} is not accepted");
+        }
 
         /// <summary>
         /// Read the meta data for an ADR.
@@ -93,16 +106,28 @@ namespace Adr.Cli
         /// <returns>
         /// A FileInformation object.
         /// </returns>
-        public IFileInfo GetMetaFile(string fileName) => GetAdrFileInfo(fileName, "json");
+        public IFileInfo GetMetaFile(DocumentType documentType, string fileName)
+        {
+            if (documentType == DocumentType.Adr)
+            {
+                return GetAdrFileInfo(DocFolderInfo(), fileName, "json");
+            }
 
-        private IFileInfo GetAdrFileInfo(string fileName, string extension)
+            if (documentType == DocumentType.Task)
+            {
+                return GetAdrFileInfo(TasksFolderInfo(), fileName, "json");
+            }
+
+            throw new NotImplementedException($"{documentType} is not accepted");
+        }
+
+        private IFileInfo GetAdrFileInfo(IDirectoryInfo folderInfo, string fileName, string extension)
         {
             var fullFileName =
             fileName.EndsWith("." + extension, StringComparison.OrdinalIgnoreCase)
             ? fileName
             : $"{fileName}.{extension}";
 
-            var folderInfo = DocFolderInfo();
             var filePath = path.Combine(folderInfo.FullName, fullFileName);
             return fileInfoFactory.New(filePath);
         }
@@ -118,7 +143,7 @@ namespace Adr.Cli
             var fileNumOut = 0;
             var files =
                 from file in directoryInfo.GetFiles("*.md", SearchOption.TopDirectoryOnly)
-                let fileNum = file.Name[..file.Name.IndexOf('-')]
+                let fileNum = file.Name.IndexOf('-') > 0 ? file.Name[..file.Name.IndexOf('-')] : "0"
                 where int.TryParse(fileNum, out fileNumOut)
                 select fileNumOut;
             var maxFileNum = files.Any() ? files.Max() : 0;
@@ -140,7 +165,7 @@ namespace Adr.Cli
 
         private IDirectoryInfo EnsureFolder(string folderName)
         {
-            if (folderName.StartsWith("\\"))
+            if (folderName.StartsWith('\\'))
             {
                 folderName = folderName[1..];
             }
@@ -293,7 +318,7 @@ namespace Adr.Cli
             try
             {
                 var folder = DocFolderInfo();
-                return folder.EnumerateFiles().Any();
+                return folder.Exists;
             }
             catch
             {
@@ -306,7 +331,7 @@ namespace Adr.Cli
             try
             {
                 var folder = TasksFolderInfo();
-                return folder.EnumerateFiles().Any();
+                return folder.Exists;
             }
             catch
             {

@@ -70,7 +70,7 @@ public static class AdrRecordExtensions
     /// </exception>
     public static AdrRecord LaunchEditor(this AdrRecord record, IAdrSettings settings, IProcessHelper process)
     {
-        var fileInfo = settings.GetContentFile(record.FileName);
+        var fileInfo = settings.GetContentFile(DocumentType.Adr, record.FileName);
         var fullName = fileInfo.FullName;
         OpenPreferredEditor(process, fileInfo, fullName);
         return record;
@@ -78,7 +78,7 @@ public static class AdrRecordExtensions
 
     public static TaskRecord LaunchEditor(this TaskRecord record, IAdrSettings settings, IProcessHelper process)
     {
-        var fileInfo = settings.GetContentFile(record.FileName);
+        var fileInfo = settings.GetContentFile(DocumentType.Task, record.FileName);
         var fullName = fileInfo.FullName;
         OpenPreferredEditor(process, fileInfo, fullName);
         return record;
@@ -511,9 +511,23 @@ public static class AdrRecordExtensions
     /// </returns>
     public static string SanitizeFileName(this string fileName)
     {
-        return fileName
+        // Maximum filename length on most systems is 255 characters
+        // Reserve space for: "00000-" (6 chars) + ".json" (5 chars) = 11 chars
+        // This leaves 244 characters for the sanitized title
+        // This is too long, so clipp at 100 characters
+        const int maxFileNameLength = 100;
+
+        var sanitized = fileName
             .Replace(' ', '-')
             .ToLower();
+
+        // Truncate if too long
+        if (sanitized.Length > maxFileNameLength)
+        {
+            sanitized = sanitized.Substring(0, maxFileNameLength);
+        }
+
+        return sanitized;
     }
 
     /// <summary>
