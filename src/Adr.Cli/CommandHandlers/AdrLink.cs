@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Adr.Cli.Extensions;
@@ -17,6 +19,9 @@ public class AdrLink : IAdrLink
     private readonly IAdrRecordRepository adrRecordRepository;
     private readonly IStdOut stdOut;
 
+    // Per-record locking to prevent concurrent modifications to the same ADR
+    private static readonly ConcurrentDictionary<int, SemaphoreSlim> recordLocks = new();
+
     public AdrLink(
         ILogger<AdrLink> logger,
         IAdrRecordRepository adrRecordRepository,
@@ -25,6 +30,14 @@ public class AdrLink : IAdrLink
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
         this.stdOut = stdOut;
+    }
+
+    /// <summary>
+    /// Get or create a semaphore for a specific record ID to ensure atomic operations
+    /// </summary>
+    private static SemaphoreSlim GetRecordLock(int recordId)
+    {
+        return recordLocks.GetOrAdd(recordId, _ => new SemaphoreSlim(1, 1));
     }
 
     public Task<Response> HandleLinkAdrAsync(string sourceId, string targetId, string reason, AdrLinkTypeOperation operation)
@@ -63,81 +76,105 @@ public class AdrLink : IAdrLink
     {
         logger.LogInformation($"Creating link between {sourceId} and {targetId} for {remark}.");
 
-        // Find content and metadata
-        var sourceContent = await adrRecordRepository.ReadContentAsync(sourceId);
-        if (sourceContent == null || sourceContent.Length == 0)
+        // Acquire lock for the source record to prevent concurrent modifications
+        var recordLock = GetRecordLock(sourceId);
+        await recordLock.WaitAsync();
+
+        try
         {
-            stdOut.WriteLine($"Source ADR does not exist: {sourceId:D5}.");
-            return Response.Fail($"Source ADR does not exist: {sourceId:D5}.");
-        }
+            // Find content and metadata
+            var sourceContent = await adrRecordRepository.ReadContentAsync(sourceId);
+            if (sourceContent == null || sourceContent.Length == 0)
+            {
+                stdOut.WriteLine($"Source ADR does not exist: {sourceId:D5}.");
+                return Response.Fail($"Source ADR does not exist: {sourceId:D5}.");
+            }
 
-        var targetContent = await adrRecordRepository.ReadContentAsync(targetId);
-        if (targetContent == null || targetContent.Length == 0)
+            var targetContent = await adrRecordRepository.ReadContentAsync(targetId);
+            if (targetContent == null || targetContent.Length == 0)
+            {
+                stdOut.WriteLine($"Target ADR does not exist: {targetId:D5}.");
+                return Response.Fail($"Target ADR does not exist: {sourceId:D5}.");
+            }
+            var sourceMeta = await adrRecordRepository.ReadMetadataAsync(sourceId);
+            if (sourceMeta == null)
+            {
+                sourceMeta = new AdrRecord();
+                sourceMeta.UpdateFromMarkdown(sourceId, sourceContent, out _);
+            }
+            var targetMeta = await adrRecordRepository.ReadMetadataAsync(targetId);
+            if (targetMeta == null)
+            {
+                targetMeta = new AdrRecord();
+                targetMeta.UpdateFromMarkdown(targetId, targetContent, out _);
+            }
+
+            var newMetadata = sourceMeta.UpdateReferenceRemark(targetId, remark);
+
+            // Ensure FileName is set before updating files
+            // This is critical when metadata is reconstructed from markdown
+            newMetadata.PrepareForStorage();
+
+            var linkText = $"{remark} [{targetId:D5}.{targetMeta.Title}](.\\{targetMeta.FileName}){Environment.NewLine}";
+
+            var newContent = sourceContent.AddTextAtMdElement("Status", linkText).ToArray();
+
+            await adrRecordRepository.UpdateMetadataAsync(sourceId, newMetadata);
+            await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
+
+            return Response.Ok($"Created link between {sourceId} and {targetId} for {remark}.");
+        }
+        finally
         {
-            stdOut.WriteLine($"Target ADR does not exist: {targetId:D5}.");
-            return Response.Fail($"Target ADR does not exist: {sourceId:D5}.");
+            // Always release the lock
+            recordLock.Release();
         }
-        var sourceMeta = await adrRecordRepository.ReadMetadataAsync(sourceId);
-        if (sourceMeta == null)
-        {
-            sourceMeta = new AdrRecord();
-            sourceMeta.UpdateFromMarkdown(sourceId, sourceContent, out _);
-        }
-        var targetMeta = await adrRecordRepository.ReadMetadataAsync(targetId);
-        if (targetMeta == null)
-        {
-            targetMeta = new AdrRecord();
-            targetMeta.UpdateFromMarkdown(targetId, targetContent, out _);
-        }
-
-        var newMetadata = sourceMeta.UpdateReferenceRemark(targetId, remark);
-
-        // Ensure FileName is set before updating files
-        // This is critical when metadata is reconstructed from markdown
-        newMetadata.PrepareForStorage();
-
-        var linkText = $"{remark} [{targetId:D5}.{targetMeta.Title}](.\\{targetMeta.FileName}){Environment.NewLine}";
-
-        var newContent = sourceContent.AddTextAtMdElement("Status", linkText).ToArray();
-
-        await adrRecordRepository.UpdateMetadataAsync(sourceId, newMetadata);
-        await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
-
-        return Response.Ok($"Created link between {sourceId} and {targetId} for {remark}.");
     }
 
     public async Task<Response> RemoveLinkAsync(int sourceId, int targetId)
     {
         logger.LogInformation($"Removing all reference link from {sourceId} to {targetId}.");
 
-        // Find content and metadata
-        var sourceContent = await adrRecordRepository.ReadContentAsync(sourceId);
-        if (sourceContent == null || sourceContent.Length == 0)
+        // Acquire lock for the source record to prevent concurrent modifications
+        var recordLock = GetRecordLock(sourceId);
+        await recordLock.WaitAsync();
+
+        try
         {
-            stdOut.WriteLine($"Source ADR does not exist: {sourceId:D5}.");
-            return Response.Fail($"Source ADR does not exist: {sourceId:D5}.");
-        }
+            // Find content and metadata
+            var sourceContent = await adrRecordRepository.ReadContentAsync(sourceId);
+            if (sourceContent == null || sourceContent.Length == 0)
+            {
+                stdOut.WriteLine($"Source ADR does not exist: {sourceId:D5}.");
+                return Response.Fail($"Source ADR does not exist: {sourceId:D5}.");
+            }
 
-        var sourceMeta = await adrRecordRepository.ReadMetadataAsync(sourceId);
-        if (sourceMeta == null)
+            var sourceMeta = await adrRecordRepository.ReadMetadataAsync(sourceId);
+            if (sourceMeta == null)
+            {
+                sourceMeta = new AdrRecord();
+                sourceMeta.UpdateFromMarkdown(sourceId, sourceContent, out _);
+            }
+
+            sourceMeta.References.Remove(targetId);
+
+            // Ensure FileName is set before updating files
+            // This is critical when metadata is reconstructed from markdown
+            sourceMeta.PrepareForStorage();
+
+            var linkText = $"[{targetId:D5}.";
+
+            var newContent = sourceContent.RemoveFromMdElement("Status", linkText).ToArray();
+
+            await adrRecordRepository.UpdateMetadataAsync(sourceId, sourceMeta);
+            await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
+
+            return Response.Ok($"Removed all reference link from {sourceId} to {targetId}.");
+        }
+        finally
         {
-            sourceMeta = new AdrRecord();
-            sourceMeta.UpdateFromMarkdown(sourceId, sourceContent, out _);
+            // Always release the lock
+            recordLock.Release();
         }
-
-        sourceMeta.References.Remove(targetId);
-
-        // Ensure FileName is set before updating files
-        // This is critical when metadata is reconstructed from markdown
-        sourceMeta.PrepareForStorage();
-
-        var linkText = $"[{targetId:D5}.";
-
-        var newContent = sourceContent.RemoveFromMdElement("Status", linkText).ToArray();
-
-        await adrRecordRepository.UpdateMetadataAsync(sourceId, sourceMeta);
-        await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
-
-        return Response.Ok($"Removed all reference link from {sourceId} to {targetId}.");
     }
 }
