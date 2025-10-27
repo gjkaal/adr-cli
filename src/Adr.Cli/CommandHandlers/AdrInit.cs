@@ -1,15 +1,15 @@
-using System;
-using System.IO.Abstractions;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
 
 using McpCore;
 
 using Microsoft.Extensions.Logging;
+
+using System;
+using System.IO.Abstractions;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -63,7 +63,7 @@ public class AdrInit : IAdrInit
 
         if (settings.RepositoryInitialized())
         {
-            return Response.Fail($"Initialization is already done for {adrRootPath}.");
+            return Response.Ok($"Initialization is already done for {adrRootPath}.");
         }
 
         var record = new AdrRecord

@@ -1,6 +1,3 @@
-using System.IO.Abstractions;
-using System.Threading.Tasks;
-
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
 using Adr.Cli.XLogger;
@@ -8,6 +5,9 @@ using Adr.Cli.XLogger;
 using Microsoft.Extensions.Logging;
 
 using Moq;
+
+using System.IO.Abstractions;
+using System.Threading.Tasks;
 
 using Xunit;
 using Xunit.Abstractions;
@@ -54,7 +54,7 @@ public class AdrInitTests
         settingsMock.SetupGet(m => m.DefaultDocFolder).Returns("\\adrInit\\tests\\docs");
         settingsMock.SetupGet(m => m.DefaultTemplates).Returns("\\adrInit\\tests\\templates");
         settingsMock.SetupGet(m => m.DefaultTasksFolder).Returns("\\adrInit\\tests\\tasks");
-        settingsMock.Setup(m => m.GetContentFile(It.IsAny<string>())).Returns(contentFileMock.Object);
+        settingsMock.Setup(m => m.GetContentFile(It.IsAny<DocumentType>(), It.IsAny<string>())).Returns(contentFileMock.Object);
         settingsMock.SetupGet(m => m.DocFolderInfo().FullName).Returns("testFolder");
         contentFileMock.SetupGet(m => m.Exists).Returns(true);
         IAdrInit sut = new AdrInit(settingsMock.Object, logger, repositoryMock.Object, stdOutMock.Object, procesMock.Object);

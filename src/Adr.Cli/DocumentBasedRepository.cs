@@ -1,3 +1,8 @@
+using Adr.Cli.Extensions;
+using Adr.Cli.Services;
+
+using Microsoft.Extensions.Logging;
+
 using System;
 using System.Collections.Generic;
 using System.IO.Abstractions;
@@ -5,11 +10,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-
-using Adr.Cli.Extensions;
-using Adr.Cli.Services;
-
-using Microsoft.Extensions.Logging;
 
 namespace Adr.Cli;
 

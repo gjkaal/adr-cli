@@ -1,9 +1,3 @@
-using System;
-using System.IO;
-using System.IO.Abstractions;
-using System.Text;
-using System.Threading.Tasks;
-
 using Adr.Cli;
 using Adr.Cli.Services;
 using Adr.Cli.XLogger;
@@ -13,6 +7,12 @@ using Microsoft.Extensions.Logging;
 using Moq;
 
 using Newtonsoft.Json;
+
+using System;
+using System.IO;
+using System.IO.Abstractions;
+using System.Text;
+using System.Threading.Tasks;
 
 using Xunit;
 using Xunit.Abstractions;
@@ -42,6 +42,7 @@ namespace Tests
             adrSettingsMock.Setup(m => m.TemplateFolderInfo()).Returns(templateFolderMock.Object);
             docFolderMock.SetupGet(m => m.FullName).Returns("x:\\temp\\adr\\doc");
             templateFolderMock.SetupGet(m => m.FullName).Returns("x:\\temp\\adr\\template");
+            fileSystemMock.Setup(m => m.Path.Combine(It.IsAny<string>(), It.IsAny<string>())).Returns<string, string>((a, b) => a + "\\" + b);
 
             stdOutMock.Setup(m => m.WriteLine(It.IsAny<string>())).Callback<string>(s => testOutputHelper.WriteLine(s));
         }
@@ -56,6 +57,7 @@ namespace Tests
             using var stream1 = new MemoryStream();
             using var writer1 = new StreamWriter(stream1);
             var fileStream1 = new Mock<IFileInfo>();
+
             fileStream1.Setup(m => m.CreateText()).Returns(writer1);
 
             using var stream2 = new MemoryStream();
@@ -68,8 +70,11 @@ namespace Tests
             var fileStream3 = new Mock<IFileInfo>();
             fileStream3.Setup(m => m.CreateText()).Returns(writer3);
 
-            adrSettingsMock.Setup(m => m.GetContentFile(It.IsAny<string>())).Returns(fileStream1.Object);
-            adrSettingsMock.Setup(m => m.GetMetaFile(It.IsAny<string>())).Returns(fileStream2.Object);
+            fileSystemMock.Setup(m => m.FileInfo.New(It.Is<string>(s => s == "x:\\temp\\adr\\doc\\00167-test.md"))).Returns(fileStream1.Object);
+            fileSystemMock.Setup(m => m.FileInfo.New(It.Is<string>(s => s == "x:\\temp\\adr\\doc\\00167-test.json"))).Returns(fileStream2.Object);
+
+            adrSettingsMock.Setup(m => m.GetContentFile(It.IsAny<DocumentType>(), It.IsAny<string>())).Returns(fileStream1.Object);
+            adrSettingsMock.Setup(m => m.GetMetaFile(It.IsAny<DocumentType>(), It.IsAny<string>())).Returns(fileStream2.Object);
             adrSettingsMock.Setup(m => m.GetTemplate(It.IsAny<string>())).Returns(fileStream3.Object);
 
             adrSettingsMock.Setup(m => m.GetNextFileNumber(It.IsAny<IDirectoryInfo>())).Returns(167);

@@ -80,10 +80,10 @@ public record McpToolsCapability
 public record McpServerInfo
 {
     [JsonPropertyName("name")]
-    public string Name { get; init; }
+    public string Name { get; init; } = string.Empty;
 
     [JsonPropertyName("version")]
-    public string Version { get; init; }
+    public string Version { get; init; } = string.Empty;
 }
 
 /// <summary>
