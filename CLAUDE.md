@@ -4,24 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is adr-cli, a .NET 9.0 command-line tool for managing Architecture Decision Records (ADRs). The tool helps create, manage, and maintain ADR repositories with structured markdown and JSON metadata files. It also supports the Model Context Protocol (MCP) for integration with AI tools like Claude and Copilot.
+This is adr-cli, a .NET 9.0 command-line tool for managing Architecture Decision Records (ADRs) and project planning tasks. The tool helps create, manage, and maintain structured documentation with dual markdown/JSON storage. It supports the Model Context Protocol (MCP) for integration with AI tools like Claude.
 
 ## Build and Development Commands
 
-This is a .NET solution built with Visual Studio. Common development commands:
+This is a .NET solution built with Visual Studio. All commands should be run from the `src/` directory:
 
 ```bash
-# Build the solution (from src/ directory)
+# Build the solution
 dotnet build adr.sln
 
-# Run tests
+# Run all tests
 dotnet test
 
-# Build specific project
-dotnet build Adr.Cli/Adr.Cli.csproj
+# Run tests with verbose output
+dotnet test -v n
+
+# Run a specific test
+dotnet test --filter "FullyQualifiedName~AdrRecordRepository_CanWriteRecords"
 
 # Run the CLI tool during development
 dotnet run --project Adr.Cli/Adr.Cli.csproj -- [command] [options]
+
+# Examples:
+dotnet run --project Adr.Cli/Adr.Cli.csproj -- init
+dotnet run --project Adr.Cli/Adr.Cli.csproj -- new "My Decision"
+dotnet run --project Adr.Cli/Adr.Cli.csproj -- list
 
 # Run as MCP server for AI tools
 dotnet run --project Adr.Cli/Adr.Cli.csproj -- mcp
@@ -31,93 +39,191 @@ dotnet build -c Release
 
 # Publish for specific runtime
 dotnet publish Adr.Cli/Adr.Cli.csproj -c Release -r win-x64 --self-contained
+dotnet publish Adr.Cli/Adr.Cli.csproj -c Release -r linux-x64 --self-contained
+dotnet publish Adr.Cli/Adr.Cli.csproj -c Release -r osx-x64 --self-contained
 ```
 
 ## Architecture
 
-The codebase follows a modular architecture with clear separation of concerns:
+The codebase follows a modular architecture with clear separation of concerns across 4 projects:
 
-### Core Components
-- **Program.cs**: Entry point with dependency injection setup, command registration, and MCP server mode
-- **AdrRecord.cs**: Core domain model representing an ADR with metadata
-- **AdrRecordRepository.cs**: Data access layer handling file I/O for ADR content and metadata
-- **AdrSettings.cs**: Configuration management for ADR repository paths and settings
+### Project Structure
 
-### MCP (Model Context Protocol) Support
-- **McpCore/**: Separate project containing MCP protocol implementation
-- **Mcp/AdrMcpServer.cs**: MCP server implementation for ADR operations
-- **JsonRpc/**: JSON-RPC 2.0 protocol models and infrastructure
-- **Protocol/**: MCP-specific protocol models and constants
+1. **Adr.Cli** - Main CLI application with command handlers, domain models, and repositories
+2. **McpCore** - Standalone MCP protocol implementation (JSON-RPC 2.0 and MCP models)
+3. **Adr.Cli.UnitTests** - xUnit test suite with mocked dependencies
+4. **CodeValidate** - Namespace validation utility
+
+### Core Domain Models
+
+The codebase supports two types of records, both extending `AdrRecordBase`:
+
+**AdrRecord.cs** - Architecture Decision Records:
+- Base fields: DateTime, FileName, RecordId, Title
+- ADR-specific: Status (AdrStatus enum), SuperSedes, TemplateType, Context, Decision, Consequences, References
+- Decision and Consequences marked `[JsonIgnore]` (stored only in .md files)
+- Implements `ICloneable` for creating revisions
+
+**TaskRecord.cs** - Project Planning Tasks:
+- Base fields: DateTime, FileName, RecordId, Title
+- Task-specific: DueDate, Status (PlanningStatus enum), Description, Details, Related, Logs
+- PlanningStatus enum: None, New, OnHold, Planned, Active, Related, ReviewPending, ReviewComplete, AcceptancePending, Completed, Abandoned
+- StatusUpdate tracking with justification logs
+
+### Repository Pattern
+
+**DocumentBasedRepository.cs** (abstract base):
+- Generic file I/O operations for both ADRs and Tasks
+- Handles .md (content) and .json (metadata) dual file approach
+- Methods: CreateRootDocumentAsync, ReadContentAsync, GetFileInfoForRecord
+
+**AdrRecordRepository.cs** (extends DocumentBasedRepository):
+- Default path: `\docs\adr`, templates: `\docs\adr-templates`
+- Key methods:
+  - `WriteRecordAsync` - Creates .md and .json files
+  - `ReadMetadataAsync` - Deserializes JSON metadata
+  - `CopyRecordAsync` - Creates revision from existing ADR
+  - `GetLayoutAsync` - Generates markdown from templates
+
+**AdrTasksRepository.cs** (extends DocumentBasedRepository):
+- Default path: `\docs\planning`
+- Similar pattern for task management
+
+### Configuration Management
+
+**AdrSettings.cs** (implements IAdrSettings):
+- Searches for `adr.config.json` by walking up directory tree
+- Default paths: `\docs\adr`, `\docs\adr-templates`, `\docs\planning`
+- Lazy folder creation on access
+- File numbering system for sequential IDs
+- Configuration format:
+```json
+{
+  "path": "\\docs\\adr",
+  "templates": "\\docs\\adr-templates",
+  "tasks": "\\docs\\planning",
+  "projectName": "Project Name"
+}
+```
 
 ### Command Structure
-Commands are organized using System.CommandLine with separate handler and setup classes:
-- **CommandHandlers/**: Contains business logic for each command (AdrInit, AdrNew, AdrQuery, AdrLink)
-- **[Command]Setup.cs**: Command definition and registration logic
-- **I[Command].cs**: Interfaces for command handlers
 
-### Key Patterns
-- **Dual file approach**: Each ADR consists of a .md file (content) and .json file (metadata)
-- **Template system**: Customizable markdown templates in docs/templates/
-- **Repository pattern**: AdrRecordRepository abstracts file system operations
-- **Dependency injection**: Full DI container setup in Program.cs
+Commands follow a three-part pattern using System.CommandLine:
 
-### File Structure
-- ADR documents stored in `docs/adr/` by default
-- Templates in `docs/templates/`
-- Configuration in `adr.config.json` at repository root
-- Filenames follow pattern: `{id:D5}-{title-slug}.{md|json}`
+1. **I[Command].cs** - Interface defining async methods returning `Response` (from McpCore)
+2. **[Command].cs** - Implementation with injected dependencies (IAdrSettings, ILogger, Repository, IStdOut)
+3. **[Command]Setup.cs** - System.CommandLine command definition and registration
+
+**Registered Commands** (in Program.cs):
+- **ADR Commands**: init, sync, generate-toc, new, copy, query, list, link, unlink
+- **Task Commands**: new-task, list-tasks, find-tasks, update-task, link-task, unlink-task, generate-task-toc
+
+All handlers injected via DI and registered as singletons.
+
+### Dual File Approach
+
+Each record consists of two files with the pattern `{id:D5}-{title-slug}.{md|json}`:
+
+**Markdown File** (human-readable content):
+- Template-based with placeholders: `{RecordId}`, `{Title}`, `{Status}`, `{DateTime}`, etc.
+- For ADRs: Status, Context, Decision, Consequences sections
+- For Tasks: Status, Description, Details, Related tasks sections
+
+**JSON Metadata File** (structured data):
+- Serialized record object using System.Text.Json
+- Contains all fields except those marked `[JsonIgnore]`
+- Enables metadata search/queries without parsing markdown
+
+**Synchronization**: The `UpdateFromMarkdown()` extension method parses markdown back to update metadata.
+
+### MCP (Model Context Protocol) Integration
+
+**Dual-Mode Execution** (Program.cs):
+- CLI mode: `adr-cli [command]` - Traditional command-line interface
+- MCP mode: `adr-cli mcp` or `adr-cli --mcp` - JSON-RPC server on stdin/stdout
+
+**McpCore Project Structure**:
+- `Server/McpServer.cs` - Base server implementation
+- `JsonRpc/JsonRpcModels.cs` - JSON-RPC 2.0 protocol models
+- `Protocol/McpProtocolModels.cs` - MCP-specific models
+- `ToolCallRequest.cs`, `Response.cs` - Request/response wrappers
+
+**AdrMcpServer.cs** - Implements 16 tools by delegating to command handlers
+
+### Template System
+
+**TemplateType enum**: Init, Ad (Architecture Decision), Asr (Architecture Significant Requirement), Revision, Task
+
+Templates are stored in `docs/adr-templates/` and created on-demand when first used. Template placeholder substitution uses StringBuilder for efficiency.
+
+### Dependency Injection Setup
+
+All services registered as Singletons in Program.cs:
+
+```csharp
+// Logging (Debug: console, Release: warnings only)
+ILogging (conditional on DEBUG/RELEASE)
+
+// Core Services
+IProcessHelper, ProcessHelper - Launch external editor
+IStdOut, StdOutService - Mutable output service
+IFileSystem, FileSystem - File system abstraction (System.IO.Abstractions)
+
+// Configuration & Repositories
+IAdrSettings, AdrSettings
+IAdrRecordRepository, AdrRecordRepository
+IAdrTasksRepository, AdrTasksRepository
+
+// Command Handlers
+IAdrInit, AdrInit
+IAdrNew, AdrNew
+IAdrQuery, AdrQuery
+IAdrLink, AdrLink
+IProjectPlanning, ProjectPlanning
+
+// MCP Server
+IMcpServer, AdrMcpServer
+```
 
 ## Testing
 
-The project uses xUnit for testing with:
-- **Moq** for mocking dependencies
-- **System.IO.Abstractions** for file system abstraction (testable file operations)
-- Test project: `Adr.Cli.UnitTests`
+The project uses xUnit with comprehensive mocking:
+
+**Testing Stack**:
+- **xUnit** - Test framework
+- **Moq** - Mocking dependencies
+- **System.IO.Abstractions** - File system abstraction for testable file operations
+- **Custom XUnitLogger** - Captures ILogger output in test results
+
+**Test Pattern** (example from AdrRecordRepositoryTests):
+- Mock IFileSystem, IAdrSettings, IStdOut, ILogger
+- Use in-memory streams for file I/O testing
+- Verify UTF-8 encoding/decoding
+- Test template generation, metadata serialization, file naming
+
+**Run specific test**: `dotnet test --filter "FullyQualifiedName~TestMethodName"`
 
 ## Key Dependencies
 
-- **System.CommandLine**: Command-line parsing and structure
-- **Microsoft.Extensions.DependencyInjection**: Dependency injection
-- **Microsoft.Extensions.Logging**: Structured logging
-- **System.IO.Abstractions**: File system abstraction for testability
-- **System.Text.Json**: JSON serialization for metadata
+- **System.CommandLine** - Command-line parsing and structure
+- **Microsoft.Extensions.DependencyInjection** - Dependency injection container
+- **Microsoft.Extensions.Logging** - Structured logging
+- **System.IO.Abstractions** - File system abstraction for testability
+- **System.Text.Json** - JSON serialization for metadata files
 
 ## MCP Integration
 
-The tool can run as an MCP (Model Context Protocol) server to enable AI tools like Claude and Copilot to interact with ADR repositories:
+The tool can run as an MCP (Model Context Protocol) server to enable AI tools to interact with ADR repositories.
 
 ### Available MCP Tools
 
-#### ADR Management Tools
-- `adr_init`: Initialize new ADR repository
-- `adr_new`: Create new Architecture Decision Record
-- `adr_list`: List all ADRs with optional filtering
-- `adr_find`: Search ADRs by text query
-- `adr_link`: Link two ADRs with relationship
-- `adr_unlink`: Remove links between ADRs
-- `adr_copy`: Copy existing ADR to create new one
-- `adr_sync`: Synchronize metadata with content
-- `adr_generate_toc`: Generate table of contents
+**16 tools total** - ADR tools (adr_init, adr_new, adr_list, adr_find, adr_link, adr_unlink, adr_copy, adr_sync, adr_generate_toc) and Task tools (task_new, task_list, task_find, task_update, task_link, task_unlink, task_generate_toc)
 
-#### Task/Project Planning Tools
-- `task_new`: Create new task for project planning
-- `task_list`: List all tasks with optional filtering
-- `task_find`: Search tasks by query with status filtering
-- `task_update`: Update task status with justification
-- `task_link`: Link two tasks together with relationship
-- `task_unlink`: Remove links between tasks
-- `task_generate_toc`: Generate table of contents for tasks
-
-### Usage
-```bash
-# Start MCP server (listens on stdin/stdout for JSON-RPC)
-adr-cli mcp
-```
+**Usage**: `adr-cli mcp` (listens on stdin/stdout for JSON-RPC)
 
 ### Claude Code Configuration
 
-#### Local Configuration (This Repository Only)
-This repository includes a `.claude/config.json` file that automatically configures the adr-cli tool as an MCP server for Claude Code when working in this repository:
+This repository includes `.claude/config.json` that automatically enables MCP integration:
 
 ```json
 {
@@ -125,41 +231,23 @@ This repository includes a `.claude/config.json` file that automatically configu
     "adr-cli": {
       "command": "adr-cli",
       "args": ["mcp"],
-      "description": "Architecture Decision Records management tool for creating, managing, and maintaining ADRs and project planning tasks."
+      "description": "Architecture Decision Records management tool"
     }
   }
 }
 ```
 
-When working in this repository, Claude Code will automatically have access to all ADR management capabilities through the MCP protocol.
+For global access across all projects, add the same configuration to:
+- **Windows**: `C:\Users\<username>\.claude\config.json`
+- **macOS/Linux**: `~/.claude/config.json`
 
-#### Global Configuration (All Projects)
-To make adr-cli available in any project, add the same configuration to your global Claude Code config file:
+If `adr-cli` is not in PATH, use full path to executable in the `command` field.
 
-**Windows**: `C:\Users\<username>\.claude\config.json`
-**macOS/Linux**: `~/.claude/config.json`
+## Key Behaviors
 
-```json
-{
-  "mcpServers": {
-    "adr-cli": {
-      "command": "adr-cli",
-      "args": ["mcp"],
-      "description": "Architecture Decision Records management tool for creating, managing, and maintaining ADRs and project planning tasks."
-    }
-  }
-}
-```
-
-**Note**: The `command` should point to the installed `adr-cli` executable. If it's not in your PATH, use the full path (e.g., `C:\Program Files (x86)\Nauplius\AdrCli\adr-cli.exe` on Windows or `/usr/local/bin/adr-cli` on macOS/Linux).
-
-**Tool Discovery**: Claude Code automatically discovers available tools from the MCP server at runtime - no need to list individual tools in the configuration.
-
-## Development Notes
-
-- The tool supports both creating new ADRs and managing revisions/links between existing ones
 - Templates are created on-demand when first used
-- Metadata synchronization keeps JSON files in sync with markdown content
-- The repository auto-detects configuration by walking up directory tree from current location
-- MCP mode enables seamless integration with AI tools for automated ADR management
-- memorize
+- Configuration auto-detected by walking up directory tree for `adr.config.json`
+- Metadata synchronization via `UpdateFromMarkdown()` extension method
+- File naming pattern: `{id:D5}-{title-slug}.{md|json}` (e.g., `00001-my-decision.md`)
+- Revisions created via `CopyRecordAsync` with SuperSedes relationship
+- Task status updates logged with DateTime and justification

@@ -92,6 +92,10 @@ public class AdrLink : IAdrLink
 
         var newMetadata = sourceMeta.UpdateReferenceRemark(targetId, remark);
 
+        // Ensure FileName is set before updating files
+        // This is critical when metadata is reconstructed from markdown
+        newMetadata.PrepareForStorage();
+
         var linkText = $"{remark} [{targetId:D5}.{targetMeta.Title}](.\\{targetMeta.FileName}){Environment.NewLine}";
 
         var newContent = sourceContent.AddTextAtMdElement("Status", linkText).ToArray();
@@ -122,6 +126,10 @@ public class AdrLink : IAdrLink
         }
 
         sourceMeta.References.Remove(targetId);
+
+        // Ensure FileName is set before updating files
+        // This is critical when metadata is reconstructed from markdown
+        sourceMeta.PrepareForStorage();
 
         var linkText = $"[{targetId:D5}.";
 
