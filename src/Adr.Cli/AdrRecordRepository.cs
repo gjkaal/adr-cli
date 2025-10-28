@@ -51,7 +51,8 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
             IFileSystem fileSystem,
             IAdrSettings settings,
             IStdOut stdOut,
-            ILogger<AdrRecordRepository> logger) : base(fileSystem, settings, stdOut, logger)
+            IFileLock fileLock,
+            ILogger<AdrRecordRepository> logger) : base(fileSystem, settings, stdOut, fileLock, logger)
         {
             logger.LogDebug("AdrRecordRepository Initialization complete");
             logger.LogDebug("Documents located in {DocFolderInfo}", settings.DocFolderInfo().FullName);
@@ -63,39 +64,42 @@ This documentation is created using the (adr-cli tool)[https://github.com/gjkaal
 
         public async Task<AdrRecord> CopyRecordAsync(AdrRecord record, int newId, bool isRevision)
         {
-            var newRecord = (AdrRecord)record.Clone();
-            newRecord.RecordId = newId;
-            newRecord.Status = AdrStatus.New;
-            if (isRevision)
+            using (await fileLock.AcquireLockAsync(BaseFolder.FullName, "CopyRecord"))
             {
-                newRecord.SuperSedes = record;
-            }
-            newRecord.PrepareForStorage();
-            var metaRecord = settings.GetMetaFile(DocumentType.Adr, newRecord.FileName);
-            using (var metaWriter = metaRecord.CreateText())
-            {
-                var meta = newRecord.GetMetadata(Constants.JsonOptions);
-                await metaWriter.WriteAsync(meta);
-                await metaWriter.FlushAsync();
-            }
-            logger.LogDebug("Write metadata for {Title}", newRecord.Title);
-
-            logger.LogInformation("Write ADR #{RecordId} to {FileName}", newRecord.RecordId, newRecord.FileName);
-            var newContent = await ReadContentAsync(record.RecordId);
-            newContent[0] = $"# {newId:D5}: {newRecord.Title}";
-            newContent = newContent.ReplaceMdContent("Status", [$"__{newRecord.Status}__"]).ToArray();
-
-            var contentRecord = settings.GetContentFile(DocumentType.Adr, newRecord.FileName);
-            using (var contentWriter = contentRecord.CreateText())
-            {
-                foreach (var line in newContent)
+                var newRecord = (AdrRecord)record.Clone();
+                newRecord.RecordId = newId;
+                newRecord.Status = AdrStatus.New;
+                if (isRevision)
                 {
-                    await contentWriter.WriteLineAsync(line);
+                    newRecord.SuperSedes = record;
                 }
-                await contentWriter.FlushAsync();
-            }
+                newRecord.PrepareForStorage();
+                var metaRecord = settings.GetMetaFile(DocumentType.Adr, newRecord.FileName);
+                using (var metaWriter = metaRecord.CreateText())
+                {
+                    var meta = newRecord.GetMetadata(Constants.JsonOptions);
+                    await metaWriter.WriteAsync(meta);
+                    await metaWriter.FlushAsync();
+                }
+                logger.LogDebug("Write metadata for {Title}", newRecord.Title);
 
-            return newRecord;
+                logger.LogInformation("Write ADR #{RecordId} to {FileName}", newRecord.RecordId, newRecord.FileName);
+                var newContent = await ReadContentAsync(record.RecordId);
+                newContent[0] = $"# {newId:D5}: {newRecord.Title}";
+                newContent = newContent.ReplaceMdContent("Status", [$"__{newRecord.Status}__"]).ToArray();
+
+                var contentRecord = settings.GetContentFile(DocumentType.Adr, newRecord.FileName);
+                using (var contentWriter = contentRecord.CreateText())
+                {
+                    foreach (var line in newContent)
+                    {
+                        await contentWriter.WriteLineAsync(line);
+                    }
+                    await contentWriter.FlushAsync();
+                }
+
+                return newRecord;
+            }
         }
 
         public async Task<StringBuilder> GetLayoutAsync(AdrRecord record)

@@ -95,6 +95,7 @@ internal static class Program
         serviceCollection.AddSingleton<IProcessHelper, ProcessHelper>();
         serviceCollection.AddSingleton<IStdOut, StdOutService>();
         serviceCollection.AddSingleton<IFileSystem, FileSystem>();
+        serviceCollection.AddSingleton<IFileLock, FileLockService>();
         serviceCollection.AddSingleton<IAdrSettings, AdrSettings>();
         serviceCollection.AddSingleton<IAdrRecordRepository, AdrRecordRepository>();
         serviceCollection.AddSingleton<IAdrTasksRepository, AdrTasksRepository>();

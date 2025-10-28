@@ -37,7 +37,8 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
         IFileSystem fileSystem,
         IAdrSettings settings,
         IStdOut stdOut,
-        ILogger<AdrTasksRepository> logger) : base(fileSystem, settings, stdOut, logger)
+        IFileLock fileLock,
+        ILogger<AdrTasksRepository> logger) : base(fileSystem, settings, stdOut, fileLock, logger)
     {
         logger.LogDebug("AdrTasksRepository Initialization complete");
         logger.LogDebug("Tasks located in {TasksFolderInfo}", settings.TasksFolderInfo().FullName);

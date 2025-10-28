@@ -24,6 +24,7 @@ namespace Tests
         private readonly ITestOutputHelper testOutputHelper;
         private readonly ILogger<AdrRecordRepository> logger;
         private readonly Mock<IStdOut> stdOutMock = new();
+        private readonly Mock<IFileLock> fileLockMock = new();
         private readonly Mock<IAdrSettings> adrSettingsMock = new();
         private readonly Mock<IFileSystem> fileSystemMock = new();
         private readonly Mock<IDirectoryInfo> docFolderMock = new();
@@ -45,6 +46,11 @@ namespace Tests
             fileSystemMock.Setup(m => m.Path.Combine(It.IsAny<string>(), It.IsAny<string>())).Returns<string, string>((a, b) => a + "\\" + b);
 
             stdOutMock.Setup(m => m.WriteLine(It.IsAny<string>())).Callback<string>(s => testOutputHelper.WriteLine(s));
+
+            // Mock file lock to return a disposable that does nothing
+            var mockDisposable = new Mock<IDisposable>();
+            fileLockMock.Setup(m => m.AcquireLockAsync(It.IsAny<string>(), It.IsAny<string>()))
+                .ReturnsAsync(mockDisposable.Object);
         }
 
         [Fact]
@@ -84,7 +90,7 @@ namespace Tests
                 RecordId = 123,
                 Title = "Test",
             };
-            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, logger);
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, fileLockMock.Object, logger);
 
             await sut.WriteRecordAsync(record);
 
@@ -109,7 +115,7 @@ namespace Tests
         [Fact]
         public void AdrRecordRepository_CanInitialize()
         {
-            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, logger);
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, fileLockMock.Object, logger);
             Assert.NotNull(sut);
         }
 
@@ -129,7 +135,7 @@ namespace Tests
             fileInfoMock.Setup(m => m.OpenText()).Returns(streamReader);
             adrSettingsMock.Setup(m => m.GetTemplate(It.IsAny<string>())).Returns(fileInfoMock.Object);
 
-            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, logger);
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, fileLockMock.Object, logger);
             var record = new AdrRecord
             {
                 TemplateType = template
@@ -152,7 +158,7 @@ namespace Tests
             fileStream3.SetupGet(m => m.Exists).Returns((bool)false);
             adrSettingsMock.Setup(m => m.GetTemplate(It.IsAny<string>())).Returns(fileStream3.Object);
 
-            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, logger);
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, fileLockMock.Object, logger);
             var record = new AdrRecord
             {
                 TemplateType = TemplateType.Ad

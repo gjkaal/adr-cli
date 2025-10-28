@@ -19,16 +19,19 @@ public abstract class DocumentBasedRepository
     protected readonly ILogger logger;
     protected readonly IAdrSettings settings;
     protected readonly IStdOut stdOut;
+    protected readonly IFileLock fileLock;
 
     protected DocumentBasedRepository(
         IFileSystem fileSystem,
             IAdrSettings settings,
             IStdOut stdOut,
+            IFileLock fileLock,
             ILogger logger)
     {
         this.fileSystem = fileSystem;
         this.settings = settings;
         this.stdOut = stdOut;
+        this.fileLock = fileLock;
         this.logger = logger;
     }
 
@@ -38,34 +41,39 @@ public abstract class DocumentBasedRepository
     public async Task<(bool success, string fullFilePath)> CreateRootDocumentAsync(string fileName, StringBuilder fileContent)
     {
         var doc = settings.GetDocumentFile(fileName);
-        IFileInfo? backupDoc = null;
-        var success = false;
-        try
+        var folderPath = fileSystem.Path.GetDirectoryName(doc.FullName) ?? settings.RootFolderInfo().FullName;
+
+        using (await fileLock.AcquireLockAsync(folderPath, "CreateRootDocument"))
         {
-            if (doc.Exists)
+            IFileInfo? backupDoc = null;
+            var success = false;
+            try
             {
-                var backupFile = doc.FullName + ".back";
-                if (fileSystem.File.Exists(backupFile))
+                if (doc.Exists)
                 {
-                    fileSystem.File.Delete(backupFile);
+                    var backupFile = doc.FullName + ".back";
+                    if (fileSystem.File.Exists(backupFile))
+                    {
+                        fileSystem.File.Delete(backupFile);
+                    }
+                    backupDoc = doc.CopyTo(backupFile);
                 }
-                backupDoc = doc.CopyTo(backupFile);
+                using (var writer = doc.CreateText())
+                {
+                    await writer.WriteAsync(fileContent);
+                    writer.Flush();
+                }
+                success = true;
             }
-            using (var writer = doc.CreateText())
+            finally
             {
-                await writer.WriteAsync(fileContent);
-                writer.Flush();
+                if (success && backupDoc != null)
+                {
+                    backupDoc.Delete();
+                }
             }
-            success = true;
+            return new(success, doc.FullName);
         }
-        finally
-        {
-            if (success && backupDoc != null)
-            {
-                backupDoc.Delete();
-            }
-        }
-        return new(success, doc.FullName);
     }
 
     /// <summary>
@@ -77,19 +85,22 @@ public abstract class DocumentBasedRepository
     /// </returns>
     public async Task<string[]> ReadContentAsync(int recordId)
     {
-        var file = GetFileInfoForRecord(recordId);
-
-        var contentLines = new List<string>();
-        var content = string.Empty;
-        if (file == null) { return []; }
-        using (var markdownContent = file.OpenText())
+        using (await fileLock.AcquireLockAsync(BaseFolder.FullName, "ReadContent"))
         {
-            content = await markdownContent.ReadToEndAsync();
+            var file = GetFileInfoForRecord(recordId);
+
+            var contentLines = new List<string>();
+            var content = string.Empty;
+            if (file == null) { return []; }
+            using (var markdownContent = file.OpenText())
+            {
+                content = await markdownContent.ReadToEndAsync();
+            }
+
+            contentLines.AddRange(content.Split(Environment.NewLine));
+
+            return [.. contentLines];
         }
-
-        contentLines.AddRange(content.Split(Environment.NewLine));
-
-        return [.. contentLines];
     }
 
     protected IFileInfo? GetFileInfoForRecord(int recordId)
@@ -139,39 +150,42 @@ public abstract class DocumentBasedRepository
 
     protected async Task<T> ReadFromFile<T>(int recordId, IFileInfo fileInfo) where T : AdrRecordBase, new()
     {
-        if (!fileInfo.Exists)
+        using (await fileLock.AcquireLockAsync(BaseFolder.FullName, "ReadMetadata"))
         {
-            return new T
+            if (!fileInfo.Exists)
             {
-                RecordId = recordId,
-                DateTime = DateTime.Now,
-                FileName = fileInfo.FullName,
-                Title = "File not found"
-            };
-        }
-
-        using var metadataContent = fileInfo.OpenText();
-        var content = await metadataContent.ReadToEndAsync();
-        try
-        {
-            var record = JsonSerializer.Deserialize<T>(content, Constants.JsonOptions);
-            if (record!.RecordId != recordId)
-            {
-                stdOut.WriteLine($"{fileInfo.Name} contains invalid record id : {record.RecordId}");
+                return new T
+                {
+                    RecordId = recordId,
+                    DateTime = DateTime.Now,
+                    FileName = fileInfo.FullName,
+                    Title = "File not found"
+                };
             }
 
-            return record;
-        }
-        catch (Exception e)
-        {
-            var fileDate = fileSystem.File.GetCreationTime(fileInfo.FullName);
-            return new T
+            using var metadataContent = fileInfo.OpenText();
+            var content = await metadataContent.ReadToEndAsync();
+            try
             {
-                RecordId = recordId,
-                DateTime = fileDate,
-                FileName = fileInfo.FullName,
-                Title = e.Message
-            };
+                var record = JsonSerializer.Deserialize<T>(content, Constants.JsonOptions);
+                if (record!.RecordId != recordId)
+                {
+                    stdOut.WriteLine($"{fileInfo.Name} contains invalid record id : {record.RecordId}");
+                }
+
+                return record;
+            }
+            catch (Exception e)
+            {
+                var fileDate = fileSystem.File.GetCreationTime(fileInfo.FullName);
+                return new T
+                {
+                    RecordId = recordId,
+                    DateTime = fileDate,
+                    FileName = fileInfo.FullName,
+                    Title = e.Message
+                };
+            }
         }
     }
 
@@ -179,35 +193,44 @@ public abstract class DocumentBasedRepository
     {
         var documentType = DocumentTypeForRecord(record);
 
-        logger.LogInformation("Update #{RecordId} with new content.", record.RecordId);
-        var contextRecord = settings.GetContentFile(documentType, record.FileName);
-        var backupFileName = record.FileName + ".bak";
-        var contextBackup = settings.GetContentFile(documentType, backupFileName);
-        if (!contextRecord.Exists)
+        using (await fileLock.AcquireLockAsync(BaseFolder.FullName, "UpdateFileContent"))
         {
-            return -1;
-        }
-
-        contextRecord.CopyTo(backupFileName, true);
-        var contentLength = 0;
-        var charactersWritten = 0;
-        using (var contentWriter = contextRecord.CreateText())
-        {
-            foreach (var line in lines)
+            logger.LogInformation("Update #{RecordId} with new content.", record.RecordId);
+            var contextRecord = settings.GetContentFile(documentType, record.FileName);
+            var backupFileName = record.FileName + ".bak";
+            var contextBackup = settings.GetContentFile(documentType, backupFileName);
+            if (!contextRecord.Exists)
             {
-                await contentWriter.WriteLineAsync(line);
-                contentLength += line.Length;
+                return -1;
             }
-            await contentWriter.FlushAsync();
-            charactersWritten = contentLength;
-        }
-        logger.LogDebug("Update content for {Title}", record.Title);
-        if (contextBackup.Exists)
-        {
-            contextBackup.Delete();
-        }
 
-        return charactersWritten;
+            contextRecord.CopyTo(backupFileName, true);
+            var contentLength = 0;
+            var charactersWritten = 0;
+            try
+            {
+                using (var contentWriter = contextRecord.CreateText())
+                {
+                    foreach (var line in lines)
+                    {
+                        await contentWriter.WriteLineAsync(line);
+                        contentLength += line.Length;
+                    }
+                    await contentWriter.FlushAsync();
+                    charactersWritten = contentLength;
+                }
+                logger.LogDebug("Update content for {Title}", record.Title);
+            }
+            finally
+            {
+                if (contextBackup.Exists)
+                {
+                    contextBackup.Delete();
+                }
+            }
+
+            return charactersWritten;
+        }
     }
 
     private static DocumentType DocumentTypeForRecord<T>(T record) where T : AdrRecordBase
@@ -229,24 +252,28 @@ public abstract class DocumentBasedRepository
     protected async Task<int> UpdateMetadataRecordAsync<T>(int recordId, T record) where T : AdrRecordBase
     {
         var documentType = DocumentTypeForRecord(record);
-        record.RecordId = recordId;
-        logger.LogInformation("Update #{RecordId} to {FileName}", record.RecordId, record.FileName);
-        var metaRecord = settings.GetMetaFile(documentType, record.FileName);
-        if (!metaRecord.Exists)
-        {
-            return -1;
-        }
 
-        var bytesWritten = 0;
-        using (var metaWriter = metaRecord.CreateText())
+        using (await fileLock.AcquireLockAsync(BaseFolder.FullName, "UpdateMetadata"))
         {
-            var meta = record.GetMetadata(Constants.JsonOptions);
-            await metaWriter.WriteAsync(meta);
-            await metaWriter.FlushAsync();
-            bytesWritten = meta.Length;
+            record.RecordId = recordId;
+            logger.LogInformation("Update #{RecordId} to {FileName}", record.RecordId, record.FileName);
+            var metaRecord = settings.GetMetaFile(documentType, record.FileName);
+            if (!metaRecord.Exists)
+            {
+                return -1;
+            }
+
+            var bytesWritten = 0;
+            using (var metaWriter = metaRecord.CreateText())
+            {
+                var meta = record.GetMetadata(Constants.JsonOptions);
+                await metaWriter.WriteAsync(meta);
+                await metaWriter.FlushAsync();
+                bytesWritten = meta.Length;
+            }
+            logger.LogDebug("Update metadata for {Title}", record.Title);
+            return bytesWritten;
         }
-        logger.LogDebug("Update metadata for {Title}", record.Title);
-        return bytesWritten;
     }
 
     protected async Task<int> WriteRecordAsync<T>(
@@ -256,33 +283,36 @@ public abstract class DocumentBasedRepository
         Func<T, Task<StringBuilder>> getLayoutAsync
         ) where T : AdrRecordBase
     {
-        record.RecordId = settings.GetNextFileNumber(BaseFolder);
-        validate.Invoke(record);
-        record = prepareForStorage.Invoke(record);
-
-        logger.LogInformation("Write #{RecordId} to {FileName}", record.RecordId, record.FileName);
-
-        // Use BaseFolder instead of settings methods to support both ADR and Tasks folders
-        var contentFilePath = fileSystem.Path.Combine(BaseFolder.FullName, $"{record.FileName}.md");
-        var contentRecord = fileSystem.FileInfo.New(contentFilePath);
-        using (var contentWriter = contentRecord.CreateText())
+        using (await fileLock.AcquireLockAsync(BaseFolder.FullName, "WriteRecord"))
         {
-            var content = await getLayoutAsync.Invoke(record);
-            await contentWriter.WriteAsync(content);
-            await contentWriter.FlushAsync();
-        }
-        logger.LogDebug("Write content for {RecordType} {Title}", record.GetType().Name, record.Title);
+            record.RecordId = settings.GetNextFileNumber(BaseFolder);
+            validate.Invoke(record);
+            record = prepareForStorage.Invoke(record);
 
-        var metaFilePath = fileSystem.Path.Combine(BaseFolder.FullName, $"{record.FileName}.json");
-        var metaRecord = fileSystem.FileInfo.New(metaFilePath);
-        using (var metaWriter = metaRecord.CreateText())
-        {
-            var meta = record.GetMetadata(Constants.JsonOptions);
-            await metaWriter.WriteAsync(meta);
-            await metaWriter.FlushAsync();
-        }
-        logger.LogDebug("Write metadata for {Title}", record.Title);
+            logger.LogInformation("Write #{RecordId} to {FileName}", record.RecordId, record.FileName);
 
-        return 1;
+            // Use BaseFolder instead of settings methods to support both ADR and Tasks folders
+            var contentFilePath = fileSystem.Path.Combine(BaseFolder.FullName, $"{record.FileName}.md");
+            var contentRecord = fileSystem.FileInfo.New(contentFilePath);
+            using (var contentWriter = contentRecord.CreateText())
+            {
+                var content = await getLayoutAsync.Invoke(record);
+                await contentWriter.WriteAsync(content);
+                await contentWriter.FlushAsync();
+            }
+            logger.LogDebug("Write content for {RecordType} {Title}", record.GetType().Name, record.Title);
+
+            var metaFilePath = fileSystem.Path.Combine(BaseFolder.FullName, $"{record.FileName}.json");
+            var metaRecord = fileSystem.FileInfo.New(metaFilePath);
+            using (var metaWriter = metaRecord.CreateText())
+            {
+                var meta = record.GetMetadata(Constants.JsonOptions);
+                await metaWriter.WriteAsync(meta);
+                await metaWriter.FlushAsync();
+            }
+            logger.LogDebug("Write metadata for {Title}", record.Title);
+
+            return 1;
+        }
     }
 }
