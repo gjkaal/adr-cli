@@ -65,7 +65,7 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_get_context",
-                Description = "Report which adr.config.json (path and ProjectName) is currently active for this MCP session, without changing anything.",
+                Description = "Report which adr.config.json (path and ProjectName) is currently active for this MCP session, and whether an AI provider is connected (see AI-Setup.md - determines whether adr_new's \"ai\" option is a no-op), without changing anything.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
@@ -366,7 +366,8 @@ public class AdrMcpServer : McpServer
     {
         var context = _serviceProvider.GetRequiredService<IAdrSettings>().CurrentContext;
         var configLabel = context.ConfigFilePath ?? "(none found - using built-in defaults)";
-        return $"{text}{Environment.NewLine}{Environment.NewLine}[adr-cli context: project=\"{context.ProjectName}\", config={configLabel}]";
+        var aiLabel = context.AiConfigured ? $"connected ({context.AiProvider})" : "not connected";
+        return $"{text}{Environment.NewLine}{Environment.NewLine}[adr-cli context: project=\"{context.ProjectName}\", config={configLabel}, ai={aiLabel}]";
     }
 
     private async Task<string> HandleAdrInitAsync(Dictionary<string, object?> arguments)

@@ -90,7 +90,9 @@ namespace Adr.Cli
             CurrentPath = currentPath,
             DocFolder = DocFolder,
             TasksFolder = TasksFolder,
-            TemplateFolder = TemplateFolder
+            TemplateFolder = TemplateFolder,
+            AiConfigured = !string.IsNullOrWhiteSpace(AiSettings.Provider),
+            AiProvider = AiSettings.Provider
         };
 
         /// <summary>

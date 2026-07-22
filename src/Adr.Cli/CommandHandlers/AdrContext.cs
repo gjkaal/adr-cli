@@ -36,8 +36,9 @@ public class AdrContext : IAdrContext
     private static Response Format(string verb, AdrContextInfo context)
     {
         var configLabel = context.ConfigFilePath ?? "(none found - using built-in defaults)";
+        var aiLabel = context.AiConfigured ? $"connected ({context.AiProvider})" : "not connected";
         return Response.Ok(
             $"{verb}: project=\"{context.ProjectName}\", config={configLabel}, " +
-            $"docs={context.DocFolder}, tasks={context.TasksFolder}.");
+            $"docs={context.DocFolder}, tasks={context.TasksFolder}, ai={aiLabel}.");
     }
 }
