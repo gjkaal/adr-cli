@@ -50,9 +50,17 @@ public class ProjectPlanning : IProjectPlanning
 
     private async Task<Response> CreateTaskAsync(string title, string description, string? dueDate)
     {
-        if (!DateTime.TryParse(dueDate, out var date))
+        DateTime? parsedDueDate = null;
+        if (!string.IsNullOrEmpty(dueDate))
         {
-            logger.LogWarning("Could not get due date from {StringValue}", dueDate);
+            if (DateTime.TryParse(dueDate, out var date))
+            {
+                parsedDueDate = date;
+            }
+            else
+            {
+                logger.LogWarning("Could not get due date from {StringValue}", dueDate);
+            }
         }
 
         var record = new TaskRecord
@@ -60,7 +68,7 @@ public class ProjectPlanning : IProjectPlanning
             Title = title,
             Status = PlanningStatus.New,
             Description = description,
-            DueDate = date
+            DueDate = parsedDueDate
         };
 
         await repository.WriteRecordAsync(record);

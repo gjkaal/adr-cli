@@ -14,7 +14,7 @@ public class FileLockService : IFileLock
     private readonly IFileSystem fileSystem;
     private readonly ILogger<FileLockService> logger;
     private const string LockFileName = "LOCK.TMP";
-    private const int MaxWaitTimeMs = 30000; // 30 seconds max wait
+    private const int MaxWaitTimeMs = 60000; // 60 seconds max wait - generous enough to ride out transient disk/antivirus contention
     private const int RetryDelayMs = 100; // Check every 100ms
 
     public FileLockService(IFileSystem fileSystem, ILogger<FileLockService> logger)
@@ -114,9 +114,13 @@ public class FileLockService : IFileLock
                 lockCreated = true;
                 logger.LogDebug("Acquired lock for {OperationType} in {FolderPath}", operationType, folderPath);
             }
-            catch (System.IO.IOException ioEx) when (ioEx.Message.Contains("already exists") || fileSystem.File.Exists(lockFilePath))
+            catch (Exception lockEx) when (lockEx is System.IO.IOException or UnauthorizedAccessException)
             {
-                // File exists or was just created by another thread - wait and retry
+                // File exists, was just created by another thread, or is transiently locked/
+                // inaccessible (e.g. antivirus scanning it) - wait and retry rather than failing
+                // outright. UnauthorizedAccessException in particular is common under real
+                // filesystem contention and would otherwise bypass this retry loop entirely,
+                // since it isn't an IOException.
                 var elapsed = DateTime.Now - retryStartTime;
                 if (elapsed.TotalMilliseconds > MaxWaitTimeMs)
                 {
