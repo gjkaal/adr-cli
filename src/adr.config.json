@@ -4,7 +4,7 @@
   "tasks": "\\docs\\planning",
   "ai": {
     "provider": "AzureFoundry",
-    "endpoint": "https://adr-cli-ai.cognitiveservices.azure.com/",
-    "deploymentName": "gpt-4o"
+    "endpoint": "https://gjkaal-8671-resource.cognitiveservices.azure.com/",
+    "deploymentName": "gpt-5.6-sol"
   }
 }

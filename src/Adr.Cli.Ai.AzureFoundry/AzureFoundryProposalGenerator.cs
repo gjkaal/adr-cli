@@ -1,31 +1,40 @@
 using System;
+using System.ClientModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
 using System.Threading.Tasks;
 
-using Azure.AI.Agents.Persistent;
+using Azure.AI.OpenAI;
 using Azure.Identity;
 
 using McpCore;
 
 using Microsoft.Extensions.Logging;
 
+using OpenAI.Chat;
+
 namespace Adr.Cli.Ai.AzureFoundry;
 
 /// <summary>
-/// Drafts ADR proposals with a persistent Azure AI Foundry agent. The agent is given a function
-/// tool to search the existing-ADR summaries handed to <see cref="GenerateAsync" /> - it decides
-/// what (if anything) is worth pulling into context, instead of the full list always being stuffed
-/// into the prompt. Grounding stays local to this call: the tool searches the in-memory summaries
-/// only, it never calls back into the ADR repository.
+/// Drafts ADR proposals via the Azure OpenAI Chat Completions API - the stable, GA surface, not the
+/// newer/experimental Responses or Projects/Agents APIs, both of which had unresolvable version
+/// churn against this deployment. Existing-ADR summaries are stuffed directly into a single
+/// request - no persistent agent, thread, or tool-calling round trip.
 /// </summary>
 public class AzureFoundryProposalGenerator : IAdrProposalGenerator
 {
-    private const string SearchToolName = "search_existing_adrs";
-    private static readonly TimeSpan RunTimeout = TimeSpan.FromSeconds(60);
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+    /// <summary>
+    /// Optional API key, read from the environment rather than adr.config.json so no secret ever
+    /// needs to be committed. When unset, falls back to DefaultAzureCredential (az login locally,
+    /// managed identity when hosted).
+    /// </summary>
+    private const string ApiKeyEnvironmentVariable = "ADR_CLI_AI_API_KEY";
+
+    private const string SystemInstructions =
+        "You draft the Decision and Consequences sections for a new Architecture Decision Record (ADR). " +
+        "Respond with exactly two markdown sections, in this order and with no other text: " +
+        "'## Decision' followed by the decision text, then '## Consequences' followed by the consequences text.";
 
     private readonly IAdrSettings settings;
     private readonly ILogger<AzureFoundryProposalGenerator> logger;
@@ -40,7 +49,16 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
     {
         try
         {
-            var proposal = await GenerateWithAgentAsync(title, context, existingRecords);
+            var azureClient = CreateClient();
+            var chatClient = azureClient.GetChatClient(settings.AiSettings.DeploymentName);
+
+            var userPrompt = BuildUserPrompt(title, context, existingRecords);
+            ChatCompletion completion = await chatClient.CompleteChatAsync(
+                new SystemChatMessage(SystemInstructions),
+                new UserChatMessage(userPrompt));
+
+            var replyText = string.Concat(completion.Content.Select(part => part.Text));
+            var proposal = ParseProposal(replyText);
             return new Response<AdrProposal>(true, "AI proposal generated.", proposal);
         }
         catch (Exception ex)
@@ -50,109 +68,40 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
         }
     }
 
-    private async Task<AdrProposal> GenerateWithAgentAsync(string title, string context, IReadOnlyList<AdrSummary> existingRecords)
+    private AzureOpenAIClient CreateClient()
     {
-        var client = new PersistentAgentsClient(new Uri(settings.AiSettings.Endpoint).ToString(), new DefaultAzureCredential());
+        var endpoint = new Uri(settings.AiSettings.Endpoint);
+        var apiKey = Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable);
 
-        var searchTool = new FunctionToolDefinition(
-            name: SearchToolName,
-            description: "Search the existing ADRs in this repository by keyword, to check for related or conflicting prior decisions.",
-            parameters: BinaryData.FromObjectAsJson(new
-            {
-                type = "object",
-                properties = new
-                {
-                    keywords = new { type = "string", description = "One or more space-separated keywords to search for in existing ADR titles and context." }
-                },
-                required = new[] { "keywords" }
-            }));
-
-        PersistentAgent agent = await client.Administration.CreateAgentAsync(
-            model: settings.AiSettings.DeploymentName,
-            name: "adr-cli-proposal-drafter",
-            instructions:
-                "You draft the Decision and Consequences sections for a new Architecture Decision Record (ADR). " +
-                "Use the search_existing_adrs tool if you need to check for related or conflicting prior decisions. " +
-                "Respond with exactly two markdown sections, in this order and with no other text: " +
-                "'## Decision' followed by the decision text, then '## Consequences' followed by the consequences text.",
-            tools: [searchTool]);
-
-        try
-        {
-            PersistentAgentThread thread = await client.Threads.CreateThreadAsync();
-            var userMessage = BuildUserMessage(title, context);
-            await client.Messages.CreateMessageAsync(thread.Id, MessageRole.User, userMessage);
-
-            ThreadRun run = await client.Runs.CreateRunAsync(thread.Id, agent.Id);
-            run = await PollUntilDoneAsync(client, thread.Id, run, existingRecords);
-
-            if (run.Status != RunStatus.Completed)
-            {
-                throw new InvalidOperationException($"Agent run ended with status '{run.Status}'.");
-            }
-
-            var replyText = await GetLatestAssistantMessageAsync(client, thread.Id);
-            return ParseProposal(replyText);
-        }
-        finally
-        {
-            await client.Administration.DeleteAgentAsync(agent.Id);
-        }
+        return string.IsNullOrWhiteSpace(apiKey)
+            ? new AzureOpenAIClient(endpoint, new DefaultAzureCredential())
+            : new AzureOpenAIClient(endpoint, new ApiKeyCredential(apiKey));
     }
 
-    private async Task<ThreadRun> PollUntilDoneAsync(PersistentAgentsClient client, string threadId, ThreadRun run, IReadOnlyList<AdrSummary> existingRecords)
+    private static string BuildUserPrompt(string title, string context, IReadOnlyList<AdrSummary> existingRecords)
     {
-        var deadline = DateTime.UtcNow + RunTimeout;
-        while (run.Status == RunStatus.Queued || run.Status == RunStatus.InProgress || run.Status == RunStatus.RequiresAction)
+        var prompt = new StringBuilder();
+        prompt.AppendLine($"Title: {title}");
+        if (!string.IsNullOrWhiteSpace(context))
         {
-            if (DateTime.UtcNow > deadline)
-            {
-                throw new TimeoutException($"Agent run did not complete within {RunTimeout.TotalSeconds}s.");
-            }
-
-            if (run.Status == RunStatus.RequiresAction && run.RequiredAction is SubmitToolOutputsAction submitToolOutputsAction)
-            {
-                var toolOutputs = submitToolOutputsAction.ToolCalls
-                    .OfType<RequiredFunctionToolCall>()
-                    .Select(toolCall => ExecuteTool(toolCall, existingRecords))
-                    .ToList();
-
-                run = await client.Runs.SubmitToolOutputsToRunAsync(threadId, run.Id, toolOutputs);
-                continue;
-            }
-
-            await Task.Delay(PollInterval);
-            run = await client.Runs.GetRunAsync(threadId, run.Id);
+            prompt.AppendLine($"Context: {context}");
         }
 
-        return run;
+        if (existingRecords.Count > 0)
+        {
+            prompt.AppendLine();
+            prompt.AppendLine("Existing ADRs in this repository, for consistency and to flag conflicts:");
+            prompt.AppendLine(SearchExistingRecords([], existingRecords));
+        }
+
+        return prompt.ToString();
     }
 
-    private static ToolOutput ExecuteTool(RequiredFunctionToolCall toolCall, IReadOnlyList<AdrSummary> existingRecords)
-    {
-        if (toolCall.Name != SearchToolName)
-        {
-            return new ToolOutput(toolCall.Id, string.Empty);
-        }
-
-        var keywords = Array.Empty<string>();
-        try
-        {
-            using var arguments = JsonDocument.Parse(toolCall.Arguments);
-            if (arguments.RootElement.TryGetProperty("keywords", out var keywordsElement))
-            {
-                keywords = (keywordsElement.GetString() ?? string.Empty)
-                    .Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            }
-        }
-        catch (JsonException)
-        {
-            // Malformed tool arguments - fall back to returning nothing rather than failing the run.
-        }
-
-        return new ToolOutput(toolCall.Id, SearchExistingRecords(keywords, existingRecords));
-    }
-
+    /// <summary>
+    /// Formats existing-ADR summaries, optionally filtered by keyword. Called with no keywords to
+    /// inline the full grounding list into the prompt; kept as a standalone, directly-testable
+    /// method rather than inlined into BuildUserPrompt.
+    /// </summary>
     internal static string SearchExistingRecords(string[] keywords, IReadOnlyList<AdrSummary> existingRecords)
     {
         var matches = existingRecords
@@ -166,39 +115,6 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
         return matches.Count == 0
             ? "No matching ADRs found."
             : string.Join('\n', matches);
-    }
-
-    private static async Task<string> GetLatestAssistantMessageAsync(PersistentAgentsClient client, string threadId)
-    {
-        await foreach (var message in client.Messages.GetMessagesAsync(threadId, order: ListSortOrder.Descending))
-        {
-            if (message.Role != MessageRole.Agent)
-            {
-                continue;
-            }
-
-            var text = new StringBuilder();
-            foreach (var contentItem in message.ContentItems.OfType<MessageTextContent>())
-            {
-                text.Append(contentItem.Text);
-            }
-
-            return text.ToString();
-        }
-
-        throw new InvalidOperationException("The agent did not return a message.");
-    }
-
-    private static string BuildUserMessage(string title, string context)
-    {
-        var message = new StringBuilder();
-        message.AppendLine($"Title: {title}");
-        if (!string.IsNullOrWhiteSpace(context))
-        {
-            message.AppendLine($"Context: {context}");
-        }
-
-        return message.ToString();
     }
 
     internal static AdrProposal ParseProposal(string replyText)
