@@ -252,7 +252,9 @@ public class ProjectPlanning : IProjectPlanning
                     continue;
                 }
 
-                var link = $"..\\{settings.TasksFolder}\\{record.FileName}.md";
+                // tasks-toc.md is written next to docFolder's parent (see CreateRootDocumentAsync), so
+                // the link only needs docFolder's own name, not a path back up to the repo root.
+                var link = $"{docFolder.Name}/{record.FileName}.md";
                 toc.AppendLine($"| {record.RecordId} | [{record.Title}]({link}) | {record.Status} | {record.DueDate} |");
             }
         }

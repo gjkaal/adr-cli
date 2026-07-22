@@ -80,7 +80,7 @@ public static class CommandHandlerSetup
     public static Command GenerateTocCommand(IServiceProvider serviceProvider)
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
-        var cmd = new Command("generate-toc", "Generate a table of contents markdown file in the project root folder, next to the config file.");
+        var cmd = new Command("generate-toc", "Generate adr-toc.md, a table of contents for every ADR, in the parent folder of the configured ADR docs folder.");
         cmd.SetAction(async (ParseResult ctx) =>
         {
             var c = serviceProvider.GetRequiredService<IAdrInit>();

@@ -212,7 +212,7 @@ public static class ProjectPlanningSetup
     public static Command GenerateTocCommand(IServiceProvider serviceProvider)
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
-        var cmd = new Command("task-toc", "Generate table of contents for tasks");
+        var cmd = new Command("task-toc", "Generate tasks-toc.md, a table of contents for open tasks, in the parent folder of the configured tasks folder.");
 
         cmd.SetAction(async (ParseResult ctx) =>
         {

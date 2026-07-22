@@ -187,7 +187,7 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_generate_toc",
-                Description = "Regenerate adr-toc.md (a table of every ADR: id, title, status) in the project root, next to adr.config.json. Overwrites the existing file; run this after adding, linking, or changing the status of ADRs to keep it current.",
+                Description = "Regenerate adr-toc.md (a table of every ADR: id, title, status) in the parent folder of the configured ADR docs folder (e.g. docs/adr-toc.md when ADRs live in docs/adr). Overwrites the existing file; run this after adding, linking, or changing the status of ADRs to keep it current.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
@@ -306,7 +306,7 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_generate_toc",
-                Description = "Regenerate the open-tasks table of contents markdown file in the project root. Lists only tasks that are not Completed, Abandoned, or None - closed-out tasks are intentionally left off. Overwrites the existing file; run this after adding, linking, or updating the status of tasks to keep it current.",
+                Description = "Regenerate tasks-toc.md (the open-tasks table of contents) in the parent folder of the configured tasks folder (e.g. docs/tasks-toc.md when tasks live in docs/planning). Lists only tasks that are not Completed, Abandoned, or None - closed-out tasks are intentionally left off. Overwrites the existing file; run this after adding, linking, or updating the status of tasks to keep it current.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
