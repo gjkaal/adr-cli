@@ -3,6 +3,7 @@ using Adr.Cli.Exceptions;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -531,6 +532,13 @@ public static class AdrRecordExtensions
         var sanitized = fileName
             .Replace(' ', '-')
             .ToLower();
+
+        // Titles may contain characters that are invalid in a file name on this (or another)
+        // platform - e.g. "/" in "success/failure" - replace them rather than let file creation fail.
+        foreach (var invalidChar in Path.GetInvalidFileNameChars().Union(['/', '\\']))
+        {
+            sanitized = sanitized.Replace(invalidChar, '-');
+        }
 
         // Truncate if too long
         if (sanitized.Length > maxFileNameLength)

@@ -32,9 +32,12 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
     private const string ApiKeyEnvironmentVariable = "ADR_CLI_AI_API_KEY";
 
     private const string SystemInstructions =
-        "You draft the Decision and Consequences sections for a new Architecture Decision Record (ADR). " +
-        "Respond with exactly two markdown sections, in this order and with no other text: " +
-        "'## Decision' followed by the decision text, then '## Consequences' followed by the consequences text.";
+        "You draft the Context, Decision, and Consequences sections for a new Architecture Decision Record (ADR). " +
+        "If the user already provided a Context, refine or complete it rather than discarding it - stay consistent with their intent. " +
+        "If no Context was provided, draft one from the title and the existing ADRs listed in the prompt. " +
+        "A template may be included as a structure and tone example - follow its style but never copy its placeholder text. " +
+        "Respond with exactly three markdown sections, in this order and with no other text: " +
+        "'## Context' followed by the context text, then '## Decision' followed by the decision text, then '## Consequences' followed by the consequences text.";
 
     private readonly IAdrSettings settings;
     private readonly ILogger<AzureFoundryProposalGenerator> logger;
@@ -45,14 +48,15 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
         this.logger = logger;
     }
 
-    public async Task<Response<AdrProposal>> GenerateAsync(string title, string context, IReadOnlyList<AdrSummary> existingRecords)
+    public async Task<Response<AdrProposal>> GenerateAsync(string title, string context, IReadOnlyList<AdrSummary> existingRecords, string templateType)
     {
         try
         {
             var azureClient = CreateClient();
             var chatClient = azureClient.GetChatClient(settings.AiSettings.DeploymentName);
 
-            var userPrompt = BuildUserPrompt(title, context, existingRecords);
+            var templateExample = await TryReadTemplateExampleAsync(templateType);
+            var userPrompt = BuildUserPrompt(title, context, existingRecords, templateExample);
             ChatCompletion completion = await chatClient.CompleteChatAsync(
                 new SystemChatMessage(SystemInstructions),
                 new UserChatMessage(userPrompt));
@@ -78,13 +82,55 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
             : new AzureOpenAIClient(endpoint, new ApiKeyCredential(apiKey));
     }
 
-    private static string BuildUserPrompt(string title, string context, IReadOnlyList<AdrSummary> existingRecords)
+    /// <summary>
+    /// Best-effort lookup of the on-disk template for <paramref name="templateType" />, used to show
+    /// the model a real structure/tone example. Returns null rather than creating the template file
+    /// when it doesn't exist yet - AI drafting must never have the side effect of writing files.
+    /// </summary>
+    private async Task<string?> TryReadTemplateExampleAsync(string templateType)
+    {
+        if (string.IsNullOrEmpty(templateType))
+        {
+            return null;
+        }
+
+        try
+        {
+            var templateFile = settings.GetTemplate(templateType);
+            if (!templateFile.Exists)
+            {
+                return null;
+            }
+
+            using var reader = templateFile.OpenText();
+            return await reader.ReadToEndAsync();
+        }
+        catch (Exception ex)
+        {
+            // Best-effort only - the template is a style example, never a prerequisite for drafting.
+            logger.LogDebug(ex, "Could not read template '{TemplateType}' for AI prompt grounding.", templateType);
+            return null;
+        }
+    }
+
+    private static string BuildUserPrompt(string title, string context, IReadOnlyList<AdrSummary> existingRecords, string? templateExample)
     {
         var prompt = new StringBuilder();
         prompt.AppendLine($"Title: {title}");
         if (!string.IsNullOrWhiteSpace(context))
         {
-            prompt.AppendLine($"Context: {context}");
+            prompt.AppendLine($"Context so far (refine or complete it, don't discard it): {context}");
+        }
+        else
+        {
+            prompt.AppendLine("No context has been written yet - draft one from the title and the existing ADRs below.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(templateExample))
+        {
+            prompt.AppendLine();
+            prompt.AppendLine("This repository's ADR template, as a structure/tone example (do not copy its placeholder text):");
+            prompt.AppendLine(templateExample);
         }
 
         if (existingRecords.Count > 0)
@@ -119,22 +165,32 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
 
     internal static AdrProposal ParseProposal(string replyText)
     {
+        var contextIndex = replyText.IndexOf("## Context", StringComparison.OrdinalIgnoreCase);
         var decisionIndex = replyText.IndexOf("## Decision", StringComparison.OrdinalIgnoreCase);
         var consequencesIndex = replyText.IndexOf("## Consequences", StringComparison.OrdinalIgnoreCase);
 
-        if (decisionIndex < 0 || consequencesIndex < 0 || consequencesIndex < decisionIndex)
+        if (contextIndex >= 0 && decisionIndex > contextIndex && consequencesIndex > decisionIndex)
         {
-            // The model didn't follow the requested format - return the whole reply as the
-            // decision text rather than losing it, and leave consequences empty.
-            return new AdrProposal { Decision = replyText.Trim() };
+            return new AdrProposal
+            {
+                Context = replyText[(contextIndex + "## Context".Length)..decisionIndex].Trim(),
+                Decision = replyText[(decisionIndex + "## Decision".Length)..consequencesIndex].Trim(),
+                Consequences = replyText[(consequencesIndex + "## Consequences".Length)..].Trim()
+            };
         }
 
-        var decisionStart = decisionIndex + "## Decision".Length;
-        var decision = replyText[decisionStart..consequencesIndex].Trim();
+        if (decisionIndex >= 0 && consequencesIndex > decisionIndex)
+        {
+            // Model replied with just the older two-section format - still usable, Context is left empty.
+            return new AdrProposal
+            {
+                Decision = replyText[(decisionIndex + "## Decision".Length)..consequencesIndex].Trim(),
+                Consequences = replyText[(consequencesIndex + "## Consequences".Length)..].Trim()
+            };
+        }
 
-        var consequencesStart = consequencesIndex + "## Consequences".Length;
-        var consequences = replyText[consequencesStart..].Trim();
-
-        return new AdrProposal { Decision = decision, Consequences = consequences };
+        // The model didn't follow the requested format - return the whole reply as the
+        // decision text rather than losing it, and leave context/consequences empty.
+        return new AdrProposal { Decision = replyText.Trim() };
     }
 }

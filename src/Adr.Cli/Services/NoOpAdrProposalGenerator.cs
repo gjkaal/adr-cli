@@ -14,7 +14,7 @@ namespace Adr.Cli.Services;
 /// </summary>
 public class NoOpAdrProposalGenerator : IAdrProposalGenerator
 {
-    public Task<Response<AdrProposal>> GenerateAsync(string title, string context, IReadOnlyList<AdrSummary> existingRecords)
+    public Task<Response<AdrProposal>> GenerateAsync(string title, string context, IReadOnlyList<AdrSummary> existingRecords, string templateType)
     {
         var response = new Response<AdrProposal>(
             false,

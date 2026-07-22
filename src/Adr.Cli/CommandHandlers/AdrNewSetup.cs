@@ -11,7 +11,7 @@ public static class AdrNewSetup
 {
     public static Command NewAdrCommand(IServiceProvider serviceProvider)
     {
-        var stdOut = serviceProvider.GetRequiredService<IStdOut>(); var cmd = new Command("new", "Create a new Architecture Decision Record");
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>(); var cmd = new Command("new", "Create a new Architecture Decision Record: a decision and its consequences, not a unit of work to be done (see 'task-new' for that).");
         var title = CommandOptions.Title;
         var requirement = CommandOptions.Requirement;
         var revision = CommandOptions.Revision;

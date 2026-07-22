@@ -12,7 +12,7 @@ public static class CommandOptions
 
     public static Option<string> AdrRoot => new("--adrRoot") { Description = "Set the adr root directory.", DefaultValueFactory = (a) => string.Empty };
 
-    public static Option<string> Context => new("--context") { Description = "Optional context for the ADR (otherwise a default value will be used)." };
+    public static Option<string> Context => new("--context") { Description = "Optional Context for the ADR - the situation and forces behind the decision (otherwise a default value will be used)." };
 
     public static Option<string> Filter => new("-q") { Description = "Only show an ADR if a word or words in used the ADR." };
     public static Option<bool> IncludeContent => new("--full") { Description = "Search the full records (slow)." };
@@ -28,7 +28,7 @@ public static class CommandOptions
     public static Option<string> TemplateRoot => new("--tmpRoot") { Description = "Set the template root directory." };
     public static Option<string> ProjectRoot => new("--prjRoot") { Description = "Set the project planning root directory." };
     public static Option<string> Title => new("--title") { Description = "The title for the ADR." };
-    public static Option<bool> UseAi => new("--ai") { Description = "Draft the Decision and Consequences sections using the configured AI provider (see AI-Setup.md). No-op if no provider is configured." };
+    public static Option<bool> UseAi => new("--ai") { Description = "Draft the Context (if not supplied), Decision, and Consequences for this ADR using the configured AI provider (see AI-Setup.md). No-op if no provider is configured." };
     public static Option<bool> Verbose => new("--verbose") { Description = "Show the ADR's more information." };
     public static Option<bool> Silent => new("--silent", "-s") { Description = "Do not show status messages." };
 }

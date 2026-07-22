@@ -7,7 +7,25 @@ namespace Adr.Cli.Ai.AzureFoundry;
 public sealed class WithAzureFoundryProposalGenerator
 {
     [Fact]
-    public void ParseProposal_WellFormedReply_SplitsDecisionAndConsequences()
+    public void ParseProposal_WellFormedThreeSectionReply_SplitsContextDecisionAndConsequences()
+    {
+        var reply =
+            "## Context\n" +
+            "Services currently call each other synchronously over HTTP.\n\n" +
+            "## Decision\n" +
+            "Adopt a message bus for service integration.\n\n" +
+            "## Consequences\n" +
+            "Operational overhead increases, coupling decreases.";
+
+        var proposal = AzureFoundryProposalGenerator.ParseProposal(reply);
+
+        Assert.Equal("Services currently call each other synchronously over HTTP.", proposal.Context);
+        Assert.Equal("Adopt a message bus for service integration.", proposal.Decision);
+        Assert.Equal("Operational overhead increases, coupling decreases.", proposal.Consequences);
+    }
+
+    [Fact]
+    public void ParseProposal_TwoSectionReplyWithNoContextMarker_SplitsDecisionAndConsequencesWithEmptyContext()
     {
         var reply =
             "## Decision\n" +
@@ -17,6 +35,7 @@ public sealed class WithAzureFoundryProposalGenerator
 
         var proposal = AzureFoundryProposalGenerator.ParseProposal(reply);
 
+        Assert.Equal(string.Empty, proposal.Context);
         Assert.Equal("Adopt a message bus for service integration.", proposal.Decision);
         Assert.Equal("Operational overhead increases, coupling decreases.", proposal.Consequences);
     }

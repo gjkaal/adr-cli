@@ -76,16 +76,17 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_new",
-                Description = "Create a new, blank Architecture Decision Record from a template and open it for editing. To copy an existing ADR's content into a new record instead of starting blank, use adr_copy.",
+                Description = "Create a new, blank Architecture Decision Record from a template and open it for editing. An ADR records a decision and its consequences - for a unit of work to be done instead, use task_new. To copy an existing ADR's content into a new record instead of starting blank, use adr_copy.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
                         ["title"] = new() { Type = "string", Description = "Title for the new ADR." },
+                        ["context"] = new() { Type = "string", Description = "Optional user-authored Context for the ADR. If omitted and ai=true, the AI provider drafts one; otherwise the ADR is created with a generic placeholder Context." },
                         ["req"] = new() { Type = "boolean", Description = "Use the Architecture Significant Requirement (ASR) template instead of the standard ADR (decision) template.", Default = false },
                         ["revisionFor"] = new() { Type = "integer", Description = "If set, the existing ADR ID that this new ADR supersedes. Adds a 'Supersedes' link from the new ADR to that one; the old ADR's own content is left unchanged." },
-                        ["ai"] = new() { Type = "boolean", Description = "Draft the Decision and Consequences sections using the configured AI provider (see AI-Setup.md). No-op if no provider is configured in adr.config.json.", Default = false }
+                        ["ai"] = new() { Type = "boolean", Description = "Draft the Context (if not supplied), Decision, and Consequences sections using the configured AI provider (see AI-Setup.md). No-op if no provider is configured in adr.config.json.", Default = false }
                     },
                     Required = new[] { "title" }
                 }
@@ -197,15 +198,16 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_new",
-                Description = "Create a new project planning task; the tasks folder is created automatically on first use if it doesn't exist yet. New tasks start with status 'New' - use task_update to change status later.",
+                Description = "Create a new project planning task: a unit of work to be done, not an architectural decision (use adr_new for that). The tasks folder is created automatically on first use if it doesn't exist yet. New tasks start with status 'New' - use task_update to change status later.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
                         ["title"] = new() { Type = "string", Description = "Title for the task." },
-                        ["description"] = new() { Type = "string", Description = "Short description of the task." },
-                        ["dueDate"] = new() { Type = "string", Description = "Due date, e.g. \"2026-08-01\" (any .NET-parseable date string). Omit if there is no due date." }
+                        ["description"] = new() { Type = "string", Description = "Short description of the task. If omitted and ai=true, the AI provider drafts one; otherwise the task is created with a generic placeholder Description." },
+                        ["dueDate"] = new() { Type = "string", Description = "Due date, e.g. \"2026-08-01\" (any .NET-parseable date string). Omit if there is no due date." },
+                        ["ai"] = new() { Type = "boolean", Description = "Draft the Description (if not supplied) and Details for this task using the configured AI provider (see AI-Setup.md). No-op if no provider is configured in adr.config.json.", Default = false }
                     },
                     Required = new[] { "title" }
                 }
@@ -406,11 +408,12 @@ public class AdrMcpServer : McpServer
         var adrNew = _serviceProvider.GetRequiredService<IAdrNew>();
 
         var title = GetStringArgument(arguments, "title") ?? throw new ArgumentException("Title is required");
+        var context = GetStringArgument(arguments, "context") ?? string.Empty;
         var req = GetBoolArgument(arguments, "req");
         var revisionFor = GetIntArgument(arguments, "revisionFor") ?? 0;
         var useAi = GetBoolArgument(arguments, "ai");
 
-        var result = await adrNew.NewAdrAsync(title, req, revisionFor.ToString(), string.Empty, useAi);
+        var result = await adrNew.NewAdrAsync(title, req, revisionFor.ToString(), context, useAi);
         return result.Success ? result.Message ?? "ADR created successfully" : $"Failed: {result.Message}";
     }
 
@@ -498,8 +501,9 @@ public class AdrMcpServer : McpServer
         var title = GetStringArgument(arguments, "title") ?? throw new ArgumentException("Title is required");
         var description = GetStringArgument(arguments, "description") ?? string.Empty;
         var dueDate = GetStringArgument(arguments, "dueDate");
+        var useAi = GetBoolArgument(arguments, "ai");
 
-        var result = await projectPlanning.NewTaskAsync(title, description, dueDate);
+        var result = await projectPlanning.NewTaskAsync(title, description, dueDate, useAi);
         return result.Success ? result.Message ?? "Task created successfully" : $"Failed: {result.Message}";
     }
 

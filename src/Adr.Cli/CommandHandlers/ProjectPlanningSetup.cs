@@ -12,28 +12,31 @@ public static class ProjectPlanningSetup
     public static Command NewTaskCommand(IServiceProvider serviceProvider)
     {
         var stdOut = serviceProvider.GetRequiredService<IStdOut>();
-        var cmd = new Command("task-new", "Create a new task for project planning");
+        var cmd = new Command("task-new", "Create a new task: a concrete unit of work to be done, tracked in this project's own planning folder (not an architectural decision - see 'new' for that).");
         cmd.Aliases.Add("new-task");
         cmd.Aliases.Add("nt");
 
         var title = CommandOptions.Title;
         var description = new Option<string>("--description", "-d") { Description = "Description of the task." };
         var dueDate = new Option<string>("--dueDate") { Description = "Due date for the task." };
+        var useAi = new Option<bool>("--ai") { Description = "Draft the Description (if not supplied) and Details for this task using the configured AI provider (see AI-Setup.md). No-op if no provider is configured in adr.config.json." };
 
         title.Required = true;
 
         cmd.Options.Add(title);
         cmd.Options.Add(description);
         cmd.Options.Add(dueDate);
+        cmd.Options.Add(useAi);
 
         cmd.SetAction(async (ParseResult ctx) =>
         {
             var titleValue = ctx.GetValue(title) ?? "";
             var descriptionValue = ctx.GetValue(description) ?? "";
             var dueDateValue = ctx.GetValue(dueDate);
+            var useAiValue = ctx.GetValue(useAi);
 
             var c = serviceProvider.GetRequiredService<IProjectPlanning>();
-            var result = await c.NewTaskAsync(titleValue, descriptionValue, dueDateValue);
+            var result = await c.NewTaskAsync(titleValue, descriptionValue, dueDateValue, useAiValue);
             stdOut.Write(result);
         });
         return cmd;

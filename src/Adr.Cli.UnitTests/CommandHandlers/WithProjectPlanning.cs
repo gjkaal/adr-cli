@@ -61,7 +61,8 @@ public sealed class WithProjectPlanning
             XUnitLogger.CreateLogger<AdrNew>(testOutputHelper),
             repository,
             stdOutMock.Object,
-            processHelperMock.Object);
+            processHelperMock.Object,
+            new NoOpTaskProposalGenerator());
     }
 
     [Fact]
@@ -69,7 +70,7 @@ public sealed class WithProjectPlanning
     {
         var sut = CreateSut(out var repository);
 
-        var result = await sut.NewTaskAsync("Set up CI pipeline", "Wire up build and test stages", null);
+        var result = await sut.NewTaskAsync("Set up CI pipeline", "Wire up build and test stages", null, false);
         Assert.True(result.Success);
 
         var record = await repository.ReadMetadataAsync(1);
@@ -84,7 +85,7 @@ public sealed class WithProjectPlanning
         // a nullable DateTime, so omitting it should leave it null rather than some sentinel date.
         var sut = CreateSut(out var repository);
 
-        await sut.NewTaskAsync("Task without a due date", "No deadline", null);
+        await sut.NewTaskAsync("Task without a due date", "No deadline", null, false);
 
         var record = await repository.ReadMetadataAsync(1);
         Assert.NotNull(record);
@@ -96,7 +97,7 @@ public sealed class WithProjectPlanning
     {
         var sut = CreateSut(out var repository);
 
-        await sut.NewTaskAsync("Ship the release", "Cut and publish", "2026-08-01");
+        await sut.NewTaskAsync("Ship the release", "Cut and publish", "2026-08-01", false);
 
         var record = await repository.ReadMetadataAsync(1);
         Assert.NotNull(record);
@@ -110,8 +111,8 @@ public sealed class WithProjectPlanning
         // ignored for status=None."
         var sut = CreateSut(out _);
 
-        await sut.NewTaskAsync("Widget rollout phase one", "First phase", null);
-        await sut.NewTaskAsync("Widget rollout phase two", "Second phase", null);
+        await sut.NewTaskAsync("Widget rollout phase one", "First phase", null, false);
+        await sut.NewTaskAsync("Widget rollout phase two", "Second phase", null, false);
 
         // Move only the first task to Active; the second stays at its initial "New" status.
         await sut.UpdateTaskAsync("1", PlanningStatus.Active, "Started work");
@@ -127,8 +128,8 @@ public sealed class WithProjectPlanning
     {
         var sut = CreateSut(out _);
 
-        await sut.NewTaskAsync("Gadget rollout phase one", "First phase", null);
-        await sut.NewTaskAsync("Gadget rollout phase two", "Second phase", null);
+        await sut.NewTaskAsync("Gadget rollout phase one", "First phase", null, false);
+        await sut.NewTaskAsync("Gadget rollout phase two", "Second phase", null, false);
         await sut.UpdateTaskAsync("1", PlanningStatus.Completed, "Done");
 
         var all = await sut.FindTasksAsync("Gadget", PlanningStatus.None, false, false, false);
@@ -143,7 +144,7 @@ public sealed class WithProjectPlanning
         // task_find's MCP description: OR-across-words, case-insensitive substring match.
         var sut = CreateSut(out _);
 
-        await sut.NewTaskAsync("Upgrade database schema", "Migrate to new column layout", null);
+        await sut.NewTaskAsync("Upgrade database schema", "Migrate to new column layout", null, false);
 
         var result = await sut.FindTasksAsync("zzz-no-match DATABASE", PlanningStatus.None, false, false, false);
 
@@ -155,7 +156,7 @@ public sealed class WithProjectPlanning
     {
         var sut = CreateSut(out _);
 
-        await sut.NewTaskAsync("Completely unrelated task", "Nothing to do with the query", null);
+        await sut.NewTaskAsync("Completely unrelated task", "Nothing to do with the query", null, false);
 
         var result = await sut.FindTasksAsync("zzz-does-not-exist", PlanningStatus.None, false, false, false);
 
@@ -168,7 +169,7 @@ public sealed class WithProjectPlanning
         // task_update's MCP description: "appends a justification entry to its status log (the
         // log is kept, not overwritten - every status change is retained for history)".
         var sut = CreateSut(out var repository);
-        await sut.NewTaskAsync("Investigate flaky test", "Root-cause the failure", null);
+        await sut.NewTaskAsync("Investigate flaky test", "Root-cause the failure", null, false);
 
         var first = await sut.UpdateTaskAsync("1", PlanningStatus.Active, "Started investigating");
         Assert.True(first.Success);
@@ -200,8 +201,8 @@ public sealed class WithProjectPlanning
         // IProjectPlanning.RemoveTaskLinkAsync: "Remove all links from the source to the target
         // (reverse links are not removed)."
         var sut = CreateSut(out var repository);
-        await sut.NewTaskAsync("Task A", "First task", null);
-        await sut.NewTaskAsync("Task B", "Second task", null);
+        await sut.NewTaskAsync("Task A", "First task", null, false);
+        await sut.NewTaskAsync("Task B", "Second task", null, false);
 
         var linkAtoB = await sut.LinkTaskAsync(1, 2, "blocks");
         Assert.True(linkAtoB.Success);

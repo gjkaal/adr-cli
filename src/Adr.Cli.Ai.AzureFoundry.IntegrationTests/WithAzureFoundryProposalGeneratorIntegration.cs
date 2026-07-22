@@ -40,7 +40,8 @@ public sealed class WithAzureFoundryProposalGeneratorIntegration
         var result = await generator.GenerateAsync(
             "Use a message bus for service integration",
             "Services currently call each other synchronously over HTTP, which couples their deployments.",
-            existingRecords);
+            existingRecords,
+            "Ad");
 
         Assert.True(result.Success, result.Message);
         Assert.NotNull(result.Value);

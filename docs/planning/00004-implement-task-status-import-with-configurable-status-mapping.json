@@ -1,0 +1,10 @@
+{
+  "Status": "New",
+  "Description": "Per ADR 00008: pull external work-item status and map it to a local task status via configurable provider mappings. An unknown or ambiguous external status must report the task as unsynchronized rather than guessing a local status. Expose through CLI and MCP.",
+  "Related": {},
+  "Logs": [],
+  "DateTime": "2026-07-22T00:00:00+02:00",
+  "FileName": "00004-implement-task-status-import-with-configurable-status-mapping",
+  "RecordId": 4,
+  "Title": "Implement task status import with configurable status mapping"
+}

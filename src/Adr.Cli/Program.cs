@@ -129,6 +129,18 @@ internal static class Program
             return new AzureFoundryProposalGenerator(settings, logger);
         });
 
+        serviceCollection.AddSingleton<ITaskProposalGenerator>(sp =>
+        {
+            var settings = sp.GetRequiredService<IAdrSettings>();
+            if (string.IsNullOrWhiteSpace(settings.AiSettings.Provider))
+            {
+                return new NoOpTaskProposalGenerator();
+            }
+
+            var logger = sp.GetRequiredService<ILogger<AzureFoundryTaskProposalGenerator>>();
+            return new AzureFoundryTaskProposalGenerator(settings, logger);
+        });
+
         // MCP Server
         serviceCollection.AddSingleton<IMcpServer, AdrMcpServer>();
     }

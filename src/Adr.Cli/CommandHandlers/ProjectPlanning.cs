@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+using Adr.Cli.Ai;
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
 
@@ -20,22 +21,25 @@ public class ProjectPlanning : IProjectPlanning
     private readonly IAdrTasksRepository repository;
     private readonly IStdOut stdOut;
     private readonly IProcessHelper processHelper;
+    private readonly ITaskProposalGenerator proposalGenerator;
 
     public ProjectPlanning(
         IAdrSettings settings,
         ILogger<AdrNew> logger,
         IAdrTasksRepository repository,
         IStdOut stdOut,
-        IProcessHelper processHelper)
+        IProcessHelper processHelper,
+        ITaskProposalGenerator proposalGenerator)
     {
         this.settings = settings;
         this.logger = logger;
         this.repository = repository;
         this.stdOut = stdOut;
         this.processHelper = processHelper;
+        this.proposalGenerator = proposalGenerator;
     }
 
-    public async Task<Response> NewTaskAsync(string title, string description, string? dueDate)
+    public async Task<Response> NewTaskAsync(string title, string description, string? dueDate, bool useAi)
     {
         if (!settings.TasksInitialized())
         {
@@ -44,11 +48,11 @@ public class ProjectPlanning : IProjectPlanning
 
         Response result;
         logger.LogInformation($"Creating new tasks record.");
-        result = await CreateTaskAsync(title, description, dueDate);
+        result = await CreateTaskAsync(title, description, dueDate, useAi);
         return result;
     }
 
-    private async Task<Response> CreateTaskAsync(string title, string description, string? dueDate)
+    private async Task<Response> CreateTaskAsync(string title, string description, string? dueDate, bool useAi)
     {
         DateTime? parsedDueDate = null;
         if (!string.IsNullOrEmpty(dueDate))
@@ -71,10 +75,70 @@ public class ProjectPlanning : IProjectPlanning
             DueDate = parsedDueDate
         };
 
+        await ApplyAiProposalAsync(record, useAi);
         await repository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
         return Response.Ok($"Task is created in {settings.TasksFolder}.");
+    }
+
+    /// <summary>
+    /// Draft Description/Details for <paramref name="record" /> using the configured AI provider. A
+    /// no-op when <paramref name="useAi" /> is false. On any AI failure, logs a warning and leaves
+    /// the record exactly as it was - the task is still created from the template. A user-supplied
+    /// Description is preserved rather than overwritten by the AI's draft.
+    /// </summary>
+    private async Task ApplyAiProposalAsync(TaskRecord record, bool useAi)
+    {
+        if (!useAi)
+        {
+            return;
+        }
+
+        var hadUserSuppliedDescription = !string.IsNullOrEmpty(record.Description);
+        var existingTasks = await GetExistingTaskSummariesAsync();
+        var result = await proposalGenerator.GenerateAsync(record.Title, record.Description, existingTasks, TemplateType.Task.ToString());
+        if (!result.Success || result.Value == null)
+        {
+            logger.LogWarning("AI proposal generation failed, continuing without it: {Message}", result.Message);
+            stdOut.WriteLine($"AI proposal generation failed, continuing without it: {result.Message}");
+            return;
+        }
+
+        if (!hadUserSuppliedDescription && !string.IsNullOrEmpty(result.Value.Description))
+        {
+            record.Description = result.Value.Description;
+        }
+        record.Details = result.Value.Details;
+    }
+
+    private async Task<IReadOnlyList<TaskSummary>> GetExistingTaskSummariesAsync()
+    {
+        var summaries = new List<TaskSummary>();
+        foreach (var file in settings.TasksFolderInfo().EnumerateFiles("*.md"))
+        {
+            var separatorIndex = file.Name.IndexOf('-');
+            if (separatorIndex <= 0 || !int.TryParse(file.Name[..separatorIndex], out var recordId))
+            {
+                continue;
+            }
+
+            var record = await repository.ReadMetadataAsync(recordId);
+            if (record == null)
+            {
+                continue;
+            }
+
+            summaries.Add(new TaskSummary
+            {
+                RecordId = record.RecordId,
+                Title = record.Title,
+                Status = record.Status,
+                Description = record.Description
+            });
+        }
+
+        return summaries;
     }
 
     public async Task<Response> FindTasksAsync(string filter, PlanningStatus status, bool sortReverse, bool verbose, bool includeContent)

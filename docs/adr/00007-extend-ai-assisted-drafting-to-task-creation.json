@@ -1,0 +1,9 @@
+{
+  "TemplateType": "Ad",
+  "Context": "adr-cli already supports AI-assisted drafting for ADRs (\u0060adr_new --ai\u0060 / CLI \u0060--ai\u0060, see AI-Setup.md): drafting Context, Decision, and Consequences from a title, optional user-supplied context, and existing ADRs as grounding, via a configurable AI provider (currently Azure AI Foundry). The same benefit applies to task creation - turning a short title into a structured task instead of requiring the user to write Description and Details by hand.",
+  "References": {},
+  "DateTime": "2026-07-22T00:00:00+02:00",
+  "FileName": "00007-extend-ai-assisted-drafting-to-task-creation",
+  "RecordId": 7,
+  "Title": "Extend AI-assisted drafting to task creation"
+}

@@ -18,10 +18,14 @@ public interface IProjectPlanning
     /// <param name="dueDate">
     /// The planned due date for the task.
     /// </param>
+    /// <param name="useAi">
+    /// Draft the Description (if not supplied) and Details using the configured AI provider. A
+    /// no-op when no provider is configured.
+    /// </param>
     /// <returns>
     /// Response indicating success or failure, with an optional message
     /// </returns>
-    Task<Response> NewTaskAsync(string title, string description, string? dueDate);
+    Task<Response> NewTaskAsync(string title, string description, string? dueDate, bool useAi);
 
     /// <summary>
     /// Update the task status to a new state.

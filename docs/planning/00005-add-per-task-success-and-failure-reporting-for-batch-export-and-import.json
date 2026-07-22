@@ -1,0 +1,10 @@
+{
+  "Status": "New",
+  "Description": "Per ADR 00008: when exporting or importing multiple tasks in one operation, report each task\u0027s success or failure individually so one failure does not obscure or block the results for the rest of the batch.",
+  "Related": {},
+  "Logs": [],
+  "DateTime": "2026-07-22T00:00:00+02:00",
+  "FileName": "00005-add-per-task-success-and-failure-reporting-for-batch-export-and-import",
+  "RecordId": 5,
+  "Title": "Add per-task success and failure reporting for batch export and import"
+}

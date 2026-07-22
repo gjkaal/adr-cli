@@ -1,0 +1,10 @@
+{
+  "Status": "New",
+  "Description": "Per ADR 00008: export a local task to its configured external provider, creating a new work item or updating the existing one via stored sync metadata. Expose equivalent behavior through both a CLI command and an MCP tool per ADR 00005.",
+  "Related": {},
+  "Logs": [],
+  "DateTime": "2026-07-22T00:00:00+02:00",
+  "FileName": "00003-implement-task-export-command-and-mcp-tool",
+  "RecordId": 3,
+  "Title": "Implement task export command and MCP tool"
+}

@@ -1,0 +1,10 @@
+{
+  "Status": "New",
+  "Description": "Per ADR 00008: introduce a provider-agnostic interface for exporting/importing tasks, and extend TaskRecord with sync metadata (provider, external project/scope, external work-item id) so exports can update existing work items instead of duplicating them.",
+  "Related": {},
+  "Logs": [],
+  "DateTime": "2026-07-22T00:00:00+02:00",
+  "FileName": "00001-define-itasksyncprovider-abstraction-and-add-sync-metadata-to-taskrecord",
+  "RecordId": 1,
+  "Title": "Define ITaskSyncProvider abstraction and add sync metadata to TaskRecord"
+}

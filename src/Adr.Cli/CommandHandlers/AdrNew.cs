@@ -148,9 +148,10 @@ public class AdrNew : IAdrNew
     }
 
     /// <summary>
-    /// Draft Decision/Consequences for <paramref name="record" /> using the configured AI provider.
-    /// A no-op when <paramref name="useAi" /> is false. On any AI failure, logs a warning and leaves
-    /// the record exactly as it was - the ADR is still created from the template.
+    /// Draft Context/Decision/Consequences for <paramref name="record" /> using the configured AI
+    /// provider. A no-op when <paramref name="useAi" /> is false. On any AI failure, logs a warning
+    /// and leaves the record exactly as it was - the ADR is still created from the template. A
+    /// user-supplied Context is preserved rather than overwritten by the AI's draft.
     /// </summary>
     private async Task ApplyAiProposalAsync(AdrRecord record, bool useAi)
     {
@@ -159,8 +160,9 @@ public class AdrNew : IAdrNew
             return;
         }
 
+        var hadUserSuppliedContext = !string.IsNullOrEmpty(record.Context);
         var existingRecords = await GetExistingAdrSummariesAsync();
-        var result = await proposalGenerator.GenerateAsync(record.Title, record.Context, existingRecords);
+        var result = await proposalGenerator.GenerateAsync(record.Title, record.Context, existingRecords, record.TemplateType.ToString());
         if (!result.Success || result.Value == null)
         {
             logger.LogWarning("AI proposal generation failed, continuing without it: {Message}", result.Message);
@@ -168,6 +170,10 @@ public class AdrNew : IAdrNew
             return;
         }
 
+        if (!hadUserSuppliedContext && !string.IsNullOrEmpty(result.Value.Context))
+        {
+            record.Context = result.Value.Context;
+        }
         record.Decision = result.Value.Decision;
         record.Consequences = result.Value.Consequences;
     }
