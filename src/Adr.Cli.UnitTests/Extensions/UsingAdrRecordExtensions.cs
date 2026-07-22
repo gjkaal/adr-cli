@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Adr.Cli.Extensions;
 
-public class AdrRecordExtensionsTests
+public sealed class UsingAdrRecordExtensions
 {
     private static class TestSet
     {

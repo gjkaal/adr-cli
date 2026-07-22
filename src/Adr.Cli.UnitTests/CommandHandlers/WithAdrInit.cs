@@ -14,7 +14,7 @@ using Xunit.Abstractions;
 
 namespace Adr.Cli.CommandHandlers;
 
-public class AdrInitTests
+public sealed class WithAdrInit
 {
     private readonly Mock<IAdrSettings> settingsMock = new();
     private readonly Mock<IAdrRecordRepository> repositoryMock = new();
@@ -27,7 +27,7 @@ public class AdrInitTests
     // see https://www.meziantou.net/how-to-get-asp-net-core-logs-in-the-output-of-xunit-tests.htm
     // for information about xunit ilogger interception
 
-    public AdrInitTests(ITestOutputHelper testOutputHelper)
+    public WithAdrInit(ITestOutputHelper testOutputHelper)
     {
         this.testOutputHelper = testOutputHelper;
         logger = XUnitLogger.CreateLogger<AdrInit>(testOutputHelper);

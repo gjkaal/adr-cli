@@ -1,5 +1,4 @@
 using Adr.Cli;
-using Adr.Cli.CommandHandlers;
 using Adr.Cli.Services;
 using Adr.Cli.XLogger;
 
@@ -17,9 +16,9 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Tests.CommandHandlers
+namespace Adr.Cli.CommandHandlers
 {
-    public class AdrLinkTests
+    public sealed class WithAdrLink
     {
         private readonly ITestOutputHelper testOutputHelper;
         private readonly ILogger<AdrLink> logger;
@@ -27,7 +26,7 @@ namespace Tests.CommandHandlers
         private readonly Mock<IAdrSettings> adrSettingsMock = new();
         private readonly Mock<IAdrRecordRepository> repositoryMock = new();
 
-        public AdrLinkTests(ITestOutputHelper testOutputHelper)
+        public WithAdrLink(ITestOutputHelper testOutputHelper)
         {
             this.testOutputHelper = testOutputHelper;
             logger = XUnitLogger.CreateLogger<AdrLink>(testOutputHelper);

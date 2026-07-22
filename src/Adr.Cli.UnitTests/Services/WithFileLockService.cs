@@ -1,4 +1,3 @@
-using Adr.Cli.Services;
 using Adr.Cli.XLogger;
 
 using Microsoft.Extensions.Logging;
@@ -15,14 +14,14 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Tests.Services
+namespace Adr.Cli.Services
 {
-    public class FileLockServiceTests
+    public sealed class WithFileLockService
     {
         private readonly ITestOutputHelper testOutputHelper;
         private readonly ILogger<FileLockService> logger;
 
-        public FileLockServiceTests(ITestOutputHelper testOutputHelper)
+        public WithFileLockService(ITestOutputHelper testOutputHelper)
         {
             this.testOutputHelper = testOutputHelper;
             logger = XUnitLogger.CreateLogger<FileLockService>(testOutputHelper);

@@ -1,4 +1,3 @@
-using Adr.Cli;
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
 using Adr.Cli.XLogger;
@@ -16,13 +15,16 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Tests
+namespace Adr.Cli
 {
     /// <summary>
     /// Tests to verify that concurrent operations don't cause race conditions or data corruption.
-    /// These tests use the real file system to simulate real-world scenarios.
+    /// These tests use the real file system to simulate real-world scenarios. Deliberately not
+    /// renamed to the With&lt;ClassName&gt; convention used elsewhere in this project: it's a
+    /// cross-cutting concurrency scenario spanning AdrRecordRepository and FileLockService
+    /// together, not a unit test of either one in isolation.
     /// </summary>
-    public class ConcurrentOperationsTests
+    public sealed class ConcurrentOperationsTests
     {
         private readonly ITestOutputHelper testOutputHelper;
         private readonly ILogger<AdrRecordRepository> repoLogger;

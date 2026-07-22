@@ -1,13 +1,9 @@
-using Adr.Cli;
 using Adr.Cli.Services;
 using Adr.Cli.XLogger;
 
 using Microsoft.Extensions.Logging;
 
 using Moq;
-
-using Newtonsoft.Json;
-
 using System;
 using System.IO;
 using System.IO.Abstractions;
@@ -17,9 +13,9 @@ using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
-namespace Tests
+namespace Adr.Cli
 {
-    public class AdrRecordRepositoryTests
+    public sealed class WithAdrRecordRepository
     {
         private readonly ITestOutputHelper testOutputHelper;
         private readonly ILogger<AdrRecordRepository> logger;
@@ -34,7 +30,7 @@ namespace Tests
         // https://www.meziantou.net/how-to-get-asp-net-core-logs-in-the-output-of-xunit-tests.htm
         // for information about xunit ilogger interception
 
-        public AdrRecordRepositoryTests(ITestOutputHelper testOutputHelper)
+        public WithAdrRecordRepository(ITestOutputHelper testOutputHelper)
         {
             this.testOutputHelper = testOutputHelper;
             logger = XUnitLogger.CreateLogger<AdrRecordRepository>(testOutputHelper);
@@ -107,7 +103,7 @@ namespace Tests
             testOutputHelper.WriteLine(metadata);
 
             Assert.Equal("# 00167. Test", content.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)[0]);
-            var metaRecord = JsonConvert.DeserializeObject<AdrRecord>(metadata);
+            var metaRecord = System.Text.Json.JsonSerializer.Deserialize<AdrRecord>(metadata, Constants.JsonOptions);
             Assert.Equal(record.RecordId, metaRecord!.RecordId);
             Assert.Equal(record.Title, metaRecord.Title);
         }

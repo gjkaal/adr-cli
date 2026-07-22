@@ -4,7 +4,7 @@ using Xunit;
 
 namespace Adr.Cli;
 
-public class AdrSettingsTests
+public sealed class WithAdrSettings
 {
     /// <summary>
     /// Regression test for a bug where <c>adr_init</c> on a brand new, empty folder reported

@@ -19,11 +19,11 @@ namespace Adr.Cli.CommandHandlers;
 /// descriptions - not from reading ProjectPlanning's implementation - covering functionality
 /// that previously had no test coverage at all.
 /// </summary>
-public class ProjectPlanningTests
+public sealed class WithProjectPlanning
 {
     private readonly ITestOutputHelper testOutputHelper;
 
-    public ProjectPlanningTests(ITestOutputHelper testOutputHelper)
+    public WithProjectPlanning(ITestOutputHelper testOutputHelper)
     {
         this.testOutputHelper = testOutputHelper;
     }
