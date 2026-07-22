@@ -48,6 +48,9 @@ internal static class Program
             Console.WriteLine("Use '--mcp' command to run as MCP server for AI tools.");
         });
 
+        // Show which adr.config.json is currently active
+        app.Add(AdrContextSetup.GetContextCommand(serviceProvider));
+
         // Initialize
         app.Add(CommandHandlerSetup.InitCommand(serviceProvider));
         app.Add(CommandHandlerSetup.SyncMetadataCommand(serviceProvider));
@@ -105,6 +108,7 @@ internal static class Program
         serviceCollection.AddSingleton<IAdrQuery, AdrQuery>();
         serviceCollection.AddSingleton<IAdrLink, AdrLink>();
         serviceCollection.AddSingleton<IProjectPlanning, ProjectPlanning>();
+        serviceCollection.AddSingleton<IAdrContext, AdrContext>();
 
         // MCP Server
         serviceCollection.AddSingleton<IMcpServer, AdrMcpServer>();

@@ -108,7 +108,7 @@ namespace Tests
 
             Assert.Equal("# 00167. Test", content.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)[0]);
             var metaRecord = JsonConvert.DeserializeObject<AdrRecord>(metadata);
-            Assert.Equal(record.RecordId, metaRecord.RecordId);
+            Assert.Equal(record.RecordId, metaRecord!.RecordId);
             Assert.Equal(record.Title, metaRecord.Title);
         }
 

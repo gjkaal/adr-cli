@@ -1,0 +1,12 @@
+{
+  "Status": "Proposed",
+  "TemplateType": "Ad",
+  "Context": "",
+  "References": {
+    "2": "Extends"
+  },
+  "DateTime": "2025-10-28T00:00:00+01:00",
+  "FileName": "00003-linking-adr\u0027s-is-a-wa-to-tie-adr\u0027s-together",
+  "RecordId": 3,
+  "Title": "Linking ADR\u0027s is a wa to tie ADR\u0027s together"
+}

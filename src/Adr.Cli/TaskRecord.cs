@@ -1,8 +1,8 @@
+using Adr.Cli.CommandHandlers;
+
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
-
-using Adr.Cli.CommandHandlers;
 
 namespace Adr.Cli
 {
@@ -18,6 +18,8 @@ namespace Adr.Cli
         public DateTime? DueDate { get; set; }
         public PlanningStatus Status { get; set; } = PlanningStatus.New;
         public string Description { get; set; } = string.Empty;
+        [JsonIgnore]
+        public string Prerequisits { get; set; } = string.Empty;
 
         [JsonIgnore]
         public string Details { get; set; } = string.Empty;

@@ -1,0 +1,10 @@
+{
+  "Status": "Accepted",
+  "TemplateType": "Ad",
+  "Context": "",
+  "References": {},
+  "DateTime": "2026-07-21T00:00:00+02:00",
+  "FileName": "00004-configurable-adr-root-context-for-mcp-tool-calls",
+  "RecordId": 4,
+  "Title": "Configurable ADR root context for MCP tool calls"
+}

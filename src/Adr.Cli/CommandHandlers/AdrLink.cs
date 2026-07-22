@@ -1,15 +1,15 @@
-using System;
-using System.Collections.Concurrent;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
 
 using McpCore;
 
 using Microsoft.Extensions.Logging;
+
+using System;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Adr.Cli.CommandHandlers;
 
@@ -119,8 +119,19 @@ public class AdrLink : IAdrLink
 
             var newContent = sourceContent.AddTextAtMdElement("Status", linkText).ToArray();
 
-            await adrRecordRepository.UpdateMetadataAsync(sourceId, newMetadata);
-            await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
+            var metadataUpdateCount = await adrRecordRepository.UpdateMetadataAsync(sourceId, newMetadata);
+            if (metadataUpdateCount < 0)
+            {
+                stdOut.WriteLine($"Could not update metadata for ADR {sourceId:D5} ({newMetadata.FileName}).");
+                return Response.Fail($"Could not update metadata for ADR {sourceId:D5}. No link has been made.");
+            }
+
+            var contentUpdateCount = await adrRecordRepository.UpdateContentAsync(newMetadata, newContent);
+            if (contentUpdateCount < 0)
+            {
+                stdOut.WriteLine($"Could not update content for ADR {sourceId:D5} ({newMetadata.FileName}).");
+                return Response.Fail($"Could not update content for ADR {sourceId:D5}. The link metadata was saved but the markdown was not updated.");
+            }
 
             return Response.Ok($"Created link between {sourceId} and {targetId} for {remark}.");
         }
@@ -166,8 +177,19 @@ public class AdrLink : IAdrLink
 
             var newContent = sourceContent.RemoveFromMdElement("Status", linkText).ToArray();
 
-            await adrRecordRepository.UpdateMetadataAsync(sourceId, sourceMeta);
-            await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
+            var metadataUpdateCount = await adrRecordRepository.UpdateMetadataAsync(sourceId, sourceMeta);
+            if (metadataUpdateCount < 0)
+            {
+                stdOut.WriteLine($"Could not update metadata for ADR {sourceId:D5} ({sourceMeta.FileName}).");
+                return Response.Fail($"Could not update metadata for ADR {sourceId:D5}. No link has been removed.");
+            }
+
+            var contentUpdateCount = await adrRecordRepository.UpdateContentAsync(sourceMeta, newContent);
+            if (contentUpdateCount < 0)
+            {
+                stdOut.WriteLine($"Could not update content for ADR {sourceId:D5} ({sourceMeta.FileName}).");
+                return Response.Fail($"Could not update content for ADR {sourceId:D5}. The link metadata was updated but the markdown was not updated.");
+            }
 
             return Response.Ok($"Removed all reference link from {sourceId} to {targetId}.");
         }

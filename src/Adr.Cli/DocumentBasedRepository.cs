@@ -87,7 +87,7 @@ public abstract class DocumentBasedRepository
     {
         using (await fileLock.AcquireLockAsync(BaseFolder.FullName, "ReadContent"))
         {
-            var file = GetFileInfoForRecord(recordId);
+            var file = GetFileInfoForRecord(recordId, AdrFileType.Md);
 
             var contentLines = new List<string>();
             var content = string.Empty;
@@ -97,16 +97,16 @@ public abstract class DocumentBasedRepository
                 content = await markdownContent.ReadToEndAsync();
             }
 
-            contentLines.AddRange(content.Split(Environment.NewLine));
+            contentLines.AddRange(content.ReplaceLineEndings("\n").Split('\n'));
 
             return [.. contentLines];
         }
     }
 
-    protected IFileInfo? GetFileInfoForRecord(int recordId)
+    protected IFileInfo? GetFileInfoForRecord(int recordId, AdrFileType adrFileType)
     {
         var adrDocumentFolder = BaseFolder;
-        var matchFileName = $"{recordId:D5}-*.json";
+        var matchFileName = $"{recordId:D5}-*.{adrFileType.ToString().ToLower()}";
         var files = adrDocumentFolder.EnumerateFiles(matchFileName).ToArray();
         if (files.Length == 0)
         {
@@ -315,4 +315,10 @@ public abstract class DocumentBasedRepository
             return 1;
         }
     }
+}
+
+public enum AdrFileType
+{
+    Md,
+    Json
 }

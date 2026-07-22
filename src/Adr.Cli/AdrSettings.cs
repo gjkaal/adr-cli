@@ -22,6 +22,7 @@ namespace Adr.Cli
         private readonly IFileInfoFactory fileInfoFactory;
         private readonly IDirectoryInfoFactory directoryInfoFactory;
         private string currentPath;
+        private string? resolvedConfigFilePath;
 
         public AdrSettings(IFileSystem fs)
         {
@@ -72,6 +73,78 @@ namespace Adr.Cli
         /// A project name for auto generated content.
         /// </summary>
         public string ProjectName { get; set; } = "ADR Documentation";
+
+        /// <summary>
+        /// Describes which adr.config.json is currently active for this process.
+        /// </summary>
+        public AdrContextInfo CurrentContext => new()
+        {
+            Success = true,
+            ProjectName = ProjectName,
+            ConfigFilePath = resolvedConfigFilePath,
+            CurrentPath = currentPath,
+            DocFolder = DocFolder,
+            TasksFolder = TasksFolder,
+            TemplateFolder = TemplateFolder
+        };
+
+        /// <summary>
+        /// Re-resolve settings from the adr.config.json found by searching upward from
+        /// <paramref name="workingDirectory" />. Never creates a config file or ADR folders - if
+        /// none is found, existing settings are left untouched and a failure is returned.
+        /// </summary>
+        public AdrContextInfo TrySetContext(string workingDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(workingDirectory))
+            {
+                return new AdrContextInfo { Success = false, ErrorMessage = "A working directory is required." };
+            }
+
+            var directory = directoryInfoFactory.New(workingDirectory);
+            if (!directory.Exists)
+            {
+                return new AdrContextInfo { Success = false, ErrorMessage = $"Directory does not exist: {workingDirectory}" };
+            }
+
+            var findPath = directory.FullName;
+            while (true)
+            {
+                var candidatePath = path.Combine(findPath, DefaultFileName);
+                var candidate = fileInfoFactory.New(candidatePath);
+                if (candidate.Exists)
+                {
+                    using var stream = candidate.Open(FileMode.Open);
+                    if (JsonSerializer.Deserialize(stream, typeof(AdrSettingsFile), jsonOptions) is not AdrSettingsFile value)
+                    {
+                        return new AdrContextInfo { Success = false, ErrorMessage = $"Could not parse {candidate.FullName}." };
+                    }
+
+                    currentPath = findPath;
+                    resolvedConfigFilePath = candidate.FullName;
+                    DocFolder = string.IsNullOrEmpty(value.Path) ? DefaultAdrPath : value.Path.Replace('/', '\\');
+                    TemplateFolder = string.IsNullOrEmpty(value.Templates) ? DefaultTemplatePath : value.Templates.Replace('/', '\\');
+                    TasksFolder = string.IsNullOrEmpty(value.Tasks) ? DefaultTasksPath : value.Tasks.Replace('/', '\\');
+                    ProjectName = string.IsNullOrEmpty(value.ProjectName) ? ProjectName : value.ProjectName;
+
+                    return CurrentContext;
+                }
+
+                var separatorIndex = findPath.LastIndexOf('\\');
+                if (separatorIndex <= 0)
+                {
+                    break;
+                }
+
+                findPath = findPath[..separatorIndex];
+            }
+
+            return new AdrContextInfo
+            {
+                Success = false,
+                ErrorMessage = $"No {DefaultFileName} found in '{workingDirectory}' or any parent directory. " +
+                    "Run adr_init there first if you want to initialize a new repository."
+            };
+        }
 
         /// <summary>
         /// Read the content for an ADR.
@@ -269,6 +342,7 @@ namespace Adr.Cli
                 if (fileInfo.Exists)
                 {
                     currentPath = findPath;
+                    resolvedConfigFilePath = fileInfo.FullName;
                     return fileInfo;
                 }
 
@@ -283,6 +357,7 @@ namespace Adr.Cli
                     fileInfo = fileInfoFactory.New(fileInfoPath);
                     if (fileInfo.Exists)
                     {
+                        resolvedConfigFilePath = fileInfo.FullName;
                         return fileInfo;
                     }
                 }
@@ -318,7 +393,7 @@ namespace Adr.Cli
             try
             {
                 var folder = DocFolderInfo();
-                return folder.Exists;
+                return folder.EnumerateFiles("*.md").Any();
             }
             catch
             {

@@ -1,3 +1,5 @@
+using Adr.Cli.Exceptions;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -5,8 +7,6 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
-
-using Adr.Cli.Exceptions;
 
 namespace Adr.Cli.Extensions;
 
@@ -191,18 +191,29 @@ public static class AdrRecordExtensions
         {
             var marker = $"## {mdElement}";
             var inTextBlock = false;
+            var placedText = false;
             foreach (var line in lines)
             {
                 if (inTextBlock && line.StartsWith("## ", StringComparison.Ordinal))
                 {
                     yield return newTextPart;
                     inTextBlock = false;
+                    placedText = true;
                 }
                 if (line.Equals(marker, StringComparison.OrdinalIgnoreCase))
                 {
                     inTextBlock = true;
                 }
                 yield return line;
+            }
+            if (!placedText)
+            {
+                // add the part at the end
+                yield return string.Empty;
+                yield return marker;
+                yield return string.Empty;
+                yield return newTextPart;
+                yield return string.Empty;
             }
         }
     }

@@ -50,6 +50,31 @@ public class AdrMcpServer : McpServer
             },
             new McpTool
             {
+                Name = "adr_set_context",
+                Description = "Pin this MCP session to a specific, already-initialized ADR repository, identified by any directory inside it. Searches upward for an existing adr.config.json; never creates one. Use this in a multi-repo workspace to avoid silently operating against the wrong project's ADRs.",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["workingDirectory"] = new() { Type = "string", Description = "Any directory inside the target ADR repository (e.g. the repo root or a subfolder). The nearest adr.config.json found by searching upward from here becomes active for the rest of this session (required)." }
+                    },
+                    Required = new[] { "workingDirectory" }
+                }
+            },
+            new McpTool
+            {
+                Name = "adr_get_context",
+                Description = "Report which adr.config.json (path and ProjectName) is currently active for this MCP session, without changing anything.",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>(),
+                    Required = Array.Empty<string>()
+                }
+            },
+            new McpTool
+            {
                 Name = "adr_new",
                 Description = "Create a new Architecture Decision Record",
                 InputSchema = new McpInputSchema
@@ -284,6 +309,8 @@ public class AdrMcpServer : McpServer
             var result = parameters.Name switch
             {
                 "adr_init" => await HandleAdrInitAsync(parameters.Arguments),
+                "adr_set_context" => await HandleAdrSetContextAsync(parameters.Arguments),
+                "adr_get_context" => await HandleAdrGetContextAsync(),
                 "adr_new" => await HandleAdrNewAsync(parameters.Arguments),
                 "adr_list" => await HandleAdrListAsync(parameters.Arguments),
                 "adr_find" => await HandleAdrFindAsync(parameters.Arguments),
@@ -304,7 +331,7 @@ public class AdrMcpServer : McpServer
 
             return new McpToolCallResult
             {
-                Content = new[] { new McpContent { Type = "text", Text = result } },
+                Content = new[] { new McpContent { Type = "text", Text = AppendContextSuffix(result) } },
                 IsError = false
             };
         }
@@ -312,10 +339,21 @@ public class AdrMcpServer : McpServer
         {
             return new McpToolCallResult
             {
-                Content = new[] { new McpContent { Type = "text", Text = $"Error: {ex.Message}" } },
+                Content = new[] { new McpContent { Type = "text", Text = AppendContextSuffix($"Error: {ex.Message}") } },
                 IsError = true
             };
         }
+    }
+
+    /// <summary>
+    /// Stamps every tool response with the adr.config.json actually in effect, so a caller can
+    /// detect a wrong or stale root instead of it failing silently (see ADR 00004).
+    /// </summary>
+    private string AppendContextSuffix(string text)
+    {
+        var context = _serviceProvider.GetRequiredService<IAdrSettings>().CurrentContext;
+        var configLabel = context.ConfigFilePath ?? "(none found - using built-in defaults)";
+        return $"{text}{Environment.NewLine}{Environment.NewLine}[adr-cli context: project=\"{context.ProjectName}\", config={configLabel}]";
     }
 
     private async Task<string> HandleAdrInitAsync(Dictionary<string, object?> arguments)
@@ -328,6 +366,25 @@ public class AdrMcpServer : McpServer
 
         var result = await adrInit.InitializeAsync(adrRoot, tmpRoot, prjRoot);
         return result.Success ? result.Message ?? "ADR repository initialized successfully" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleAdrSetContextAsync(Dictionary<string, object?> arguments)
+    {
+        var adrContext = _serviceProvider.GetRequiredService<IAdrContext>();
+
+        var workingDirectory = GetStringArgument(arguments, "workingDirectory")
+            ?? throw new ArgumentException("workingDirectory is required");
+
+        var result = await adrContext.SetContextAsync(workingDirectory);
+        return result.Success ? result.Message ?? "Context set" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleAdrGetContextAsync()
+    {
+        var adrContext = _serviceProvider.GetRequiredService<IAdrContext>();
+
+        var result = await adrContext.GetContextAsync();
+        return result.Message ?? "Current context";
     }
 
     private async Task<string> HandleAdrNewAsync(Dictionary<string, object?> arguments)

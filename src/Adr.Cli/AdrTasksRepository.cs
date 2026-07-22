@@ -1,18 +1,20 @@
-using System;
-using System.IO.Abstractions;
-using System.Text;
-using System.Threading.Tasks;
-
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
 
 using Microsoft.Extensions.Logging;
+
+using System;
+using System.IO.Abstractions;
+using System.Text;
+using System.Threading.Tasks;
 
 namespace Adr.Cli;
 
 public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
 {
     private const string DefaultTaskDescription = "New task.";
+
+    private const string DefaultPrerequisits = "No prerequisits.";
 
     private const string defaultTemplate = @"# {RecordId}. {Title}
 
@@ -25,6 +27,10 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
 ## Description
 
 {Description}
+
+## Prerequisits
+
+{Prerequisits}
 
 ## Details
 
@@ -57,6 +63,7 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
         sb.Replace("{Title}", record.Title);
         sb.Replace("{Status}", $"__{record.Status}__");
         sb.Replace("{Description}", string.IsNullOrEmpty(record.Description) ? DefaultTaskDescription : record.Description);
+        sb.Replace("{Prerequisits}", string.IsNullOrEmpty(record.Prerequisits) ? DefaultPrerequisits : record.Prerequisits);
         sb.Replace("{Details}", string.IsNullOrEmpty(record.Details) ? DefaultTaskDescription : record.Details);
         sb.Replace("{DateTime}", DateTime.Now.ToString("yyyy-MM-dd"));
 
@@ -75,7 +82,7 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
 
             foreach (var item in record.Related)
             {
-                var fileName = GetFileInfoForRecord(item.Key);
+                var fileName = GetFileInfoForRecord(item.Key, AdrFileType.Md);
                 if (fileName != null)
                 {
                     relatedBlock.AppendLine($"[{item.Key:D5} {item.Value}](./{fileName.Name})");
@@ -89,7 +96,7 @@ public class AdrTasksRepository : DocumentBasedRepository, IAdrTasksRepository
 
     public async Task<TaskRecord?> ReadMetadataAsync(int recordId)
     {
-        var file = GetFileInfoForRecord(recordId);
+        var file = GetFileInfoForRecord(recordId, AdrFileType.Json);
         if (file == null) { return null; }
         var result = await ReadTaskFromFile(recordId, file);
         return result;

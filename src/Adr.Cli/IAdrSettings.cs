@@ -52,6 +52,26 @@ public interface IAdrSettings
     string ProjectName { get; }
 
     /// <summary>
+    /// Describes which adr.config.json is currently active for this process.
+    /// </summary>
+    AdrContextInfo CurrentContext { get; }
+
+    /// <summary>
+    /// Re-resolve settings from the adr.config.json found by searching upward from
+    /// <paramref name="workingDirectory" />, without creating anything. Intended for a long-lived
+    /// MCP server process to be pointed at a specific, already-initialized repository instead of
+    /// staying fixed to whatever directory the process happened to start in.
+    /// </summary>
+    /// <param name="workingDirectory">
+    /// Any directory inside the target ADR repository.
+    /// </param>
+    /// <returns>
+    /// On success, the resolved context. On failure (no config.json found in that directory or any
+    /// parent), a failed result with an explanatory message; existing settings are left unchanged.
+    /// </returns>
+    AdrContextInfo TrySetContext(string workingDirectory);
+
+    /// <summary>
     /// Directory information for the ADR documents.
     /// </summary>
     IDirectoryInfo DocFolderInfo();

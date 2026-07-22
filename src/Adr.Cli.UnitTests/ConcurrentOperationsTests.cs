@@ -351,6 +351,22 @@ namespace Tests
             public string TemplateFolder { get; set; } = string.Empty;
             public string ProjectName => "TestProject";
 
+            public AdrContextInfo CurrentContext => new()
+            {
+                Success = true,
+                ProjectName = ProjectName,
+                ConfigFilePath = null,
+                CurrentPath = rootPath,
+                DocFolder = DocFolder,
+                TasksFolder = TasksFolder,
+                TemplateFolder = TemplateFolder
+            };
+
+            public AdrContextInfo TrySetContext(string workingDirectory)
+            {
+                return new AdrContextInfo { Success = false, ErrorMessage = "Not supported in TestAdrSettings." };
+            }
+
             public IDirectoryInfo DocFolderInfo() => new FileSystem().DirectoryInfo.New(adrPath);
             public IDirectoryInfo TasksFolderInfo() => new FileSystem().DirectoryInfo.New(DefaultTasksFolder);
             public IDirectoryInfo TemplateFolderInfo() => new FileSystem().DirectoryInfo.New(templatesPath);

@@ -6,6 +6,8 @@
 
 __New__
 
+Extends [00002.Commands are implemented with System.CommandLine](.\00002-commands-are-implemented-with-system.commandline)
+
 ## Context
 
 The ADR CLI application uses the command structure for defining commands and linking them to executable code. The actual code is implemented in classes that can have state and are managed using 
@@ -20,3 +22,4 @@ options available. This prevents the redefinition of options that are more or le
 
 Command structure and command implementation are separated and it can be more difficult to link options, commands and implementation together. On the plus side, it is easier to reuse
 implementations from handlers in other handlers.
+

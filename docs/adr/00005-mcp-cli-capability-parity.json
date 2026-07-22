@@ -1,0 +1,12 @@
+{
+  "Status": "Accepted",
+  "TemplateType": "Ad",
+  "Context": "",
+  "References": {
+    "4": "Extends"
+  },
+  "DateTime": "2026-07-22T00:00:00+02:00",
+  "FileName": "00005-mcp-cli-capability-parity",
+  "RecordId": 5,
+  "Title": "MCP tools and CLI commands should offer equivalent capabilities"
+}
