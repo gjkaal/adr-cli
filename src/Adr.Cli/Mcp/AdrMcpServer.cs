@@ -35,15 +35,15 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_init",
-                Description = "Initialize a new ADR and planning repository in the current directory",
+                Description = "One-time setup: create adr.config.json and the initial ADR ('Record Architecture Decisions') in the current directory. Safe to call again on an already-initialized repository - it detects existing ADR files and does nothing rather than overwriting them. Call adr_get_context first if you are unsure whether this directory (or an ancestor of it) is already initialized.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["adrRoot"] = new() { Type = "string", Description = "Custom ADR root directory path (optional)" },
-                        ["tmpRoot"] = new() { Type = "string", Description = "Custom template root directory path (optional)" },
-                        ["prjRoot"] = new() { Type = "string", Description = "Custom project planning root directory path (optional)" }
+                        ["adrRoot"] = new() { Type = "string", Description = "Subfolder name (relative to the current directory) to store ADR files in. Optional, defaults to 'docs\\adr'. Not an absolute path - it always nests under the current directory." },
+                        ["tmpRoot"] = new() { Type = "string", Description = "Subfolder name (relative to the current directory) to store markdown templates in. Optional, defaults to 'docs\\adr-templates'." },
+                        ["prjRoot"] = new() { Type = "string", Description = "Subfolder name (relative to the current directory) to store task/planning files in. Optional, defaults to 'docs\\planning'." }
                     },
                     Required = Array.Empty<string>()
                 }
@@ -76,15 +76,15 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_new",
-                Description = "Create a new Architecture Decision Record",
+                Description = "Create a new, blank Architecture Decision Record from a template and open it for editing. To copy an existing ADR's content into a new record instead of starting blank, use adr_copy.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["title"] = new() { Type = "string", Description = "Title for the new ADR (required)" },
-                        ["req"] = new() { Type = "boolean", Description = "Mark as architectural requirement", Default = false },
-                        ["rev"] = new() { Type = "integer", Description = "ADR ID to revise (creates a revision of existing ADR)" }
+                        ["title"] = new() { Type = "string", Description = "Title for the new ADR." },
+                        ["req"] = new() { Type = "boolean", Description = "Use the Architecture Significant Requirement (ASR) template instead of the standard ADR (decision) template.", Default = false },
+                        ["revisionFor"] = new() { Type = "integer", Description = "If set, the existing ADR ID that this new ADR supersedes. Adds a 'Supersedes' link from the new ADR to that one; the old ADR's own content is left unchanged." }
                     },
                     Required = new[] { "title" }
                 }
@@ -92,14 +92,14 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_list",
-                Description = "List all Architecture Decision Records",
+                Description = "List every ADR in the repository, one line each (id, date, status, title). Use adr_find instead if you want to filter by keyword.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["desc"] = new() { Type = "boolean", Description = "Show ADRs in descending order (latest first)", Default = false },
-                        ["verbose"] = new() { Type = "boolean", Description = "Show detailed information", Default = false }
+                        ["desc"] = new() { Type = "boolean", Description = "List newest ADR first instead of oldest first.", Default = false },
+                        ["verbose"] = new() { Type = "boolean", Description = "Include each ADR's Context on an additional line, instead of just id/date/status/title.", Default = false }
                     },
                     Required = Array.Empty<string>()
                 }
@@ -107,16 +107,16 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_find",
-                Description = "Search for Architecture Decision Records",
+                Description = "Search ADRs by keyword. Matches if the query contains any single word found in an ADR's Title or Context (case-insensitive substring match, OR across words) - not an exact-phrase or all-words-required match.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["query"] = new() { Type = "string", Description = "Search query text (required)" },
-                        ["full"] = new() { Type = "boolean", Description = "Search full content (slower)", Default = false },
-                        ["desc"] = new() { Type = "boolean", Description = "Show results in descending order", Default = false },
-                        ["verbose"] = new() { Type = "boolean", Description = "Show detailed information", Default = false }
+                        ["query"] = new() { Type = "string", Description = "One or more space-separated words. An ADR is returned if any word matches." },
+                        ["full"] = new() { Type = "boolean", Description = "Also search the full markdown body (Decision, Consequences, etc.), not just Title/Context. Slower - only the .json metadata is searched by default.", Default = false },
+                        ["desc"] = new() { Type = "boolean", Description = "List newest matching ADR first instead of oldest first.", Default = false },
+                        ["verbose"] = new() { Type = "boolean", Description = "Include each ADR's Context on an additional line, instead of just id/date/status/title.", Default = false }
                     },
                     Required = new[] { "query" }
                 }
@@ -124,15 +124,15 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_link",
-                Description = "Link two ADRs together with a relationship",
+                Description = "Record a relationship from one ADR to another: adds a reference in the source ADR's metadata and a line under its Status section in the markdown (e.g. \"Extends [00002...]\"). One-directional - link the reverse pair separately if you want it to show on both ADRs.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["source"] = new() { Type = "integer", Description = "Source ADR ID (required)" },
-                        ["target"] = new() { Type = "integer", Description = "Target ADR ID (required)" },
-                        ["reason"] = new() { Type = "string", Description = "Reason for the link (optional)" }
+                        ["source"] = new() { Type = "integer", Description = "ADR ID that the relationship is recorded on (the one whose markdown gets the new line)." },
+                        ["target"] = new() { Type = "integer", Description = "ADR ID being referenced." },
+                        ["reason"] = new() { Type = "string", Description = "Verb phrase describing the relationship, e.g. \"Extends\", \"Supersedes\", \"Amends\", \"Replaced-by\", \"Related to\". Defaults to \"Extends\" if omitted." }
                     },
                     Required = new[] { "source", "target" }
                 }
@@ -140,14 +140,14 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_unlink",
-                Description = "Remove links between two ADRs",
+                Description = "Remove all reference links from the source ADR to the target ADR (regardless of what reason/verb they were linked with). Does not remove the reverse link if the target also links back to the source - unlink that direction separately.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["source"] = new() { Type = "integer", Description = "Source ADR ID (required)" },
-                        ["target"] = new() { Type = "integer", Description = "Target ADR ID (required)" }
+                        ["source"] = new() { Type = "integer", Description = "ADR ID to remove the link from." },
+                        ["target"] = new() { Type = "integer", Description = "ADR ID currently being referenced, to stop referencing." }
                     },
                     Required = new[] { "source", "target" }
                 }
@@ -155,14 +155,14 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_copy",
-                Description = "Copy an existing ADR to create a new one",
+                Description = "Duplicate an existing ADR's content into a new ADR record and open it for editing. Use this to start from an existing decision's text rather than a blank template (adr_new).",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["source"] = new() { Type = "integer", Description = "Source ADR ID to copy (required)" },
-                        ["rev"] = new() { Type = "boolean", Description = "Create as revision", Default = false }
+                        ["source"] = new() { Type = "integer", Description = "ADR ID to copy content from." },
+                        ["rev"] = new() { Type = "boolean", Description = "If true, link the new ADR back to the source with \"Supersedes\" (use when the copy is meant to replace/revise the source). If false, link with \"Copied from\" (no supersession implied).", Default = false }
                     },
                     Required = new[] { "source" }
                 }
@@ -170,13 +170,14 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_sync",
-                Description = "Synchronize metadata with markdown content",
+                Description = "Re-derive an ADR's .json metadata (Title, Status, etc.) from its .md file's heading and Status section. Use after manually editing an ADR's markdown outside of adr-cli, or to repair metadata that has drifted out of sync with the markdown.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["record"] = new() { Type = "integer", Description = "Specific record ID to sync (optional)" }
+                        ["record"] = new() { Type = "integer", Description = "Sync only this single ADR ID. If omitted (or 0), syncs a range instead, controlled by startAt." },
+                        ["startAt"] = new() { Type = "integer", Description = "Only used when 'record' is omitted: sync every ADR with an ID >= this value. Defaults to 1 (sync all ADRs).", Default = 1 }
                     },
                     Required = Array.Empty<string>()
                 }
@@ -184,7 +185,7 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_generate_toc",
-                Description = "Generate table of contents for ADR repository",
+                Description = "Regenerate adr-toc.md (a table of every ADR: id, title, status) in the project root, next to adr.config.json. Overwrites the existing file; run this after adding, linking, or changing the status of ADRs to keep it current.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
@@ -195,15 +196,15 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_new",
-                Description = "Create a new task for project planning",
+                Description = "Create a new project planning task; the tasks folder is created automatically on first use if it doesn't exist yet. New tasks start with status 'New' - use task_update to change status later.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["title"] = new() { Type = "string", Description = "Title for the task (required)" },
-                        ["description"] = new() { Type = "string", Description = "Description of the task" },
-                        ["dueDate"] = new() { Type = "string", Description = "Due date for the task (ISO format or parseable date string)" }
+                        ["title"] = new() { Type = "string", Description = "Title for the task." },
+                        ["description"] = new() { Type = "string", Description = "Short description of the task." },
+                        ["dueDate"] = new() { Type = "string", Description = "Due date, e.g. \"2026-08-01\" (any .NET-parseable date string). Omit if there is no due date." }
                     },
                     Required = new[] { "title" }
                 }
@@ -211,14 +212,14 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_list",
-                Description = "List all tasks",
+                Description = "List every task in the repository, one line each (id, date, status, title). Use task_find instead if you want to filter by keyword or status.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["desc"] = new() { Type = "boolean", Description = "Show tasks in descending order (latest first)", Default = false },
-                        ["verbose"] = new() { Type = "boolean", Description = "Show detailed information", Default = false }
+                        ["desc"] = new() { Type = "boolean", Description = "List newest task first instead of oldest first.", Default = false },
+                        ["verbose"] = new() { Type = "boolean", Description = "Include each task's Description on an additional line, instead of just id/date/status/title.", Default = false }
                     },
                     Required = Array.Empty<string>()
                 }
@@ -226,17 +227,23 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_find",
-                Description = "Find tasks using a filter",
+                Description = "Search tasks by keyword, optionally narrowed to a single status. Matches if the query contains any single word found in a task's Title or Description (case-insensitive substring match, OR across words) - not an exact-phrase or all-words-required match.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["query"] = new() { Type = "string", Description = "Search query text (required)" },
-                        ["status"] = new() { Type = "string", Description = "Filter by status (None, New, OnHold, Planned, Active, Related, ReviewPending, ReviewComplete, AcceptancePending, Completed, Abandoned)" },
-                        ["includeContent"] = new() { Type = "boolean", Description = "Search full content (slower)", Default = false },
-                        ["desc"] = new() { Type = "boolean", Description = "Show results in descending order", Default = false },
-                        ["verbose"] = new() { Type = "boolean", Description = "Show detailed information", Default = false }
+                        ["query"] = new() { Type = "string", Description = "One or more space-separated words. A task is returned if any word matches." },
+                        ["status"] = new()
+                        {
+                            Type = "string",
+                            Description = "Only return tasks with this exact status. Omit (or use \"None\") to return tasks in any status.",
+                            Enum = new[] { "None", "New", "OnHold", "Planned", "Active", "Related", "ReviewPending", "ReviewComplete", "AcceptancePending", "Completed", "Abandoned" },
+                            Default = "None"
+                        },
+                        ["includeContent"] = new() { Type = "boolean", Description = "Also search the full markdown body, not just Title/Description. Slower - only the .json metadata is searched by default.", Default = false },
+                        ["desc"] = new() { Type = "boolean", Description = "List newest matching task first instead of oldest first.", Default = false },
+                        ["verbose"] = new() { Type = "boolean", Description = "Include each task's Description on an additional line, instead of just id/date/status/title.", Default = false }
                     },
                     Required = new[] { "query" }
                 }
@@ -244,15 +251,20 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_update",
-                Description = "Update a task's status",
+                Description = "Change a task's status and append a justification entry to its status log (the log is kept, not overwritten - every status change is retained for history).",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["taskId"] = new() { Type = "integer", Description = "Task ID to update (required)" },
-                        ["status"] = new() { Type = "string", Description = "New status (New, OnHold, Planned, Active, Related, ReviewPending, ReviewComplete, AcceptancePending, Completed, Abandoned) (required)" },
-                        ["justification"] = new() { Type = "string", Description = "Justification for the status change" }
+                        ["taskId"] = new() { Type = "integer", Description = "Task ID to update." },
+                        ["status"] = new()
+                        {
+                            Type = "string",
+                            Description = "The task's new status.",
+                            Enum = new[] { "New", "OnHold", "Planned", "Active", "Related", "ReviewPending", "ReviewComplete", "AcceptancePending", "Completed", "Abandoned" }
+                        },
+                        ["justification"] = new() { Type = "string", Description = "Why the status is changing. Recorded in the task's status log alongside the new status and timestamp." }
                     },
                     Required = new[] { "taskId", "status" }
                 }
@@ -260,15 +272,15 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_link",
-                Description = "Link two tasks together",
+                Description = "Record a relationship from one task to another (e.g. a dependency or duplicate). One-directional - link the reverse pair separately if you want it to show on both tasks.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["source"] = new() { Type = "integer", Description = "Source task ID (required)" },
-                        ["target"] = new() { Type = "integer", Description = "Target task ID (required)" },
-                        ["remark"] = new() { Type = "string", Description = "Remark explaining the relationship" }
+                        ["source"] = new() { Type = "integer", Description = "Task ID that the relationship is recorded on." },
+                        ["target"] = new() { Type = "integer", Description = "Task ID being referenced." },
+                        ["remark"] = new() { Type = "string", Description = "Short note on why the tasks are related, e.g. \"blocks\", \"duplicates\", \"depends on\"." }
                     },
                     Required = new[] { "source", "target" }
                 }
@@ -276,14 +288,14 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_unlink",
-                Description = "Remove link between two tasks",
+                Description = "Remove the relationship from the source task to the target task. Does not remove the reverse link if the target also links back to the source - unlink that direction separately.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["source"] = new() { Type = "integer", Description = "Source task ID (required)" },
-                        ["target"] = new() { Type = "integer", Description = "Target task ID (required)" }
+                        ["source"] = new() { Type = "integer", Description = "Task ID to remove the link from." },
+                        ["target"] = new() { Type = "integer", Description = "Task ID currently being referenced, to stop referencing." }
                     },
                     Required = new[] { "source", "target" }
                 }
@@ -291,7 +303,7 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "task_generate_toc",
-                Description = "Generate table of contents for tasks",
+                Description = "Regenerate the open-tasks table of contents markdown file in the project root. Lists only tasks that are not Completed, Abandoned, or None - closed-out tasks are intentionally left off. Overwrites the existing file; run this after adding, linking, or updating the status of tasks to keep it current.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
@@ -393,9 +405,9 @@ public class AdrMcpServer : McpServer
 
         var title = GetStringArgument(arguments, "title") ?? throw new ArgumentException("Title is required");
         var req = GetBoolArgument(arguments, "req");
-        var rev = GetIntArgument(arguments, "rev") ?? 0;
+        var revisionFor = GetIntArgument(arguments, "revisionFor") ?? 0;
 
-        var result = await adrNew.NewAdrAsync(title, req, rev.ToString(), string.Empty);
+        var result = await adrNew.NewAdrAsync(title, req, revisionFor.ToString(), string.Empty);
         return result.Success ? result.Message ?? "ADR created successfully" : $"Failed: {result.Message}";
     }
 
@@ -461,9 +473,10 @@ public class AdrMcpServer : McpServer
     {
         var adrInit = _serviceProvider.GetRequiredService<IAdrInit>();
 
-        var record = GetIntArgument(arguments, "record") ?? 1;
+        var record = GetIntArgument(arguments, "record") ?? 0;
+        var startAt = GetIntArgument(arguments, "startAt") ?? 1;
 
-        var result = await adrInit.SyncMetadataAsync(record, 0);
+        var result = await adrInit.SyncMetadataAsync(startAt, record);
         return result.Success ? result.Message ?? "Metadata synchronized successfully" : $"Failed: {result.Message}";
     }
 

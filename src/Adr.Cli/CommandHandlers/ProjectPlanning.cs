@@ -97,6 +97,11 @@ public class ProjectPlanning : IProjectPlanning
                 continue;
             }
 
+            if (status != PlanningStatus.None && adr.Status != status)
+            {
+                continue;
+            }
+
             foreach (var word in words)
             {
                 if (adr.Title.Contains(word, StringComparison.OrdinalIgnoreCase))
