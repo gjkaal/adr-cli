@@ -84,7 +84,8 @@ public class AdrMcpServer : McpServer
                     {
                         ["title"] = new() { Type = "string", Description = "Title for the new ADR." },
                         ["req"] = new() { Type = "boolean", Description = "Use the Architecture Significant Requirement (ASR) template instead of the standard ADR (decision) template.", Default = false },
-                        ["revisionFor"] = new() { Type = "integer", Description = "If set, the existing ADR ID that this new ADR supersedes. Adds a 'Supersedes' link from the new ADR to that one; the old ADR's own content is left unchanged." }
+                        ["revisionFor"] = new() { Type = "integer", Description = "If set, the existing ADR ID that this new ADR supersedes. Adds a 'Supersedes' link from the new ADR to that one; the old ADR's own content is left unchanged." },
+                        ["ai"] = new() { Type = "boolean", Description = "Draft the Decision and Consequences sections using the configured AI provider (see AI-Setup.md). No-op if no provider is configured in adr.config.json.", Default = false }
                     },
                     Required = new[] { "title" }
                 }
@@ -406,8 +407,9 @@ public class AdrMcpServer : McpServer
         var title = GetStringArgument(arguments, "title") ?? throw new ArgumentException("Title is required");
         var req = GetBoolArgument(arguments, "req");
         var revisionFor = GetIntArgument(arguments, "revisionFor") ?? 0;
+        var useAi = GetBoolArgument(arguments, "ai");
 
-        var result = await adrNew.NewAdrAsync(title, req, revisionFor.ToString(), string.Empty);
+        var result = await adrNew.NewAdrAsync(title, req, revisionFor.ToString(), string.Empty, useAi);
         return result.Success ? result.Message ?? "ADR created successfully" : $"Failed: {result.Message}";
     }
 

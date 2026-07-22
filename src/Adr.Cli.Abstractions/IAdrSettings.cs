@@ -57,6 +57,12 @@ public interface IAdrSettings
     AdrContextInfo CurrentContext { get; }
 
     /// <summary>
+    /// Configuration for the optional AI provider used to draft ADR proposals. An empty
+    /// <see cref="AiProviderSettings.Provider" /> means AI generation is not configured.
+    /// </summary>
+    AiProviderSettings AiSettings { get; }
+
+    /// <summary>
     /// Re-resolve settings from the adr.config.json found by searching upward from
     /// <paramref name="workingDirectory" />, without creating anything. Intended for a long-lived
     /// MCP server process to be pointed at a specific, already-initialized repository instead of

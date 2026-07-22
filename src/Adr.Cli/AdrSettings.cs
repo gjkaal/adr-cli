@@ -75,6 +75,11 @@ namespace Adr.Cli
         public string ProjectName { get; set; } = "ADR Documentation";
 
         /// <summary>
+        /// Configuration for the optional AI provider used to draft ADR proposals.
+        /// </summary>
+        public AiProviderSettings AiSettings { get; set; } = new();
+
+        /// <summary>
         /// Describes which adr.config.json is currently active for this process.
         /// </summary>
         public AdrContextInfo CurrentContext => new()
@@ -125,6 +130,7 @@ namespace Adr.Cli
                     TemplateFolder = string.IsNullOrEmpty(value.Templates) ? DefaultTemplatePath : value.Templates.Replace('/', '\\');
                     TasksFolder = string.IsNullOrEmpty(value.Tasks) ? DefaultTasksPath : value.Tasks.Replace('/', '\\');
                     ProjectName = string.IsNullOrEmpty(value.ProjectName) ? ProjectName : value.ProjectName;
+                    AiSettings = ToAiProviderSettings(value.Ai);
 
                     return CurrentContext;
                 }
@@ -263,7 +269,7 @@ namespace Adr.Cli
         /// </summary>
         public IDirectoryInfo TemplateFolderInfo()
         {
-            if (TemplateFolder.StartsWith("\\"))
+            if (TemplateFolder.StartsWith('\\'))
             {
                 TemplateFolder = TemplateFolder[1..];
             }
@@ -319,6 +325,29 @@ namespace Adr.Cli
             public string Templates { get; set; } = string.Empty;
             public string Tasks { get; set; } = string.Empty;
             public string ProjectName { get; set; } = string.Empty;
+            public AiConfigSection? Ai { get; set; }
+        }
+
+        private class AiConfigSection
+        {
+            public string Provider { get; set; } = string.Empty;
+            public string Endpoint { get; set; } = string.Empty;
+            public string DeploymentName { get; set; } = string.Empty;
+        }
+
+        private static AiProviderSettings ToAiProviderSettings(AiConfigSection? section)
+        {
+            if (section == null)
+            {
+                return new AiProviderSettings();
+            }
+
+            return new AiProviderSettings
+            {
+                Provider = section.Provider,
+                Endpoint = section.Endpoint,
+                DeploymentName = section.DeploymentName
+            };
         }
 
         private readonly JsonSerializerOptions jsonOptions = new()
@@ -383,6 +412,7 @@ namespace Adr.Cli
                 settings.TemplateFolder = string.IsNullOrEmpty(value.Templates) ? settings.TemplateFolder : value.Templates.Replace('/', '\\');
                 settings.TasksFolder = string.IsNullOrEmpty(value.Tasks) ? settings.TasksFolder : value.Tasks.Replace('/', '\\');
                 settings.ProjectName = string.IsNullOrEmpty(value.ProjectName) ? settings.ProjectName : value.ProjectName;
+                settings.AiSettings = ToAiProviderSettings(value.Ai);
             }
 
             return settings;

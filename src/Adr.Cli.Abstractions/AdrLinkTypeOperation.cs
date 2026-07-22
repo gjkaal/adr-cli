@@ -1,4 +1,4 @@
-﻿namespace Adr.Cli;
+namespace Adr.Cli;
 
 /// <summary>
 /// Enumerate the options for the generic handler.

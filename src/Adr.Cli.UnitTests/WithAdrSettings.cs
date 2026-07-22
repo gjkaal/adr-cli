@@ -46,4 +46,58 @@ public sealed class WithAdrSettings
 
         Assert.True(settings.RepositoryInitialized());
     }
+
+    /// <summary>
+    /// Regression test for the optional "ai" section in adr.config.json (see AI-Setup.md) - covers
+    /// the shape actually written to this repo's own src/adr.config.json.
+    /// </summary>
+    [Fact]
+    public void AiSettings_IsPopulated_FromConfigFileAiSection()
+    {
+        var fileSystem = new MockFileSystem();
+        fileSystem.Directory.CreateDirectory(@"C:\repo\project");
+        fileSystem.Directory.SetCurrentDirectory(@"C:\repo\project");
+        fileSystem.File.WriteAllText(@"C:\repo\project\adr.config.json", """
+        {
+          "path": "doc\\adr",
+          "templates": "doc\\templates",
+          "tasks": "\\docs\\planning",
+          "ai": {
+            "provider": "AzureFoundry",
+            "endpoint": "https://adr-cli-ai.cognitiveservices.azure.com/",
+            "deploymentName": "gpt-4o"
+          }
+        }
+        """);
+
+        var settings = new AdrSettings(fileSystem);
+
+        Assert.Equal("AzureFoundry", settings.AiSettings.Provider);
+        Assert.Equal("https://adr-cli-ai.cognitiveservices.azure.com/", settings.AiSettings.Endpoint);
+        Assert.Equal("gpt-4o", settings.AiSettings.DeploymentName);
+    }
+
+    /// <summary>
+    /// AI drafting must stay opt-in: when adr.config.json has no "ai" section at all, AiSettings
+    /// should come back empty (Provider = "") rather than throwing or defaulting to a provider.
+    /// </summary>
+    [Fact]
+    public void AiSettings_IsEmpty_WhenConfigFileHasNoAiSection()
+    {
+        var fileSystem = new MockFileSystem();
+        fileSystem.Directory.CreateDirectory(@"C:\repo\project");
+        fileSystem.Directory.SetCurrentDirectory(@"C:\repo\project");
+        fileSystem.File.WriteAllText(@"C:\repo\project\adr.config.json", """
+        {
+          "path": "doc\\adr",
+          "templates": "doc\\templates"
+        }
+        """);
+
+        var settings = new AdrSettings(fileSystem);
+
+        Assert.Equal(string.Empty, settings.AiSettings.Provider);
+        Assert.Equal(string.Empty, settings.AiSettings.Endpoint);
+        Assert.Equal(string.Empty, settings.AiSettings.DeploymentName);
+    }
 }

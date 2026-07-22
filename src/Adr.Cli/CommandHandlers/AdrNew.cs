@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
+using Adr.Cli.Ai;
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
 
@@ -17,6 +19,7 @@ public class AdrNew : IAdrNew
     private readonly IStdOut stdOut;
     private readonly IProcessHelper processHelper;
     private readonly IAdrLink linkCommandHandler;
+    private readonly IAdrProposalGenerator proposalGenerator;
 
     public AdrNew(
         IAdrSettings settings,
@@ -24,7 +27,8 @@ public class AdrNew : IAdrNew
         IAdrRecordRepository adrRecordRepository,
         IStdOut stdOut,
         IProcessHelper processHelper,
-        IAdrLink linkCommandHandler)
+        IAdrLink linkCommandHandler,
+        IAdrProposalGenerator proposalGenerator)
     {
         this.settings = settings;
         this.logger = logger;
@@ -32,12 +36,13 @@ public class AdrNew : IAdrNew
         this.stdOut = stdOut;
         this.processHelper = processHelper;
         this.linkCommandHandler = linkCommandHandler;
+        this.proposalGenerator = proposalGenerator;
     }
 
     /// <summary>
     /// Create a new ADR
     /// </summary>
-    public async Task<Response> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context)
+    public async Task<Response> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context, bool useAi)
     {
         if (!settings.RepositoryInitialized())
         {
@@ -48,14 +53,14 @@ public class AdrNew : IAdrNew
         if (isRequirement)
         {
             logger.LogInformation("Creating Critical Requirement Record.");
-            result = await CreateRequirementAsync(title, context);
+            result = await CreateRequirementAsync(title, context, useAi);
         }
         else if (!string.IsNullOrEmpty(revisionForRecord) && revisionForRecord != "0")
         {
             logger.LogInformation($"Creating Revision for {revisionForRecord}.");
             if (int.TryParse(revisionForRecord, out var recordId) && recordId > 0)
             {
-                result = await CreateRevisionAsync(title, context, recordId);
+                result = await CreateRevisionAsync(title, context, recordId, useAi);
             }
             else
             {
@@ -66,12 +71,12 @@ public class AdrNew : IAdrNew
         else
         {
             logger.LogInformation($"Creating new decision record.");
-            result = await CreateDecisionAsync(title, context);
+            result = await CreateDecisionAsync(title, context, useAi);
         }
         return result;
     }
 
-    private async Task<Response> CreateDecisionAsync(string title, string context)
+    private async Task<Response> CreateDecisionAsync(string title, string context, bool useAi)
     {
         var record = new AdrRecord
         {
@@ -84,13 +89,14 @@ public class AdrNew : IAdrNew
             record.Context = context;
         }
 
+        await ApplyAiProposalAsync(record, useAi);
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
         return Response.Ok($"AD is created in {settings.DocFolder}.");
     }
 
-    private async Task<Response> CreateRevisionAsync(string title, string context, int recordId)
+    private async Task<Response> CreateRevisionAsync(string title, string context, int recordId, bool useAi)
     {
         var superSedes = await adrRecordRepository.ReadMetadataAsync(recordId);
         if (superSedes == null)
@@ -114,13 +120,14 @@ public class AdrNew : IAdrNew
             record.Context = context;
         }
 
+        await ApplyAiProposalAsync(record, useAi);
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
         return Response.Ok($"Revision for {recordId:D5} is created in {settings.DocFolder}.");
     }
 
-    private async Task<Response> CreateRequirementAsync(string title, string context)
+    private async Task<Response> CreateRequirementAsync(string title, string context, bool useAi)
     {
         var record = new AdrRecord
         {
@@ -133,10 +140,65 @@ public class AdrNew : IAdrNew
             record.Context = context;
         }
 
+        await ApplyAiProposalAsync(record, useAi);
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
         return Response.Ok($"ASR is created in {settings.DocFolder}.");
+    }
+
+    /// <summary>
+    /// Draft Decision/Consequences for <paramref name="record" /> using the configured AI provider.
+    /// A no-op when <paramref name="useAi" /> is false. On any AI failure, logs a warning and leaves
+    /// the record exactly as it was - the ADR is still created from the template.
+    /// </summary>
+    private async Task ApplyAiProposalAsync(AdrRecord record, bool useAi)
+    {
+        if (!useAi)
+        {
+            return;
+        }
+
+        var existingRecords = await GetExistingAdrSummariesAsync();
+        var result = await proposalGenerator.GenerateAsync(record.Title, record.Context, existingRecords);
+        if (!result.Success || result.Value == null)
+        {
+            logger.LogWarning("AI proposal generation failed, continuing without it: {Message}", result.Message);
+            stdOut.WriteLine($"AI proposal generation failed, continuing without it: {result.Message}");
+            return;
+        }
+
+        record.Decision = result.Value.Decision;
+        record.Consequences = result.Value.Consequences;
+    }
+
+    private async Task<IReadOnlyList<AdrSummary>> GetExistingAdrSummariesAsync()
+    {
+        var summaries = new List<AdrSummary>();
+        foreach (var file in settings.DocFolderInfo().EnumerateFiles("*.md"))
+        {
+            var separatorIndex = file.Name.IndexOf('-');
+            if (separatorIndex <= 0 || !int.TryParse(file.Name[..separatorIndex], out var recordId))
+            {
+                continue;
+            }
+
+            var record = await adrRecordRepository.ReadMetadataAsync(recordId);
+            if (record == null)
+            {
+                continue;
+            }
+
+            summaries.Add(new AdrSummary
+            {
+                RecordId = record.RecordId,
+                Title = record.Title,
+                Status = record.Status,
+                Context = record.Context
+            });
+        }
+
+        return summaries;
     }
 
     public async Task<Response> CopyAdrAsync(string sourceId, bool isRevision)

@@ -1,4 +1,10 @@
 {
   "path": "doc\\adr",
-  "templates": "doc\\templates"
+  "templates": "doc\\templates",
+  "tasks": "\\docs\\planning",
+  "ai": {
+    "provider": "AzureFoundry",
+    "endpoint": "https://adr-cli-ai.cognitiveservices.azure.com/",
+    "deploymentName": "gpt-4o"
+  }
 }

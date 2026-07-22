@@ -21,6 +21,7 @@ namespace McpCore
             PropertyNameCaseInsensitive = true,
             MaxDepth = 5,
         };
+        private static readonly char[] separator = new[] { ',', ';', ' ' };
 
         /// <summary>
         /// Checks whether a given feature is enabled in configuration. Supported formats:
@@ -53,7 +54,7 @@ namespace McpCore
             var csv = configuration["Features"];
             if (!string.IsNullOrWhiteSpace(csv))
             {
-                foreach (var token in csv.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                foreach (var token in csv.Split(separator, StringSplitOptions.RemoveEmptyEntries))
                 {
                     if (string.Equals(token, feature, StringComparison.OrdinalIgnoreCase))
                     {

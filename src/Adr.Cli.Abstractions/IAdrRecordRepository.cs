@@ -3,26 +3,32 @@ using System.Threading.Tasks;
 
 namespace Adr.Cli;
 
-public interface IAdrTasksRepository
+public interface IAdrRecordRepository
 {
     /// <summary>
     /// Get the layout template and use the record to create the content for a document.
     /// </summary>
     /// <param name="record">
-    /// A task record with document information.
+    /// An ADR record with document information.
     /// </param>
     /// <returns>
     /// A stringbuilder containing the text for the document.
     /// </returns>
-    Task<StringBuilder> GetLayoutAsync(TaskRecord record);
-
-    /// <summary> Try to locate the metadata for a a task and return it in the <see
-    /// cref="TaskRecord/> class. </summary> <param name="recordId">A zero of positive number
-    /// integer.</param> <returns>The metadata for an ADR</returns>
-    Task<TaskRecord?> ReadMetadataAsync(int recordId);
+    Task<StringBuilder> GetLayoutAsync(AdrRecord record);
 
     /// <summary>
-    /// Try to locate the text content for a task and return it in a set of lines.
+    /// Try to locate the metadata for an ADR and return it in the <see cref="AdrRecord" /> class.
+    /// </summary>
+    /// <param name="recordId">
+    /// A zero of positive number integer.
+    /// </param>
+    /// <returns>
+    /// The metadata for an ADR
+    /// </returns>
+    Task<AdrRecord?> ReadMetadataAsync(int recordId);
+
+    /// <summary>
+    /// Try to locate the text content for an ADR and return it in a set of lines.
     /// </summary>
     /// <param name="recordId">
     /// A zero of positive number integer.
@@ -36,12 +42,26 @@ public interface IAdrTasksRepository
     /// Write the metadata in a text based data file.
     /// </summary>
     /// <param name="record">
-    /// The metadata for a task.
+    /// The metadata for an ADR.
     /// </param>
     /// <returns>
     /// zero for success, not zero for failure.
     /// </returns>
-    Task<int> WriteRecordAsync(TaskRecord record);
+    Task<int> WriteRecordAsync(AdrRecord record);
+
+    /// <summary>
+    /// Copy an existing record to a new record
+    /// </summary>
+    /// <param name="record">
+    /// The original ADR
+    /// </param>
+    /// <param name="newRecordId">
+    /// The new id
+    /// </param>
+    /// <returns>
+    /// A new ADR
+    /// </returns>
+    Task<AdrRecord> CopyRecordAsync(AdrRecord record, int newRecordId, bool isRevision);
 
     /// <summary>
     /// Try to locate the text content for an ADR and update the AdrRecord with textual information.
@@ -55,7 +75,7 @@ public interface IAdrTasksRepository
     /// <returns>
     /// zero for success, not zero for failure.
     /// </returns>
-    Task<int> UpdateMetadataAsync(int recordId, TaskRecord record);
+    Task<int> UpdateMetadataAsync(int recordId, AdrRecord record);
 
     /// <summary>
     /// Update the text content file using additional information in the metadata.
@@ -69,7 +89,7 @@ public interface IAdrTasksRepository
     /// <returns>
     /// zero for success, not zero for failure.
     /// </returns>
-    Task<int> UpdateContentAsync(TaskRecord record, string[] lines);
+    Task<int> UpdateContentAsync(AdrRecord record, string[] lines);
 
     /// <summary>
     /// Define and fill a document in the project root folder.

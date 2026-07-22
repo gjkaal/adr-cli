@@ -352,6 +352,7 @@ namespace Adr.Cli
             public string TasksFolder { get; set; } = string.Empty;
             public string TemplateFolder { get; set; } = string.Empty;
             public string ProjectName => "TestProject";
+            public AiProviderSettings AiSettings => new();
 
             public AdrContextInfo CurrentContext => new()
             {
@@ -393,7 +394,7 @@ namespace Adr.Cli
 
                 var maxId = files
                     .Select(f => Path.GetFileName(f))
-                    .Select(f => int.TryParse(f.Substring(0, 5), out var id) ? id : 0)
+                    .Select(f => int.TryParse(f.AsSpan(0, 5), out var id) ? id : 0)
                     .Max();
 
                 return maxId + 1;

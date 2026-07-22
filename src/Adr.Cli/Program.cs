@@ -5,6 +5,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
+using Adr.Cli.Ai;
+using Adr.Cli.Ai.AzureFoundry;
 using Adr.Cli.CommandHandlers;
 using Adr.Cli.Extensions;
 using Adr.Cli.Mcp;
@@ -20,6 +22,11 @@ namespace Adr.Cli;
 
 internal static class Program
 {
+    internal static JsonSerializerOptions SerializerOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     private static async Task<int> Main(string[] args)
     {
         var serviceCollection = new ServiceCollection();
@@ -110,6 +117,18 @@ internal static class Program
         serviceCollection.AddSingleton<IProjectPlanning, ProjectPlanning>();
         serviceCollection.AddSingleton<IAdrContext, AdrContext>();
 
+        serviceCollection.AddSingleton<IAdrProposalGenerator>(sp =>
+        {
+            var settings = sp.GetRequiredService<IAdrSettings>();
+            if (string.IsNullOrWhiteSpace(settings.AiSettings.Provider))
+            {
+                return new NoOpAdrProposalGenerator();
+            }
+
+            var logger = sp.GetRequiredService<ILogger<AzureFoundryProposalGenerator>>();
+            return new AzureFoundryProposalGenerator(settings, logger);
+        });
+
         // MCP Server
         serviceCollection.AddSingleton<IMcpServer, AdrMcpServer>();
     }
@@ -170,10 +189,7 @@ internal static class Program
                     // According to JSON-RPC 2.0, notifications don't expect a response
                     if (request.Id != null)
                     {
-                        var responseJson = JsonSerializer.Serialize(response, new JsonSerializerOptions
-                        {
-                            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                        });
+                        var responseJson = JsonSerializer.Serialize(response, SerializerOptions);
                         await Console.Out.WriteLineAsync(responseJson);
                         await Console.Out.FlushAsync();
                     }
@@ -201,10 +217,7 @@ internal static class Program
                         }
                     };
 
-                    var errorJson = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
-                    {
-                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                    });
+                    var errorJson = JsonSerializer.Serialize(errorResponse, SerializerOptions);
                     await Console.Out.WriteLineAsync(errorJson);
                     await Console.Out.FlushAsync();
                 }
@@ -226,10 +239,7 @@ internal static class Program
                             }
                         };
 
-                        var errorJson = JsonSerializer.Serialize(errorResponse, new JsonSerializerOptions
-                        {
-                            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                        });
+                        var errorJson = JsonSerializer.Serialize(errorResponse, SerializerOptions);
                         await Console.Out.WriteLineAsync(errorJson);
                         await Console.Out.FlushAsync();
                     }

@@ -17,7 +17,7 @@ internal class Program
         var stdIo = new StdIo(logToFile, silent, verbose);
         var ignoreList = FindIgnoreList(args);
 
-        IValidator validator;
+        CSharpNamespaceValidator validator;
         switch (args[0])
         {
             case "cs-namespace":
