@@ -23,6 +23,7 @@ public static class AdrNewSetup
         cmd.Options.Add(title);
         cmd.Options.Add(requirement);
         cmd.Options.Add(revision);
+        cmd.Options.Add(context);
         cmd.Options.Add(useAi);
 
         cmd.SetAction(async (ParseResult ctx) =>

@@ -3,6 +3,7 @@ using System.ClientModel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 using Azure.AI.OpenAI;
@@ -36,8 +37,37 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
         "If the user already provided a Context, refine or complete it rather than discarding it - stay consistent with their intent. " +
         "If no Context was provided, draft one from the title and the existing ADRs listed in the prompt. " +
         "A template may be included as a structure and tone example - follow its style but never copy its placeholder text. " +
-        "Respond with exactly three markdown sections, in this order and with no other text: " +
-        "'## Context' followed by the context text, then '## Decision' followed by the decision text, then '## Consequences' followed by the consequences text.";
+        "The Decision must follow directly from the Context you return. " +
+        "Consequences are not prose - list them as separate pros and cons, each a short, distinct, beneficial or negative result " +
+        "that follows directly from the Decision. A con may optionally end with a short mitigation in parentheses. " +
+        "Never restate the Context or Decision as a pro or con.";
+
+    private const string ProposalSchemaName = "adr_proposal";
+
+    private static readonly BinaryData ProposalSchema = BinaryData.FromBytes(
+        """
+        {
+            "type": "object",
+            "properties": {
+                "context": { "type": "string", "description": "The situation and forces behind the decision." },
+                "decision": { "type": "string", "description": "The decision made. Must follow from context, not restate it." },
+                "pros": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Beneficial results of the decision, one per entry."
+                },
+                "cons": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Negative results of the decision, one per entry, optionally ending with a mitigation in parentheses."
+                }
+            },
+            "required": ["context", "decision", "pros", "cons"],
+            "additionalProperties": false
+        }
+        """u8.ToArray());
+
+    private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     private readonly IAdrSettings settings;
     private readonly ILogger<AzureFoundryProposalGenerator> logger;
@@ -57,12 +87,25 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
 
             var templateExample = await TryReadTemplateExampleAsync(templateType);
             var userPrompt = BuildUserPrompt(title, context, existingRecords, templateExample);
+            var options = new ChatCompletionOptions
+            {
+                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(ProposalSchemaName, ProposalSchema, jsonSchemaIsStrict: true)
+            };
             ChatCompletion completion = await chatClient.CompleteChatAsync(
-                new SystemChatMessage(SystemInstructions),
-                new UserChatMessage(userPrompt));
+                [new SystemChatMessage(SystemInstructions), new UserChatMessage(userPrompt)],
+                options);
 
             var replyText = string.Concat(completion.Content.Select(part => part.Text));
             var proposal = ParseProposal(replyText);
+            if (!IsWellFormed(proposal))
+            {
+                logger.LogWarning("AI proposal generation returned incomplete or degenerate content for '{Title}'.", title);
+                return new Response<AdrProposal>(
+                    false,
+                    "AI proposal generation returned incomplete or degenerate content - Context, Decision, and Consequences must each be non-empty and distinct from one another.",
+                    new AdrProposal());
+            }
+
             return new Response<AdrProposal>(true, "AI proposal generated.", proposal);
         }
         catch (Exception ex)
@@ -163,34 +206,97 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
             : string.Join('\n', matches);
     }
 
+    /// <summary>
+    /// The model's raw structured-output shape - Consequences arrive as separate pros/cons lists so
+    /// formatting into the Pro's/Con's markdown lists is under this application's control rather than
+    /// the model's.
+    /// </summary>
+    private sealed class ProposalReply
+    {
+        public string Context { get; set; } = string.Empty;
+        public string Decision { get; set; } = string.Empty;
+        public List<string> Pros { get; set; } = new();
+        public List<string> Cons { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Parses the model's structured-output reply and formats pros/cons into the Consequences
+    /// markdown. The chat request constrains the model to the <see cref="ProposalSchema" /> JSON
+    /// shape, so this is a plain deserialization rather than markdown-section scanning - there is no
+    /// partial/reordered-header case to recover from.
+    /// </summary>
     internal static AdrProposal ParseProposal(string replyText)
     {
-        var contextIndex = replyText.IndexOf("## Context", StringComparison.OrdinalIgnoreCase);
-        var decisionIndex = replyText.IndexOf("## Decision", StringComparison.OrdinalIgnoreCase);
-        var consequencesIndex = replyText.IndexOf("## Consequences", StringComparison.OrdinalIgnoreCase);
-
-        if (contextIndex >= 0 && decisionIndex > contextIndex && consequencesIndex > decisionIndex)
+        ProposalReply? reply;
+        try
         {
-            return new AdrProposal
-            {
-                Context = replyText[(contextIndex + "## Context".Length)..decisionIndex].Trim(),
-                Decision = replyText[(decisionIndex + "## Decision".Length)..consequencesIndex].Trim(),
-                Consequences = replyText[(consequencesIndex + "## Consequences".Length)..].Trim()
-            };
+            reply = JsonSerializer.Deserialize<ProposalReply>(replyText, JsonOptions);
+        }
+        catch (JsonException)
+        {
+            reply = null;
         }
 
-        if (decisionIndex >= 0 && consequencesIndex > decisionIndex)
+        if (reply == null)
         {
-            // Model replied with just the older two-section format - still usable, Context is left empty.
-            return new AdrProposal
-            {
-                Decision = replyText[(decisionIndex + "## Decision".Length)..consequencesIndex].Trim(),
-                Consequences = replyText[(consequencesIndex + "## Consequences".Length)..].Trim()
-            };
+            return new AdrProposal();
         }
 
-        // The model didn't follow the requested format - return the whole reply as the
-        // decision text rather than losing it, and leave context/consequences empty.
-        return new AdrProposal { Decision = replyText.Trim() };
+        return new AdrProposal
+        {
+            Context = reply.Context,
+            Decision = reply.Decision,
+            Consequences = FormatConsequences(reply.Pros, reply.Cons)
+        };
+    }
+
+    /// <summary>
+    /// Renders pros/cons as the two markdown lists ADRs in this repository expect under Consequences.
+    /// </summary>
+    private static string FormatConsequences(IReadOnlyList<string> pros, IReadOnlyList<string> cons)
+    {
+        if (pros.Count == 0 && cons.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var sb = new StringBuilder();
+        sb.Append("*Pro's:*\n");
+        foreach (var pro in pros)
+        {
+            sb.Append("- ").Append(pro.Trim()).Append('\n');
+        }
+
+        sb.Append('\n');
+        sb.Append("*Con's:*\n");
+        foreach (var con in cons)
+        {
+            sb.Append("- ").Append(con.Trim()).Append('\n');
+        }
+
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// Structural check against the returned Context: catches the model producing an empty field, or
+    /// degenerate output where Decision restates Context, or Consequences missing a pro or a con
+    /// entirely. Purely local - no extra AI round trip.
+    /// </summary>
+    internal static bool IsWellFormed(AdrProposal proposal)
+    {
+        if (string.IsNullOrWhiteSpace(proposal.Context)
+            || string.IsNullOrWhiteSpace(proposal.Decision)
+            || string.IsNullOrWhiteSpace(proposal.Consequences))
+        {
+            return false;
+        }
+
+        if (!proposal.Consequences.Contains("Pro's:", StringComparison.OrdinalIgnoreCase)
+            || !proposal.Consequences.Contains("Con's:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return !proposal.Decision.Equals(proposal.Context, StringComparison.OrdinalIgnoreCase);
     }
 }

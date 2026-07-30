@@ -89,11 +89,11 @@ public class AdrNew : IAdrNew
             record.Context = context;
         }
 
-        await ApplyAiProposalAsync(record, useAi);
+        var aiWarning = await ApplyAiProposalAsync(record, useAi);
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        return Response.Ok($"AD is created in {settings.DocFolder}.");
+        return Response.Ok($"AD is created in {settings.DocFolder}.{aiWarning}");
     }
 
     private async Task<Response> CreateRevisionAsync(string title, string context, int recordId, bool useAi)
@@ -120,11 +120,11 @@ public class AdrNew : IAdrNew
             record.Context = context;
         }
 
-        await ApplyAiProposalAsync(record, useAi);
+        var aiWarning = await ApplyAiProposalAsync(record, useAi);
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        return Response.Ok($"Revision for {recordId:D5} is created in {settings.DocFolder}.");
+        return Response.Ok($"Revision for {recordId:D5} is created in {settings.DocFolder}.{aiWarning}");
     }
 
     private async Task<Response> CreateRequirementAsync(string title, string context, bool useAi)
@@ -140,24 +140,40 @@ public class AdrNew : IAdrNew
             record.Context = context;
         }
 
-        await ApplyAiProposalAsync(record, useAi);
+        var aiWarning = await ApplyAiProposalAsync(record, useAi);
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        return Response.Ok($"ASR is created in {settings.DocFolder}.");
+        return Response.Ok($"ASR is created in {settings.DocFolder}.{aiWarning}");
     }
+
+    /// <summary>
+    /// Appended to the Response on a successful AI draft, so an agent driving this tool over MCP is
+    /// told to check the draft rather than treat it as final - the model can still produce plausible
+    /// but wrong content, and this is the one place in the pipeline where a human hasn't looked yet.
+    /// </summary>
+    private const string VerifyAiDraftNote =
+        " AI drafted the Context/Decision/Consequences for this ADR - verify the resulting file before " +
+        "treating it as final, and if anything in it is unclear, use the grill-me skill with the user " +
+        "rather than guessing.";
 
     /// <summary>
     /// Draft Context/Decision/Consequences for <paramref name="record" /> using the configured AI
     /// provider. A no-op when <paramref name="useAi" /> is false. On any AI failure, logs a warning
-    /// and leaves the record exactly as it was - the ADR is still created from the template. A
-    /// user-supplied Context is preserved rather than overwritten by the AI's draft.
+    /// and leaves the record exactly as it was - the ADR is still created from the template, with
+    /// Decision/Consequences falling back to generic boilerplate. A user-supplied Context is
+    /// preserved rather than overwritten by the AI's draft.
     /// </summary>
-    private async Task ApplyAiProposalAsync(AdrRecord record, bool useAi)
+    /// <returns>
+    /// Empty string when AI wasn't requested. Otherwise a message describing the outcome - success or
+    /// failure - meant to be appended to the command's Response so it reaches the caller even when
+    /// logging is unavailable (Release builds) or stdout is muted (MCP mode).
+    /// </returns>
+    private async Task<string> ApplyAiProposalAsync(AdrRecord record, bool useAi)
     {
         if (!useAi)
         {
-            return;
+            return string.Empty;
         }
 
         var hadUserSuppliedContext = !string.IsNullOrEmpty(record.Context);
@@ -167,7 +183,7 @@ public class AdrNew : IAdrNew
         {
             logger.LogWarning("AI proposal generation failed, continuing without it: {Message}", result.Message);
             stdOut.WriteLine($"AI proposal generation failed, continuing without it: {result.Message}");
-            return;
+            return $" AI proposal generation failed, Decision/Consequences left as template defaults: {result.Message}";
         }
 
         if (!hadUserSuppliedContext && !string.IsNullOrEmpty(result.Value.Context))
@@ -176,6 +192,7 @@ public class AdrNew : IAdrNew
         }
         record.Decision = result.Value.Decision;
         record.Consequences = result.Value.Consequences;
+        return VerifyAiDraftNote;
     }
 
     private async Task<IReadOnlyList<AdrSummary>> GetExistingAdrSummariesAsync()
