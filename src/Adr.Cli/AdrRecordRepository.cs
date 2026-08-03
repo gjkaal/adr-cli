@@ -13,18 +13,17 @@ namespace Adr.Cli
 {
     public class AdrRecordRepository : DocumentBasedRepository, IAdrRecordRepository
     {
+        // These are rendered whenever a record's Context/Decision/Consequences is empty at write time
+        // (no AI draft, no manual input) - deliberately unmistakable as placeholder text rather than
+        // plausible-sounding prose, so an unfilled ADR can't be mistaken for a finished one.
         private const string DefaultConsequences =
-            @"See [cognitect 2011.11.15](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) for more information about ADR's.
-
-This documentation is created using the (adr-cli tool)[https://github.com/gjkaal/adr-cli].";
+            "*(Consequences not yet documented - replace this placeholder with the resulting trade-offs, risks, and follow-up actions.)*";
 
         private const string DefaultContext =
-            "Architecture for agile projects has to be described and defined differently. " +
-            "Not all decisions will be made at once, nor will all of them be done when the project begins.";
+            "*(Context not yet documented - replace this placeholder with the situation and forces behind this decision.)*";
 
         private const string DefaultDecision =
-            "We will keep a collection of records for \"architecturally significant\" decisions: " +
-            "those that affect the structure, non-functional characteristics, dependencies, interfaces, or construction techniques.";
+            "*(Decision not yet documented - replace this placeholder with the decision that was made and its rationale.)*";
 
         private const string defaultTemplate = @"# {RecordId}. {Title}
 

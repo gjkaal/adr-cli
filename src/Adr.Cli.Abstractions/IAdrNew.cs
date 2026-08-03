@@ -27,12 +27,13 @@ public interface IAdrNew
     /// <param name="useAi">
     /// Draft the Decision and Consequences sections using the configured AI provider. Ignored (a
     /// no-op) when no provider is configured; on any AI failure the ADR is still created without
-    /// AI content.
+    /// AI content. When null, defaults to true if an AI provider is configured and false otherwise,
+    /// so callers don't need to remember the flag on every call.
     /// </param>
     /// <returns>
     /// integer indicating success or failure
     /// </returns>
-    Task<Response> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context, bool useAi);
+    Task<Response> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context, bool? useAi);
 
     /// <summary>
     /// Copy an existing ADR to a new ADR with or without a revision remark.

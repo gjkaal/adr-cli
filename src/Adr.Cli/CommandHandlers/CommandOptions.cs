@@ -28,7 +28,7 @@ public static class CommandOptions
     public static Option<string> TemplateRoot => new("--tmpRoot") { Description = "Set the template root directory." };
     public static Option<string> ProjectRoot => new("--prjRoot") { Description = "Set the project planning root directory." };
     public static Option<string> Title => new("--title") { Description = "The title for the ADR." };
-    public static Option<bool> UseAi => new("--ai") { Description = "Draft the Context (if not supplied), Decision, and Consequences for this ADR using the configured AI provider (see AI-Setup.md). No-op if no provider is configured." };
+    public static Option<bool?> UseAi => new("--ai") { Description = "Draft the Context (if not supplied), Decision, and Consequences for this ADR using the configured AI provider (see AI-Setup.md). Defaults to true if a provider is configured, false otherwise; pass --ai:false to opt out explicitly." };
     public static Option<bool> Verbose => new("--verbose") { Description = "Show the ADR's more information." };
     public static Option<bool> Silent => new("--silent", "-s") { Description = "Do not show status messages." };
 }

@@ -42,25 +42,27 @@ public class AdrNew : IAdrNew
     /// <summary>
     /// Create a new ADR
     /// </summary>
-    public async Task<Response> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context, bool useAi)
+    public async Task<Response> NewAdrAsync(string title, bool isRequirement, string revisionForRecord, string context, bool? useAi)
     {
         if (!settings.RepositoryInitialized())
         {
             return Response.Fail($"Architecture Decision folder is not initialized {settings.DocFolderInfo().FullName}.");
         }
 
+        var effectiveUseAi = useAi ?? !string.IsNullOrWhiteSpace(settings.AiSettings.Provider);
+
         Response result;
         if (isRequirement)
         {
             logger.LogInformation("Creating Critical Requirement Record.");
-            result = await CreateRequirementAsync(title, context, useAi);
+            result = await CreateRequirementAsync(title, context, effectiveUseAi);
         }
         else if (!string.IsNullOrEmpty(revisionForRecord) && revisionForRecord != "0")
         {
             logger.LogInformation($"Creating Revision for {revisionForRecord}.");
             if (int.TryParse(revisionForRecord, out var recordId) && recordId > 0)
             {
-                result = await CreateRevisionAsync(title, context, recordId, useAi);
+                result = await CreateRevisionAsync(title, context, recordId, effectiveUseAi);
             }
             else
             {
@@ -71,7 +73,7 @@ public class AdrNew : IAdrNew
         else
         {
             logger.LogInformation($"Creating new decision record.");
-            result = await CreateDecisionAsync(title, context, useAi);
+            result = await CreateDecisionAsync(title, context, effectiveUseAi);
         }
         return result;
     }
@@ -93,7 +95,7 @@ public class AdrNew : IAdrNew
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        return Response.Ok($"AD is created in {settings.DocFolder}.{aiWarning}");
+        return Response.Ok($"AD is created in {settings.DocFolder}.{BuildFallbackNote(record, aiWarning)}");
     }
 
     private async Task<Response> CreateRevisionAsync(string title, string context, int recordId, bool useAi)
@@ -124,7 +126,7 @@ public class AdrNew : IAdrNew
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        return Response.Ok($"Revision for {recordId:D5} is created in {settings.DocFolder}.{aiWarning}");
+        return Response.Ok($"Revision for {recordId:D5} is created in {settings.DocFolder}.{BuildFallbackNote(record, aiWarning)}");
     }
 
     private async Task<Response> CreateRequirementAsync(string title, string context, bool useAi)
@@ -144,7 +146,7 @@ public class AdrNew : IAdrNew
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
 
-        return Response.Ok($"ASR is created in {settings.DocFolder}.{aiWarning}");
+        return Response.Ok($"ASR is created in {settings.DocFolder}.{BuildFallbackNote(record, aiWarning)}");
     }
 
     /// <summary>
@@ -158,10 +160,37 @@ public class AdrNew : IAdrNew
         "rather than guessing.";
 
     /// <summary>
+    /// Appended to the Response whenever Decision/Consequences were left blank and will render as
+    /// template placeholder text - covers the case where AI wasn't attempted at all (no <c>aiWarning</c>
+    /// from <see cref="ApplyAiProposalAsync" />), which otherwise produced no signal that the ADR
+    /// still needs manual content.
+    /// </summary>
+    private const string PlaceholderFallbackNote =
+        " Decision and/or Consequences were left blank and will be written as placeholder text - " +
+        "fill them in before treating this ADR as final.";
+
+    /// <summary>
+    /// Picks the note to append to the command's Response: the AI outcome message if AI was
+    /// attempted, otherwise a placeholder warning if Decision/Consequences are still empty at this
+    /// point (they will render as template defaults), otherwise nothing.
+    /// </summary>
+    private static string BuildFallbackNote(AdrRecord record, string aiWarning)
+    {
+        if (!string.IsNullOrEmpty(aiWarning))
+        {
+            return aiWarning;
+        }
+
+        return string.IsNullOrEmpty(record.Decision) || string.IsNullOrEmpty(record.Consequences)
+            ? PlaceholderFallbackNote
+            : string.Empty;
+    }
+
+    /// <summary>
     /// Draft Context/Decision/Consequences for <paramref name="record" /> using the configured AI
     /// provider. A no-op when <paramref name="useAi" /> is false. On any AI failure, logs a warning
     /// and leaves the record exactly as it was - the ADR is still created from the template, with
-    /// Decision/Consequences falling back to generic boilerplate. A user-supplied Context is
+    /// Decision/Consequences falling back to placeholder text. A user-supplied Context is
     /// preserved rather than overwritten by the AI's draft.
     /// </summary>
     /// <returns>

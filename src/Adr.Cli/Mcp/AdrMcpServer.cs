@@ -86,7 +86,7 @@ public class AdrMcpServer : McpServer
                         ["context"] = new() { Type = "string", Description = "Optional user-authored Context for the ADR. If omitted and ai=true, the AI provider drafts one; otherwise the ADR is created with a generic placeholder Context." },
                         ["req"] = new() { Type = "boolean", Description = "Use the Architecture Significant Requirement (ASR) template instead of the standard ADR (decision) template.", Default = false },
                         ["revisionFor"] = new() { Type = "integer", Description = "If set, the existing ADR ID that this new ADR supersedes. Adds a 'Supersedes' link from the new ADR to that one; the old ADR's own content is left unchanged." },
-                        ["ai"] = new() { Type = "boolean", Description = "Draft the Context (if not supplied), Decision, and Consequences sections using the configured AI provider (see AI-Setup.md). No-op if no provider is configured in adr.config.json.", Default = false }
+                        ["ai"] = new() { Type = "boolean", Description = "Draft the Context (if not supplied), Decision, and Consequences sections using the configured AI provider (see AI-Setup.md). If omitted, defaults to true when a provider is configured in adr.config.json and false otherwise - pass ai:false to opt out explicitly even when a provider is configured." }
                     },
                     Required = new[] { "title" }
                 }
@@ -411,7 +411,7 @@ public class AdrMcpServer : McpServer
         var context = GetStringArgument(arguments, "context") ?? string.Empty;
         var req = GetBoolArgument(arguments, "req");
         var revisionFor = GetIntArgument(arguments, "revisionFor") ?? 0;
-        var useAi = GetBoolArgument(arguments, "ai");
+        var useAi = GetNullableBoolArgument(arguments, "ai");
 
         var result = await adrNew.NewAdrAsync(title, req, revisionFor.ToString(), context, useAi);
         return result.Success ? result.Message ?? "ADR created successfully" : $"Failed: {result.Message}";
@@ -612,6 +612,31 @@ public class AdrMcpServer : McpServer
         }
 
         return bool.TryParse(value.ToString(), out var result) && result;
+    }
+
+    /// <summary>
+    /// Like <see cref="GetBoolArgument" /> but distinguishes "argument omitted" (null) from an
+    /// explicit true/false, so a caller can default an omitted flag based on server-side state
+    /// (e.g. whether an AI provider is configured) instead of always defaulting to false.
+    /// </summary>
+    private static bool? GetNullableBoolArgument(Dictionary<string, object?> arguments, string key)
+    {
+        if (!arguments.TryGetValue(key, out var value) || value == null)
+        {
+            return null;
+        }
+
+        if (value is JsonElement element)
+        {
+            return element.GetBoolean();
+        }
+
+        if (value is bool boolValue)
+        {
+            return boolValue;
+        }
+
+        return bool.TryParse(value.ToString(), out var result) ? result : null;
     }
 
     private static int? GetIntArgument(Dictionary<string, object?> arguments, string key)
