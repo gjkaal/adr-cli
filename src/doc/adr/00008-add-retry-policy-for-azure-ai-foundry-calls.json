@@ -1,0 +1,9 @@
+{
+  "TemplateType": "Ad",
+  "Context": "The application makes calls to Azure AI Foundry, which can fail temporarily because of rate limiting, service unavailability, timeouts, or network interruptions. Treating every failed call as final makes otherwise recoverable operations unreliable and exposes transient infrastructure conditions directly to users.\n\nRetrying requests can improve resilience, but it can also increase response time, consume additional quota, and amplify load during an outage. Azure AI Foundry may provide service-specific guidance such as \u0060Retry-After\u0060 headers, while authentication, authorization, validation, and other non-transient failures should not be retried. Any retry behavior must therefore distinguish transient failures from permanent ones, remain bounded, respect cancellation and service guidance, and provide enough logging or telemetry to diagnose repeated failures without obscuring the original error.\n\nA consistent retry policy is needed so that Azure AI Foundry calls do not implement different retry behavior independently and so that reliability, latency, quota usage, and operational visibility can be balanced across the application.",
+  "References": {},
+  "DateTime": "2026-08-04T00:00:00+02:00",
+  "FileName": "00008-add-retry-policy-for-azure-ai-foundry-calls",
+  "RecordId": 8,
+  "Title": "Add retry policy for Azure AI Foundry calls"
+}
