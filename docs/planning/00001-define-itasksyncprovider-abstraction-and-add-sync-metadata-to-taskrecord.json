@@ -19,8 +19,10 @@
       "Provider": "GitHubProjects",
       "ExternalScope": "gjkaal/2",
       "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1PT2k",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/2",
       "SyncState": "Synced",
-      "LastSyncedAt": "2026-08-04T13:56:58.5746064Z"
+      "LastSyncedAt": "2026-08-04T16:12:39.1597377Z"
     }
   ],
   "DateTime": "2026-07-22T00:00:00+02:00",

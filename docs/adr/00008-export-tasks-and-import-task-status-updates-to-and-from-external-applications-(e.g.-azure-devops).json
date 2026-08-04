@@ -3,6 +3,18 @@
   "TemplateType": "Ad",
   "Context": "Tasks created and maintained in this repository may need to be tracked in external work-management applications such as Azure DevOps. Manually recreating tasks externally and copying status changes back into the repository is time-consuming, error-prone, and can cause the two representations to diverge.",
   "References": {},
+  "RelatedTasks": {},
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1Qi7A",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/12",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T16:42:51.2348868Z"
+    }
+  ],
   "DateTime": "2026-07-22T00:00:00+02:00",
   "FileName": "00008-export-tasks-and-import-task-status-updates-to-and-from-external-applications-(e.g.-azure-devops)",
   "RecordId": 8,

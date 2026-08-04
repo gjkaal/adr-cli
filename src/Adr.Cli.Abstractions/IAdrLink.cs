@@ -79,4 +79,32 @@ public interface IAdrLink
     /// <returns>
     /// </returns>
     Task<Response> RemoveLinkAsync(int sourceId, int targetId);
+
+
+    /// <summary>
+    /// Record that a Task belongs to this ADR (see <see cref="AdrRecord.RelatedTasks" />), so
+    /// <c>adr-export</c> can attach it as a GitHub sub-issue of the ADR's Issue. Metadata-only - no
+    /// markdown content is edited, unlike <see cref="LinkAdrAsync" />.
+    /// </summary>
+    /// <param name="adrId">
+    /// The ADR that the task belongs to.
+    /// </param>
+    /// <param name="taskId">
+    /// The task being related to the ADR.
+    /// </param>
+    /// <param name="remark">
+    /// A short note on the relationship.
+    /// </param>
+    Task<Response> LinkAdrToTaskAsync(int adrId, int taskId, string remark);
+
+    /// <summary>
+    /// Remove a task from this ADR's <see cref="AdrRecord.RelatedTasks" />.
+    /// </summary>
+    /// <param name="adrId">
+    /// The ADR to remove the task from.
+    /// </param>
+    /// <param name="taskId">
+    /// The task currently related to the ADR, to stop relating.
+    /// </param>
+    Task<Response> RemoveAdrTaskLinkAsync(int adrId, int taskId);
 }

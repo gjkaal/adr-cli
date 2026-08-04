@@ -1,9 +1,29 @@
 {
-  "Status": "New",
+  "Status": "ReviewPending",
   "Description": "Sync ADRs to GitHub as real Issues (not Draft Issues), with the repository\u0027s tasks linked as sub-issues of their related ADR. Not yet designed - this task is the handoff/starting point for a fresh session.",
   "Related": {},
-  "Logs": [],
-  "SyncLinks": [],
+  "Logs": [
+    {
+      "DateTime": "2026-08-04T15:19:36.6283406Z",
+      "Status": "Active",
+      "Justification": "Design interview completed with the user; all open questions resolved (task promotion cascades automatically, PAT/config reused with upgraded scope, TaskSyncLink/TaskSyncState renamed to shared SyncLink/SyncState, dedicated ADR Status project field). Decision documented in ADR 00010 (Proposed). Ready to move into implementation."
+    },
+    {
+      "DateTime": "2026-08-04T15:45:08.3839605Z",
+      "Status": "ReviewPending",
+      "Justification": "Implementation complete: SyncLink/SyncState/SyncBatchResult/SyncItemResult/SyncItemOutcome renamed to shared types; AdrRecord gained SyncLinks and RelatedTasks; new AdrBodyFormat, IAdrSyncProvider, GitHubProjectsAdrSyncProvider (export/import/discover/EnsureSubIssueAsync), NoOpAdrSyncProvider; new AdrGitHubSync command handler with adr-export/adr-import CLI commands and adr_export/adr_import MCP tools; new adr-link-task/adr-unlink-task (CLI) and adr_link_task/adr_unlink_task (MCP) on IAdrLink; GitHubProjectsSettings extended with TargetRepository/AdrStatusFieldName/AdrImportStatusMap/AdrExportStatusMap; unit tests added for the new provider, command handler, AdrBodyFormat, and AdrRecord changes; existing task-sync tests updated for the rename. Not run through dotnet build/test yet - user reviews and compiles themselves per their standing preference."
+    }
+  ],
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1Qil8",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/4",
+      "LastSyncedAt": "2026-08-04T16:12:55.7932548Z"
+    }
+  ],
   "DateTime": "2026-08-04T00:00:00+02:00",
   "FileName": "00010-design-and-implement-adr-sync-to-github-(issues-with-tasks-as-sub-issues)",
   "RecordId": 10,

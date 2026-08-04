@@ -25,6 +25,7 @@ namespace Adr.Cli.CommandHandlers
         private readonly Mock<IStdOut> stdOutMock = new();
         private readonly Mock<IAdrSettings> adrSettingsMock = new();
         private readonly Mock<IAdrRecordRepository> repositoryMock = new();
+        private readonly Mock<IAdrTasksRepository> tasksRepositoryMock = new();
 
         public WithAdrLink(ITestOutputHelper testOutputHelper)
         {
@@ -118,7 +119,7 @@ namespace Adr.Cli.CommandHandlers
                 .Callback<AdrRecord, string[]>((record, lines) => capturedContent = lines)
                 .ReturnsAsync(500);
 
-            var sut = new AdrLink(logger, repositoryMock.Object, stdOutMock.Object);
+            var sut = new AdrLink(logger, repositoryMock.Object, tasksRepositoryMock.Object, stdOutMock.Object);
 
             // Act
             var result = await sut.LinkAdrAsync(sourceId, targetId, reason);
@@ -221,7 +222,7 @@ namespace Adr.Cli.CommandHandlers
                 })
                 .ReturnsAsync(500);
 
-            var sut = new AdrLink(logger, repositoryMock.Object, stdOutMock.Object);
+            var sut = new AdrLink(logger, repositoryMock.Object, tasksRepositoryMock.Object, stdOutMock.Object);
 
             // Act
             var result = await sut.LinkAdrAsync(sourceId, targetId, reason);
@@ -296,7 +297,7 @@ namespace Adr.Cli.CommandHandlers
                 .Callback<AdrRecord, string[]>((record, lines) => capturedContentRecord = record)
                 .ReturnsAsync(500);
 
-            var sut = new AdrLink(logger, repositoryMock.Object, stdOutMock.Object);
+            var sut = new AdrLink(logger, repositoryMock.Object, tasksRepositoryMock.Object, stdOutMock.Object);
 
             // Act
             var result = await sut.RemoveLinkAsync(sourceId, targetId);
@@ -314,6 +315,75 @@ namespace Adr.Cli.CommandHandlers
             Assert.NotNull(capturedContentRecord!.FileName);
             Assert.NotEmpty(capturedContentRecord.FileName);
             Assert.Equal("00001-first-decision", capturedContentRecord.FileName);
+        }
+
+        [Fact]
+        public async Task LinkAdrToTaskAsync_AddsTaskToAdrsRelatedTasks()
+        {
+            var adrId = 10;
+            var taskId = 3;
+            var adr = new AdrRecord { RecordId = adrId, Title = "Sync ADRs to GitHub" };
+            var task = new TaskRecord { RecordId = taskId, Title = "Implement provider" };
+
+            repositoryMock.Setup(m => m.ReadMetadataAsync(adrId)).ReturnsAsync(adr);
+            tasksRepositoryMock.Setup(m => m.ReadMetadataAsync(taskId)).ReturnsAsync(task);
+
+            AdrRecord? captured = null;
+            repositoryMock.Setup(m => m.UpdateMetadataAsync(adrId, It.IsAny<AdrRecord>()))
+                .Callback<int, AdrRecord>((id, record) => captured = record)
+                .ReturnsAsync(1);
+
+            var sut = new AdrLink(logger, repositoryMock.Object, tasksRepositoryMock.Object, stdOutMock.Object);
+
+            var result = await sut.LinkAdrToTaskAsync(adrId, taskId, "sub-issue");
+
+            Assert.True(result.Success);
+            Assert.NotNull(captured);
+            Assert.Contains(taskId, captured!.RelatedTasks.Keys);
+            Assert.Equal("Implement provider", captured.RelatedTasks[taskId]);
+        }
+
+        [Fact]
+        public async Task LinkAdrToTaskAsync_AlreadyLinked_Fails()
+        {
+            var adrId = 10;
+            var taskId = 3;
+            var adr = new AdrRecord { RecordId = adrId, Title = "Sync ADRs to GitHub" };
+            adr.RelatedTasks[taskId] = "Implement provider";
+            var task = new TaskRecord { RecordId = taskId, Title = "Implement provider" };
+
+            repositoryMock.Setup(m => m.ReadMetadataAsync(adrId)).ReturnsAsync(adr);
+            tasksRepositoryMock.Setup(m => m.ReadMetadataAsync(taskId)).ReturnsAsync(task);
+
+            var sut = new AdrLink(logger, repositoryMock.Object, tasksRepositoryMock.Object, stdOutMock.Object);
+
+            var result = await sut.LinkAdrToTaskAsync(adrId, taskId, "sub-issue");
+
+            Assert.False(result.Success);
+        }
+
+        [Fact]
+        public async Task RemoveAdrTaskLinkAsync_RemovesTaskFromAdrsRelatedTasks()
+        {
+            var adrId = 10;
+            var taskId = 3;
+            var adr = new AdrRecord { RecordId = adrId, Title = "Sync ADRs to GitHub" };
+            adr.RelatedTasks[taskId] = "Implement provider";
+
+            repositoryMock.Setup(m => m.ReadMetadataAsync(adrId)).ReturnsAsync(adr);
+
+            AdrRecord? captured = null;
+            repositoryMock.Setup(m => m.UpdateMetadataAsync(adrId, It.IsAny<AdrRecord>()))
+                .Callback<int, AdrRecord>((id, record) => captured = record)
+                .ReturnsAsync(1);
+
+            var sut = new AdrLink(logger, repositoryMock.Object, tasksRepositoryMock.Object, stdOutMock.Object);
+
+            var result = await sut.RemoveAdrTaskLinkAsync(adrId, taskId);
+
+            Assert.True(result.Success);
+            Assert.NotNull(captured);
+            Assert.DoesNotContain(taskId, captured!.RelatedTasks.Keys);
         }
     }
 }

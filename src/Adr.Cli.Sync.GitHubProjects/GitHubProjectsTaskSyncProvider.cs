@@ -61,7 +61,7 @@ public class GitHubProjectsTaskSyncProvider : ITaskSyncProvider
 
     public string Name => ProviderName;
 
-    public async Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, TaskSyncLink? existingLink, bool force = false, bool dryRun = false)
+    public async Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, SyncLink? existingLink, bool force = false, bool dryRun = false)
     {
         try
         {
@@ -115,7 +115,7 @@ public class GitHubProjectsTaskSyncProvider : ITaskSyncProvider
                         ExternalScope = $"{providerSettings.Owner}/{providerSettings.ProjectNumber}",
                         ExternalId = itemId,
                         ExternalContentType = contentType,
-                        SyncState = TaskSyncState.Mismatch
+                        SyncState = SyncState.Mismatch
                     });
                 }
                 else if (!dryRun)
@@ -127,7 +127,7 @@ public class GitHubProjectsTaskSyncProvider : ITaskSyncProvider
                 created = false;
             }
 
-            var syncState = TaskSyncState.Unmapped;
+            var syncState = SyncState.Unmapped;
             if (project.StatusFieldId != null
                 && providerSettings.ExportStatusMap.TryGetValue(task.Status, out var optionName)
                 && project.StatusOptionIdsByName.TryGetValue(optionName, out var optionId))
@@ -136,7 +136,7 @@ public class GitHubProjectsTaskSyncProvider : ITaskSyncProvider
                 {
                     await SetStatusFieldAsync(client, project.Id, itemId, project.StatusFieldId, optionId);
                 }
-                syncState = TaskSyncState.Synced;
+                syncState = SyncState.Synced;
             }
             else
             {
@@ -153,7 +153,7 @@ public class GitHubProjectsTaskSyncProvider : ITaskSyncProvider
                 SyncState = syncState
             };
             var message = dryRun
-                ? $"[DRY RUN] Would {(created ? "create" : "update")} the GitHub item{(syncState == TaskSyncState.Synced ? " and set its status" : "")}. Nothing was changed."
+                ? $"[DRY RUN] Would {(created ? "create" : "update")} the GitHub item{(syncState == SyncState.Synced ? " and set its status" : "")}. Nothing was changed."
                 : null;
             return new Response<TaskExportResult>(true, message, result);
         }
@@ -163,7 +163,7 @@ public class GitHubProjectsTaskSyncProvider : ITaskSyncProvider
         }
     }
 
-    public async Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, TaskSyncLink existingLink, bool dryRun = false)
+    public async Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, SyncLink existingLink, bool dryRun = false)
     {
         // Import itself is already read-only on the GitHub side; dryRun only affects whether the
         // caller persists locally or re-exports to refresh the marker after a safe pull.
@@ -187,7 +187,7 @@ public class GitHubProjectsTaskSyncProvider : ITaskSyncProvider
                 {
                     ExternalContentType = remoteContentType,
                     ExternalUrl = remoteUrl,
-                    SyncState = TaskSyncState.Mismatch
+                    SyncState = SyncState.Mismatch
                 });
             }
 
@@ -208,11 +208,11 @@ public class GitHubProjectsTaskSyncProvider : ITaskSyncProvider
             if (externalStatus != null && providerSettings.ImportStatusMap.TryGetValue(externalStatus, out var mapped))
             {
                 result.MappedStatus = mapped;
-                result.SyncState = TaskSyncState.Synced;
+                result.SyncState = SyncState.Synced;
             }
             else
             {
-                result.SyncState = TaskSyncState.Unmapped;
+                result.SyncState = SyncState.Unmapped;
                 logger.LogWarning("GitHub Projects import: external status {ExternalStatus} has no import mapping - task left unchanged.", externalStatus ?? "(none)");
             }
 

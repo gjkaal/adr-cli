@@ -76,6 +76,12 @@ internal static class Program
         // Link and unlink
         app.Add(AdrLinkSetup.LinkCommand(serviceProvider));
         app.Add(AdrLinkSetup.UnLinkCommand(serviceProvider));
+        app.Add(AdrLinkSetup.LinkTaskCommand(serviceProvider));
+        app.Add(AdrLinkSetup.UnlinkTaskCommand(serviceProvider));
+
+        // Sync ADRs to GitHub as real Issues, with related tasks as sub-issues (ADR 00010)
+        app.Add(AdrGitHubSyncSetup.ExportAdrCommand(serviceProvider));
+        app.Add(AdrGitHubSyncSetup.ImportAdrCommand(serviceProvider));
 
         // Tasks tools
         app.Add(ProjectPlanningSetup.FindTasksCommand(serviceProvider));
@@ -119,6 +125,7 @@ internal static class Program
         serviceCollection.AddSingleton<IAdrQuery, AdrQuery>();
         serviceCollection.AddSingleton<IAdrLink, AdrLink>();
         serviceCollection.AddSingleton<IProjectPlanning, ProjectPlanning>();
+        serviceCollection.AddSingleton<IAdrGitHubSync, AdrGitHubSync>();
         serviceCollection.AddSingleton<IAdrContext, AdrContext>();
 
         serviceCollection.AddSingleton<IAdrProposalGenerator>(sp =>
@@ -152,6 +159,16 @@ internal static class Program
             {
                 "GitHubProjects" => new GitHubProjectsTaskSyncProvider(settings, sp.GetRequiredService<ILogger<GitHubProjectsTaskSyncProvider>>()),
                 _ => new NoOpTaskSyncProvider()
+            };
+        });
+
+        serviceCollection.AddSingleton<IAdrSyncProvider>(sp =>
+        {
+            var settings = sp.GetRequiredService<IAdrSettings>();
+            return settings.SyncSettings.Provider switch
+            {
+                "GitHubProjects" => new GitHubProjectsAdrSyncProvider(settings, sp.GetRequiredService<ILogger<GitHubProjectsAdrSyncProvider>>()),
+                _ => new NoOpAdrSyncProvider()
             };
         });
 

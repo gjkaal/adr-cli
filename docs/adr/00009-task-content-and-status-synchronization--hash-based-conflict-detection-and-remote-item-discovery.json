@@ -5,6 +5,18 @@
   "References": {
     "8": "Extends and partially supersedes ADR 00008\u0027s content-import restriction"
   },
+  "RelatedTasks": {},
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1Qi8M",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/13",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T16:42:52.8120461Z"
+    }
+  ],
   "DateTime": "2026-08-04T00:00:00+02:00",
   "FileName": "00009-task-content-and-status-synchronization--hash-based-conflict-detection-and-remote-item-discovery",
   "RecordId": 9,

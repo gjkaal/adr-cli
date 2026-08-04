@@ -301,7 +301,7 @@ public static class ProjectPlanningSetup
         return result;
     }
 
-    private static Response FormatBatchResponse(Response<TaskSyncBatchResult> response)
+    private static Response FormatBatchResponse(Response<SyncBatchResult> response)
     {
         if (!response.Success || response.Value == null)
         {

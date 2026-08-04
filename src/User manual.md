@@ -60,6 +60,10 @@ decision records
 | link         | Link 2 ADR's for ammend / clarify or some other reason |
 | rlink        | Remove all links from one ADR to another |
 | generate-toc | Generate a table of contents |
+| adr-export   | Export ADRs to GitHub as real Issues, cascading related tasks as sub-issues |
+| adr-import   | Import ADR status (and, when safe, content) from GitHub |
+| adr-link-task   | Record that a task belongs to an ADR, so `adr-export` attaches it as a sub-issue |
+| adr-unlink-task | Remove a task from an ADR's related tasks |
 
 ### Task Management Commands
 
@@ -409,6 +413,148 @@ With neither `--id` nor `-q`, `task-import` defaults to every task already linke
 provider, plus any board item with no local counterpart yet - those are adopted as brand-new local
 tasks automatically. Each task in a batch is reported individually (succeeded / unmapped / mismatch
 / skipped / failed) so one failure never hides the rest of the batch's results.
+
+## ADR Export/Import (GitHub Issues Sync)
+
+ADRs can be synced to GitHub as real, repository-backed **Issues** (not Draft Issues), with each
+ADR's related tasks attached as GitHub **sub-issues** of that Issue. This is a separate, deliberate
+step up from Task Export/Import above - Draft Issues can't be sub-issues of anything, so ADR sync
+needs repository write permissions that plain task sync never requires. See
+`docs/adr/00010-*.md` for the full design rationale.
+
+> **Don't confuse this with `adr-cli sync`.** That command re-derives an ADR's `.json` metadata from
+> its markdown file - purely local, no network call. `adr-export`/`adr-import` talk to GitHub.
+
+### ⚠️ Gotcha: your existing sync PAT almost certainly does not have enough scope
+
+If you already configured Task Export/Import, you have a personal access token with **`project`**
+scope only - that's all Draft Issues ever needed. `adr-export` reuses the *same* `sync` section and
+the same PAT (`syncPatName`/`ADR_CLI_SYNC_PAT` by default), but creating and updating real Issues
+needs **`public_repo`** (or **`repo`** for a private repository) as well. Reusing the token without
+upgrading its scope fails partway through with an error like:
+
+```
+GitHub GraphQL API reported an error: Your token has not been granted the required scopes to
+execute this query. The 'createIssue' field requires one of the following scopes: ['public_repo'],
+but your token has only been granted the: ['project'] scopes.
+```
+
+This is a clean failure (nothing is created or half-written when it happens), but it's easy to hit
+once and forget about, since task sync alone will never surface it. Before using `adr-export` for
+the first time:
+
+1. Go to <https://github.com/settings/tokens>.
+2. Edit (or regenerate) the token stored in the `syncPatName` environment variable.
+3. Add `public_repo` (or `repo` for a private target repository) alongside the existing `project`
+   scope - don't remove `project`, task sync still needs it.
+4. If you regenerated the token, update the environment variable's value (same name).
+
+### Setup
+
+Extend the same `sync.settings` block used for Task Export/Import with four more fields:
+
+```json
+{
+  "sync": {
+    "provider": "GitHubProjects",
+    "syncPatName": "ADR_CLI_SYNC_GITHUB_PAT",
+    "settings": {
+      "ownerType": "User",
+      "owner": "<your-github-username-or-org>",
+      "projectNumber": 2,
+      "targetRepository": "<owner>/<repo>",
+      "adrStatusFieldName": "ADR Status",
+      "adrImportStatusMap": { "New": "New", "Proposed": "Proposed", "Final": "Final", "Accepted": "Accepted", "Error": "Error", "Obsolete": "Obsolete" },
+      "adrExportStatusMap": { "New": "New", "Proposed": "Proposed", "Final": "Final", "Accepted": "Accepted", "Error": "Error", "Obsolete": "Obsolete" }
+    }
+  }
+}
+```
+
+- **targetRepository** (required) - the `owner/repo` that ADR Issues (and tasks promoted to real
+  Issues) are created in.
+- **adrStatusFieldName** - a single-select field on the *same* project board, kept deliberately
+  separate from `statusFieldName` so ADR and task status options never mix in one field's option
+  list. Defaults to `"ADR Status"`. **If this field doesn't exist on the board yet, the first
+  non-dry-run `adr-export` creates it automatically**, seeded with one option per `AdrStatus` value
+  (`New`, `Proposed`, `Final`, `Accepted`, `Error`, `Obsolete`) - `--dry-run` never creates it, so a
+  dry run against a board with no field yet will just report the export it would do without the
+  status being mapped.
+- **adrImportStatusMap** / **adrExportStatusMap** - map the field's option names to/from `AdrStatus`,
+  independently of each other and of the task status maps. If you created the field yourself with
+  different option names, map accordingly instead of relying on auto-creation.
+
+### Linking tasks to an ADR
+
+Before a task can be attached as a sub-issue, record that it belongs to the ADR. This is
+metadata-only (no markdown is edited) and one-directional, like `task-link`.
+
+__Usage__
+
+`adr-cli adr-link-task -s 10 -t 3 -r "Implements the provider"`
+
+`adr-cli adr-unlink-task -s 10 -t 3`
+
+__Options__
+
+```
+  -s, --source <source> (REQUIRED)  The ADR ID
+  -t, --target <target> (REQUIRED)  The task ID being related to the ADR
+  -r, --remark <remark>             Short note on the relationship (adr-link-task only)
+```
+
+### Exporting ADRs
+
+Creates or updates each ADR's Issue, pushes its status, and - for every task linked via
+`adr-link-task` - ensures the task is a real Issue (creating one, or promoting its existing Draft
+Issue in place, as needed) and attaches it as a sub-issue. Task promotion is one-way: once a task
+becomes a real Issue, it never goes back to a Draft Issue.
+
+__Usage__
+
+`adr-cli adr-export --id 10`
+
+`adr-cli adr-export --id "8,9,10"`
+
+`adr-cli adr-export -q "GitHub sync"`
+
+`adr-cli adr-export --id 10 --dry-run`
+
+`adr-cli adr-export --id 10 --force`
+
+__Options__
+
+```
+  --id <ids>       Comma or space separated ADR ids to export. Required unless -q is given.
+  -q <filter>      Filter text to select ADRs by title/context, used when --id is omitted.
+  --force          Skip the remote-divergence check and overwrite the Issue with local content
+                    regardless. Intended for a single ADR (--id) at a time.
+  --dry-run        Report what would happen (create/update/mismatch, status, task attachment)
+                    without writing anything locally or to GitHub.
+```
+
+### Importing ADR status
+
+Pull status (and, when safe, content) from each selected ADR's Issue.
+
+__Usage__
+
+`adr-cli adr-import`
+
+`adr-cli adr-import --id 10`
+
+`adr-cli adr-import -q "GitHub sync"`
+
+__Options__
+
+```
+  --id <ids>       Comma or space separated ADR ids to import.
+  -q <filter>      Filter text to select ADRs by title/context.
+```
+
+With neither `--id` nor `-q`, `adr-import` defaults to every ADR already linked to the active
+provider. Unlike `task-import`, there is no discovery/adoption of board-only items as brand-new
+local ADRs.
 
 ## Task Management
 

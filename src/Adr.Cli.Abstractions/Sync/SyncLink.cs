@@ -7,7 +7,7 @@ namespace Adr.Cli.Sync;
 /// Tracked separately from <see cref="PlanningStatus" /> so sync health never contaminates the
 /// task's actual workflow state.
 /// </summary>
-public enum TaskSyncState
+public enum SyncState
 {
     /// <summary>
     /// The last export or import could not resolve a status mapping (an external or local status
@@ -21,7 +21,7 @@ public enum TaskSyncState
 
     /// <summary>
     /// The task's local and external status were both resolvable through the configured maps as
-    /// of <see cref="TaskSyncLink.LastSyncedAt" />.
+    /// of <see cref="SyncLink.LastSyncedAt" />.
     /// </summary>
     Synced = 1,
 
@@ -39,7 +39,7 @@ public enum TaskSyncState
 /// operations use this to update the existing external item rather than create a duplicate;
 /// import operations use it to locate the external item to read status from.
 /// </summary>
-public class TaskSyncLink
+public class SyncLink
 {
     /// <summary>
     /// The connector this link belongs to (e.g. "AzureDevOps", "GitHubProjects"). Only one
@@ -79,7 +79,7 @@ public class TaskSyncLink
     /// <summary>
     /// Whether the last export/import resolved a status mapping for this task.
     /// </summary>
-    public TaskSyncState SyncState { get; set; } = TaskSyncState.Unmapped;
+    public SyncState SyncState { get; set; } = SyncState.Unmapped;
 
     /// <summary>
     /// When this link was last updated by a successful export or import.

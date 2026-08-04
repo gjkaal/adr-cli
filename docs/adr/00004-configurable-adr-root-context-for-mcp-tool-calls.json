@@ -1,8 +1,20 @@
 {
   "Status": "Accepted",
   "TemplateType": "Ad",
-  "Context": "",
+  "Context": "\u0060AdrSettings\u0060 (\u0060src/Adr.Cli/AdrSettings.cs\u0060) resolves which \u0060adr.config.json\u0060 is \u0022active\u0022 exactly once, at construction time: \u0060currentPath\u0060 is seeded from \u0060Directory.GetCurrentDirectory()\u0060 (line 32), and \u0060GetConfigFileInfo()\u0060 (lines 262-292) then walks **upward** through parent directories only, stopping at the first \u0060adr.config.json\u0060 it finds, falling back to a machine-wide config in \u0060CommonApplicationData\u0060 if nothing is found before hitting the drive root. For a long-lived MCP server process, this resolution happens once and is fixed for the entire session \u2014 there is no per-call way to point a tool at a different config, and the search can never reach *into* a subdirectory, only up toward ancestors.",
   "References": {},
+  "RelatedTasks": {},
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1Qi1w",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/8",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T16:42:45.0061531Z"
+    }
+  ],
   "DateTime": "2026-07-21T00:00:00+02:00",
   "FileName": "00004-configurable-adr-root-context-for-mcp-tool-calls",
   "RecordId": 4,

@@ -16,7 +16,7 @@ public class NoOpTaskSyncProvider : ITaskSyncProvider
 {
     public string Name => string.Empty;
 
-    public Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, TaskSyncLink? existingLink, bool force = false, bool dryRun = false)
+    public Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, SyncLink? existingLink, bool force = false, bool dryRun = false)
     {
         var response = new Response<TaskExportResult>(
             false,
@@ -25,7 +25,7 @@ public class NoOpTaskSyncProvider : ITaskSyncProvider
         return Task.FromResult(response);
     }
 
-    public Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, TaskSyncLink existingLink, bool dryRun = false)
+    public Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, SyncLink existingLink, bool dryRun = false)
     {
         var response = new Response<TaskImportResult>(
             false,

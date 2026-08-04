@@ -76,4 +76,35 @@ public sealed class WithAdrRecord
         Assert.Equal(record.Context, clone.Context);
         Assert.Equal(record.References, clone.References);
     }
+
+    [Fact]
+    public void Clone_CopiesRelatedTasksAndSyncLinks_IntoANewInstance()
+    {
+        var record = new AdrRecord { RecordId = 10, Title = "Sync ADRs to GitHub" };
+        record.RelatedTasks.Add(3, "Implement provider");
+        record.SyncLinks.Add(new Sync.SyncLink { Provider = "GitHubProjects", ExternalId = "ITEM1" });
+
+        var clone = (AdrRecord)record.Clone();
+
+        Assert.Equal(record.RelatedTasks, clone.RelatedTasks);
+        Assert.Single(clone.SyncLinks);
+        Assert.NotSame(record.SyncLinks[0], clone.SyncLinks[0]);
+        Assert.Equal("ITEM1", clone.SyncLinks[0].ExternalId);
+    }
+
+    [Fact]
+    public void SerializeThenDeserialize_RoundTripsRelatedTasksAndSyncLinks()
+    {
+        var record = new AdrRecord { RecordId = 10, Title = "Sync ADRs to GitHub" };
+        record.RelatedTasks.Add(3, "Implement provider");
+        record.SyncLinks.Add(new Sync.SyncLink { Provider = "GitHubProjects", ExternalId = "ITEM1" });
+
+        var json = JsonSerializer.Serialize(record, JsonOptions);
+        var result = JsonSerializer.Deserialize<AdrRecord>(json, JsonOptions);
+
+        Assert.NotNull(result);
+        Assert.Equal(record.RelatedTasks, result!.RelatedTasks);
+        Assert.Single(result.SyncLinks);
+        Assert.Equal("ITEM1", result.SyncLinks[0].ExternalId);
+    }
 }

@@ -30,10 +30,10 @@ public class TaskRecord : AdrRecordBase, ICloneable
 
     /// <summary>
     /// Per-provider synchronization links for this task. Only one provider is active per
-    /// repository at a time (see <see cref="Sync.TaskSyncLink.Provider" />), but the list can carry
+    /// repository at a time (see <see cref="Sync.SyncLink.Provider" />), but the list can carry
     /// an inert link left over from a previously-configured provider.
     /// </summary>
-    public List<TaskSyncLink> SyncLinks { get; set; } = [];
+    public List<SyncLink> SyncLinks { get; set; } = [];
 
     public object Clone()
     {
@@ -54,7 +54,7 @@ public class TaskRecord : AdrRecordBase, ICloneable
         }
         foreach (var link in SyncLinks)
         {
-            result.SyncLinks.Add(new TaskSyncLink
+            result.SyncLinks.Add(new SyncLink
             {
                 Provider = link.Provider,
                 ExternalScope = link.ExternalScope,

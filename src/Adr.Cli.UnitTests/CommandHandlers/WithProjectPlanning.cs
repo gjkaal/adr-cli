@@ -262,7 +262,7 @@ public sealed class WithProjectPlanning
         var link = Assert.Single(record!.SyncLinks);
         Assert.Equal(FakeTaskSyncProvider.Name, link.Provider);
         Assert.Equal("ITEM-1", link.ExternalId);
-        Assert.Equal(TaskSyncState.Synced, link.SyncState);
+        Assert.Equal(SyncState.Synced, link.SyncState);
     }
 
     [Fact]
@@ -349,7 +349,7 @@ public sealed class WithProjectPlanning
 
         var record = await repository.ReadMetadataAsync(1);
         var link = record!.SyncLinks[0];
-        Assert.Equal(TaskSyncState.Mismatch, link.SyncState);
+        Assert.Equal(SyncState.Mismatch, link.SyncState);
         Assert.Equal(beforeMismatch, link.LastSyncedAt);
     }
 
@@ -367,7 +367,7 @@ public sealed class WithProjectPlanning
         Assert.True(provider.ExportForceFlags[^1]);
 
         var record = await repository.ReadMetadataAsync(1);
-        Assert.Equal(TaskSyncState.Synced, record!.SyncLinks[0].SyncState);
+        Assert.Equal(SyncState.Synced, record!.SyncLinks[0].SyncState);
     }
 
     [Fact]
@@ -409,7 +409,7 @@ public sealed class WithProjectPlanning
         // Linked task #1 (would set Active) and the discovered item (would be adopted) both report,
         // but dry-run creates no file for the latter - RecordId 0 signals nothing was actually made.
         Assert.Equal(2, result.Value!.Items.Count);
-        Assert.All(result.Value.Items, i => Assert.Equal(TaskSyncItemOutcome.Succeeded, i.Outcome));
+        Assert.All(result.Value.Items, i => Assert.Equal(SyncItemOutcome.Succeeded, i.Outcome));
         Assert.Contains(result.Value.Items, i => i.RecordId == 0 && (i.Message?.Contains("[DRY RUN]") ?? false));
 
         var record = await repository.ReadMetadataAsync(1);
@@ -436,7 +436,7 @@ public sealed class WithProjectPlanning
         var record = await repository.ReadMetadataAsync(1);
         Assert.Equal(PlanningStatus.New, record!.Status);
         Assert.Equal("Automate build and test", record.Description);
-        Assert.Equal(TaskSyncState.Mismatch, record.SyncLinks[0].SyncState);
+        Assert.Equal(SyncState.Mismatch, record.SyncLinks[0].SyncState);
     }
 
     [Fact]
@@ -480,7 +480,7 @@ public sealed class WithProjectPlanning
         Assert.True(result.Success);
         Assert.Single(result.Value!.Items);
         var adopted = result.Value.Items[0];
-        Assert.Equal(TaskSyncItemOutcome.Succeeded, adopted.Outcome);
+        Assert.Equal(SyncItemOutcome.Succeeded, adopted.Outcome);
 
         var record = await repository.ReadMetadataAsync(adopted.RecordId);
         Assert.NotNull(record);
@@ -535,7 +535,7 @@ public sealed class WithProjectPlanning
         public List<bool> ExportForceFlags { get; } = new();
         public List<bool> ExportDryRunFlags { get; } = new();
 
-        public Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, TaskSyncLink? existingLink, bool force = false, bool dryRun = false)
+        public Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, SyncLink? existingLink, bool force = false, bool dryRun = false)
         {
             ExportedTaskIds.Add(task.RecordId);
             ExportForceFlags.Add(force);
@@ -552,7 +552,7 @@ public sealed class WithProjectPlanning
                     Created = false,
                     ExternalScope = "fake/scope",
                     ExternalId = existingLink?.ExternalId ?? $"ITEM-{task.RecordId}",
-                    SyncState = TaskSyncState.Mismatch
+                    SyncState = SyncState.Mismatch
                 };
                 return Task.FromResult(new Response<TaskExportResult>(true, "Simulated export mismatch.", mismatchResult));
             }
@@ -563,23 +563,23 @@ public sealed class WithProjectPlanning
                 ExternalScope = "fake/scope",
                 ExternalId = dryRun && existingLink == null ? string.Empty : (!string.IsNullOrWhiteSpace(existingLink?.ExternalId) ? existingLink.ExternalId : $"ITEM-{task.RecordId}"),
                 ExternalUrl = $"https://example.invalid/items/{task.RecordId}",
-                SyncState = TaskSyncState.Synced
+                SyncState = SyncState.Synced
             };
             return Task.FromResult(new Response<TaskExportResult>(true, dryRun ? "[DRY RUN] Simulated." : null, result));
         }
 
-        public Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, TaskSyncLink existingLink, bool dryRun = false)
+        public Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, SyncLink existingLink, bool dryRun = false)
         {
             if (ImportMismatch)
             {
-                return Task.FromResult(new Response<TaskImportResult>(true, "Simulated import mismatch.", new TaskImportResult { SyncState = TaskSyncState.Mismatch }));
+                return Task.FromResult(new Response<TaskImportResult>(true, "Simulated import mismatch.", new TaskImportResult { SyncState = SyncState.Mismatch }));
             }
 
             var result = new TaskImportResult
             {
                 MappedStatus = ImportedStatus,
                 ExternalStatusRaw = ImportedStatus?.ToString() ?? "Unmapped-External-Value",
-                SyncState = ImportedStatus.HasValue ? TaskSyncState.Synced : TaskSyncState.Unmapped
+                SyncState = ImportedStatus.HasValue ? SyncState.Synced : SyncState.Unmapped
             };
             if (PulledContent.HasValue)
             {

@@ -1,10 +1,22 @@
 {
   "Status": "Accepted",
   "TemplateType": "Ad",
-  "Context": "",
+  "Context": "While implementing ADR 00004 (\u0060adr_set_context\u0060 / \u0060adr_get_context\u0060 as MCP tools), the first pass also added a literal CLI mirror: a \u0060set-context --workingDirectory \u003Cpath\u003E\u0060 command alongside a \u0060context\u0060 command. That was wrong, and caught only because it was pointed out before it shipped: a CLI invocation is a fresh process every time, and \u0060AdrSettings\u0060 already resolves its config by searching upward from that process\u0027s actual current directory - correctly, for the CLI\u0027s execution model. A \u0060set-context\u0060 command would only mutate the in-memory \u0060IAdrSettings\u0060 singleton for the remainder of that one process\u0027s single command, which then exits. It could never affect a later, separate \u0060adr-cli\u0060 invocation, because there is no persisted or shared state between CLI invocations (and, per ADR 00004, deliberately shouldn\u0027t be - persisting it reintroduces the \u0060settings.Write()\u0060 config-corruption risk documented there). So the command would parse successfully, print a success message, and do precisely nothing useful. The \u0022set\u0022 side only means something for the MCP server, which is long-lived and pins its config once at startup regardless of which repository the calling session is actually working in.",
   "References": {
     "4": "Extends"
   },
+  "RelatedTasks": {},
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1Qi3A",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/9",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T16:42:46.4773927Z"
+    }
+  ],
   "DateTime": "2026-07-22T00:00:00+02:00",
   "FileName": "00005-mcp-cli-capability-parity",
   "RecordId": 5,

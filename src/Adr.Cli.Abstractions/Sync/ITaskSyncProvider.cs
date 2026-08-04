@@ -14,7 +14,7 @@ public class TaskExportResult
 {
     /// <summary>
     /// True when a new external item was created; false when an existing one (identified by the
-    /// task's <see cref="TaskSyncLink" /> for this provider) was updated instead.
+    /// task's <see cref="SyncLink" /> for this provider) was updated instead.
     /// </summary>
     public bool Created { get; set; }
 
@@ -23,7 +23,7 @@ public class TaskExportResult
 
     /// <summary>
     /// The external item's underlying content type, when the provider distinguishes one (e.g. GitHub
-    /// Projects: "DraftIssue", "Issue", "PullRequest") - see <see cref="TaskSyncLink.ExternalContentType" />.
+    /// Projects: "DraftIssue", "Issue", "PullRequest") - see <see cref="SyncLink.ExternalContentType" />.
     /// </summary>
     public string ExternalContentType { get; set; } = string.Empty;
 
@@ -33,13 +33,13 @@ public class TaskExportResult
     public string? ExternalUrl { get; set; }
 
     /// <summary>
-    /// Whether the push actually happened. <see cref="TaskSyncState.Synced" /> or
-    /// <see cref="TaskSyncState.Unmapped" /> both mean content was pushed (the latter only means the
-    /// local status had no entry in the export status map). <see cref="TaskSyncState.Mismatch" />
-    /// means the push was refused because the remote item had diverged since the last sync - neither
-    /// side was touched.
-    /// </summary>
-    public TaskSyncState SyncState { get; set; }
+    /// Whether the push actually happened. <see cref="SyncState.Synced" /> or
+    /// <see cref="SyncState.Unmapped" /> both mean content was pushed (the latter only means the
+    /// local status had no entry in the export status map). <see cref="SyncState.Mismatch" />
+    /// means the push was refused because the remote item had diverged since the last sync - neither
+    /// side was touched.
+    /// </summary>
+    public SyncState SyncState { get; set; }
 }
 
 /// <summary>
@@ -49,7 +49,7 @@ public class TaskImportResult
 {
     /// <summary>
     /// The local status resolved via the provider's external-to-local status map, or
-    /// <see langword="null" /> when <see cref="SyncState" /> is <see cref="TaskSyncState.Unmapped" />.
+    /// <see langword="null" /> when <see cref="SyncState" /> is <see cref="SyncState.Unmapped" />.
     /// </summary>
     public PlanningStatus? MappedStatus { get; set; }
 
@@ -70,12 +70,12 @@ public class TaskImportResult
     public string? ExternalUrl { get; set; }
 
     /// <summary>
-    /// <see cref="TaskSyncState.Synced" />/<see cref="TaskSyncState.Unmapped" /> describe the status
-    /// mapping outcome as before. <see cref="TaskSyncState.Mismatch" /> means local content changed
-    /// since the last sync while remote also diverged - content was left untouched on both sides
-    /// (status may still have been read; see <see cref="MappedStatus" />).
-    /// </summary>
-    public TaskSyncState SyncState { get; set; }
+    /// <see cref="SyncState.Synced" />/<see cref="SyncState.Unmapped" /> describe the status
+    /// mapping outcome as before. <see cref="SyncState.Mismatch" /> means local content changed
+    /// since the last sync while remote also diverged - content was left untouched on both sides
+    /// (status may still have been read; see <see cref="MappedStatus" />).
+    /// </summary>
+    public SyncState SyncState { get; set; }
 
     /// <summary>
     /// Set only when content was safely pulled from the remote side (local hadn't diverged since the
@@ -96,14 +96,14 @@ public class TaskImportResult
 /// authentication, API communication, field translation, and status mapping - so the core task
 /// model and the shared <c>task-export</c>/<c>task-import</c> services never need provider-specific
 /// logic. Only one provider is active per repository at a time (see
-/// <see cref="TaskSyncLink.Provider" />); when none is configured, the registered implementation is
+/// <see cref="SyncLink.Provider" />); when none is configured, the registered implementation is
 /// a no-op that always fails, so callers never need a null check.
 /// </summary>
 public interface ITaskSyncProvider
 {
     /// <summary>
     /// The connector name this instance implements (e.g. "AzureDevOps", "GitHubProjects"). Compared
-    /// against <see cref="TaskSyncLink.Provider" /> and the configured active provider.
+    /// against <see cref="SyncLink.Provider" /> and the configured active provider.
     /// </summary>
     string Name { get; }
 
@@ -117,14 +117,14 @@ public interface ITaskSyncProvider
     /// </param>
     /// <param name="existingLink">
     /// The task's existing sync link for this provider, if any. When <see langword="null" /> or its
-    /// <see cref="TaskSyncLink.ExternalId" /> is empty, a new external item is created; otherwise the
+    /// <see cref="SyncLink.ExternalId" /> is empty, a new external item is created; otherwise the
     /// existing one is updated.
     /// </param>
     /// <param name="force">
     /// Skip the remote-divergence check and push local content regardless, overwriting whatever is
     /// currently on the external item. An explicit, deliberate override for a single task - never
     /// the default - for when a person has already looked at both sides and decided local should
-    /// win, rather than resolving a <see cref="TaskSyncState.Mismatch" /> by hand.
+    /// win, rather than resolving a <see cref="SyncState.Mismatch" /> by hand.
     /// </param>
     /// <param name="dryRun">
     /// Perform every read needed to compute the real outcome (project/field resolution, the
@@ -133,7 +133,7 @@ public interface ITaskSyncProvider
     /// reported with an empty <see cref="TaskExportResult.ExternalId" /> since no real item exists to
     /// report an id for.
     /// </param>
-    Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, TaskSyncLink? existingLink, bool force = false, bool dryRun = false);
+    Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, SyncLink? existingLink, bool force = false, bool dryRun = false);
 
     /// <summary>
     /// Read the current external status for <paramref name="task" /> and map it to a local status
@@ -148,7 +148,7 @@ public interface ITaskSyncProvider
     /// normally follow a safe content pull) - implementations may accept and ignore it if they have
     /// no additional side effect to suppress.
     /// </param>
-    Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, TaskSyncLink existingLink, bool dryRun = false);
+    Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, SyncLink existingLink, bool dryRun = false);
 
     /// <summary>
     /// List every item currently on the provider's board/list, for discovering ones with no local

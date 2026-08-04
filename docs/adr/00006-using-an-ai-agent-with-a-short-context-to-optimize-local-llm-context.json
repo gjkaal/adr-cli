@@ -1,7 +1,19 @@
 {
   "TemplateType": "Ad",
-  "Context": "Local LLMs often have smaller context windows and more limited inference capacity than hosted models. Supplying the full repository context, complete ADR history, or unfiltered tool output can exceed those limits, increase latency, and reduce response quality by obscuring relevant information.\n\nWe need a consistent way to select, summarize, and structure only the information required for a task. The configured ADR root context established by ADR 00004 remains the source boundary for ADR-related operations, while the equivalent MCP and CLI capabilities required by ADR 00005 must remain available. Context optimization should therefore be independent of how a request is initiated.",
+  "Context": "Local LLMs often have smaller context windows and more limited inference capacity than hosted models. Supplying the full repository context, complete ADR history, or unfiltered tool output can exceed those limits, increase latency, and reduce response quality by obscuring relevant information.",
   "References": {},
+  "RelatedTasks": {},
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1Qi4U",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/10",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T16:42:47.8451954Z"
+    }
+  ],
   "DateTime": "2026-07-22T00:00:00+02:00",
   "FileName": "00006-using-an-ai-agent-with-a-short-context-to-optimize-local-llm-context",
   "RecordId": 6,

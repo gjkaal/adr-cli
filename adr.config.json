@@ -25,6 +25,24 @@
         "New": "Todo",
         "Active": "In progress",
         "Completed": "Done"
+      },
+      "targetRepository": "gjkaal/adr-cli",
+      "adrStatusFieldName": "ADR Status",
+      "adrImportStatusMap": {
+        "New": "New",
+        "Proposed": "Proposed",
+        "Final": "Final",
+        "Accepted": "Accepted",
+        "Error": "Error",
+        "Obsolete": "Obsolete"
+      },
+      "adrExportStatusMap": {
+        "New": "New",
+        "Proposed": "Proposed",
+        "Final": "Final",
+        "Accepted": "Accepted",
+        "Error": "Error",
+        "Obsolete": "Obsolete"
       }
     }
   }

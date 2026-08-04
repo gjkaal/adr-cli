@@ -90,7 +90,7 @@ public sealed class WithGitHubProjectsTaskSyncProvider
         Assert.True(response.Value!.Created);
         Assert.Equal("ITEM1", response.Value.ExternalId);
         Assert.Equal("gjkaal/2", response.Value.ExternalScope);
-        Assert.Equal(TaskSyncState.Synced, response.Value.SyncState);
+        Assert.Equal(SyncState.Synced, response.Value.SyncState);
         Assert.Equal(3, client.Calls.Count);
     }
 
@@ -103,14 +103,14 @@ public sealed class WithGitHubProjectsTaskSyncProvider
             """{ "updateProjectV2DraftIssue": { "draftIssue": { "id": "DRAFT1" } } }""",
             """{ "updateProjectV2ItemFieldValue": { "projectV2Item": { "id": "ITEM1" } } }""");
         var provider = new GitHubProjectsTaskSyncProvider(new FixedSyncSettings(SettingsJson), NullLogger<GitHubProjectsTaskSyncProvider>.Instance, client);
-        var existingLink = new TaskSyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
+        var existingLink = new SyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
 
         var response = await provider.ExportAsync(NewTask(), existingLink);
 
         Assert.True(response.Success);
         Assert.False(response.Value!.Created);
         Assert.Equal("ITEM1", response.Value.ExternalId);
-        Assert.Equal(TaskSyncState.Synced, response.Value.SyncState);
+        Assert.Equal(SyncState.Synced, response.Value.SyncState);
     }
 
     [Fact]
@@ -122,12 +122,12 @@ public sealed class WithGitHubProjectsTaskSyncProvider
             ProjectResolveResponse,
             """{ "node": { "content": { "__typename": "DraftIssue", "id": "DRAFT1", "title": "Wire up CI", "body": "Someone edited this on GitHub.\n[HASH:doesnotmatch]" } } }""");
         var provider = new GitHubProjectsTaskSyncProvider(new FixedSyncSettings(SettingsJson), NullLogger<GitHubProjectsTaskSyncProvider>.Instance, client);
-        var existingLink = new TaskSyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
+        var existingLink = new SyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
 
         var response = await provider.ExportAsync(NewTask(), existingLink);
 
         Assert.True(response.Success);
-        Assert.Equal(TaskSyncState.Mismatch, response.Value!.SyncState);
+        Assert.Equal(SyncState.Mismatch, response.Value!.SyncState);
         Assert.False(response.Value.Created);
         // Only the project resolve + content fetch happened - no update/status mutation was sent.
         Assert.Equal(2, client.Calls.Count);
@@ -144,12 +144,12 @@ public sealed class WithGitHubProjectsTaskSyncProvider
             """{ "node": { "content": { "__typename": "Issue", "title": "Wire up CI", "body": "Real issue body, no marker." } } }""",
             """{ "updateProjectV2ItemFieldValue": { "projectV2Item": { "id": "ITEM1" } } }""");
         var provider = new GitHubProjectsTaskSyncProvider(new FixedSyncSettings(SettingsJson), NullLogger<GitHubProjectsTaskSyncProvider>.Instance, client);
-        var existingLink = new TaskSyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
+        var existingLink = new SyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
 
         var response = await provider.ExportAsync(NewTask(), existingLink);
 
         Assert.True(response.Success);
-        Assert.Equal(TaskSyncState.Synced, response.Value!.SyncState);
+        Assert.Equal(SyncState.Synced, response.Value!.SyncState);
         // project resolve + content fetch + status field mutation - no draft-issue update call.
         Assert.Equal(3, client.Calls.Count);
     }
@@ -165,7 +165,7 @@ public sealed class WithGitHubProjectsTaskSyncProvider
         var response = await provider.ExportAsync(NewTask(PlanningStatus.Active), existingLink: null);
 
         Assert.True(response.Success);
-        Assert.Equal(TaskSyncState.Unmapped, response.Value!.SyncState);
+        Assert.Equal(SyncState.Unmapped, response.Value!.SyncState);
         Assert.Equal(2, client.Calls.Count);
     }
 
@@ -176,13 +176,13 @@ public sealed class WithGitHubProjectsTaskSyncProvider
             DraftIssueContentResponse(LocalTitle, LocalBody),
             """{ "node": { "fieldValueByName": { "name": "Doing" } } }""");
         var provider = new GitHubProjectsTaskSyncProvider(new FixedSyncSettings(SettingsJson), NullLogger<GitHubProjectsTaskSyncProvider>.Instance, client);
-        var existingLink = new TaskSyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
+        var existingLink = new SyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
 
         var response = await provider.ImportAsync(NewTask(), existingLink);
 
         Assert.True(response.Success);
         Assert.Equal(PlanningStatus.Active, response.Value!.MappedStatus);
-        Assert.Equal(TaskSyncState.Synced, response.Value.SyncState);
+        Assert.Equal(SyncState.Synced, response.Value.SyncState);
         Assert.Equal("Doing", response.Value.ExternalStatusRaw);
         Assert.Null(response.Value.PulledTitle);
         Assert.Null(response.Value.PulledBody);
@@ -195,13 +195,13 @@ public sealed class WithGitHubProjectsTaskSyncProvider
             DraftIssueContentResponse(LocalTitle, LocalBody),
             """{ "node": { "fieldValueByName": { "name": "Blocked" } } }""");
         var provider = new GitHubProjectsTaskSyncProvider(new FixedSyncSettings(SettingsJson), NullLogger<GitHubProjectsTaskSyncProvider>.Instance, client);
-        var existingLink = new TaskSyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
+        var existingLink = new SyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
 
         var response = await provider.ImportAsync(NewTask(), existingLink);
 
         Assert.True(response.Success);
         Assert.Null(response.Value!.MappedStatus);
-        Assert.Equal(TaskSyncState.Unmapped, response.Value.SyncState);
+        Assert.Equal(SyncState.Unmapped, response.Value.SyncState);
     }
 
     [Fact]
@@ -214,7 +214,7 @@ public sealed class WithGitHubProjectsTaskSyncProvider
             DraftIssueContentResponseWithMarker(LocalTitle, "Someone edited this description on GitHub.", lastSyncedHash),
             """{ "node": { "fieldValueByName": { "name": "Doing" } } }""");
         var provider = new GitHubProjectsTaskSyncProvider(new FixedSyncSettings(SettingsJson), NullLogger<GitHubProjectsTaskSyncProvider>.Instance, client);
-        var existingLink = new TaskSyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
+        var existingLink = new SyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
 
         var response = await provider.ImportAsync(NewTask(), existingLink);
 
@@ -233,12 +233,12 @@ public sealed class WithGitHubProjectsTaskSyncProvider
         var client = new FakeGitHubGraphQlClient(
             DraftIssueContentResponse("Some other title entirely", "Some other content entirely."));
         var provider = new GitHubProjectsTaskSyncProvider(new FixedSyncSettings(SettingsJson), NullLogger<GitHubProjectsTaskSyncProvider>.Instance, client);
-        var existingLink = new TaskSyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
+        var existingLink = new SyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "ITEM1" };
 
         var response = await provider.ImportAsync(NewTask(), existingLink);
 
         Assert.True(response.Success);
-        Assert.Equal(TaskSyncState.Mismatch, response.Value!.SyncState);
+        Assert.Equal(SyncState.Mismatch, response.Value!.SyncState);
         Assert.Null(response.Value.MappedStatus);
         // Only the content fetch happened - status was never read once a mismatch was detected.
         Assert.Single(client.Calls);
@@ -249,7 +249,7 @@ public sealed class WithGitHubProjectsTaskSyncProvider
     {
         var client = new FakeGitHubGraphQlClient();
         var provider = new GitHubProjectsTaskSyncProvider(new FixedSyncSettings(SettingsJson), NullLogger<GitHubProjectsTaskSyncProvider>.Instance, client);
-        var existingLink = new TaskSyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "" };
+        var existingLink = new SyncLink { Provider = GitHubProjectsTaskSyncProvider.ProviderName, ExternalId = "" };
 
         var response = await provider.ImportAsync(NewTask(), existingLink);
 

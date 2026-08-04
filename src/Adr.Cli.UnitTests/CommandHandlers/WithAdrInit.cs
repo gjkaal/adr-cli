@@ -1,5 +1,6 @@
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
+using Adr.Cli.Sync;
 using Adr.Cli.XLogger;
 
 using Microsoft.Extensions.Logging;
@@ -7,6 +8,8 @@ using Microsoft.Extensions.Logging;
 using Moq;
 
 using System.IO.Abstractions;
+using System.IO.Abstractions.TestingHelpers;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Xunit;
@@ -61,5 +64,72 @@ public sealed class WithAdrInit
         AdrInit sut = new AdrInit(settingsMock.Object, logger, repositoryMock.Object, stdOutMock.Object, procesMock.Object);
         var result = await sut.InitializeAsync("doc", "template", "planning");
         Assert.True(result.Success);
+    }
+
+    /// <summary>
+    /// Regression test for a real incident: an external process (a stale build of this tool, running
+    /// as a long-lived MCP server) re-derived an ADR's metadata from its markdown and silently wiped
+    /// SyncLinks/RelatedTasks/References in the process, because its own AdrRecord type predated
+    /// those fields - any unknown JSON properties were dropped on deserialize, then never
+    /// re-serialized. `sync`/`adr_sync` must only ever touch the fields it actually derives from
+    /// markdown (Title, Status, Context, Decision, Consequences) and must leave every other field on
+    /// the record exactly as it was, no matter what generated the JSON that's currently on disk.
+    /// </summary>
+    [Fact]
+    public async Task SyncMetadataAsync_OnlyUpdatesMarkdownDerivedFields_LeavesSyncLinksRelatedTasksAndReferencesUntouched()
+    {
+        var fileSystem = new MockFileSystem();
+        var rootPath = "C:\\repo";
+        fileSystem.Directory.CreateDirectory(rootPath);
+        fileSystem.Directory.SetCurrentDirectory(rootPath);
+
+        var settings = new AdrSettings(fileSystem);
+        var fileLock = new FileLockService(fileSystem, XUnitLogger.CreateLogger<FileLockService>(testOutputHelper));
+        var repository = new AdrRecordRepository(fileSystem, settings, stdOutMock.Object, fileLock, XUnitLogger.CreateLogger<AdrRecordRepository>(testOutputHelper));
+
+        var record = new AdrRecord
+        {
+            Title = "Sync should preserve non-markdown fields",
+            Status = AdrStatus.Proposed,
+            Context = "Original context.",
+            TemplateType = TemplateType.Ad
+        };
+        record.References[2] = "Extends";
+        record.RelatedTasks[5] = "Implements this";
+        record.SyncLinks.Add(new SyncLink
+        {
+            Provider = "GitHubProjects",
+            ExternalScope = "gjkaal/2",
+            ExternalId = "ITEM1",
+            ExternalContentType = "Issue",
+            ExternalUrl = "https://github.com/gjkaal/adr-cli/issues/7",
+            SyncState = SyncState.Synced
+        });
+        await repository.WriteRecordAsync(record);
+
+        // Simulate someone hand-editing the markdown outside adr-cli, e.g. via a text editor.
+        var content = await repository.ReadContentAsync(record.RecordId);
+        var edited = content.ReplaceMdContent("Status", ["__Accepted__"]).ToArray();
+        edited = edited.ReplaceMdContent("Context", ["Updated context from markdown."]).ToArray();
+        await repository.UpdateContentAsync(record, edited);
+
+        var sut = new AdrInit(settings, logger, repository, stdOutMock.Object, procesMock.Object);
+        var result = await sut.SyncMetadataAsync(startFromRecordId: 1, onlyForRecordId: record.RecordId);
+        Assert.True(result.Success);
+
+        var afterSync = await repository.ReadMetadataAsync(record.RecordId);
+        Assert.NotNull(afterSync);
+
+        // Fields sync is actually supposed to derive from markdown - these should reflect the edit.
+        Assert.Equal(AdrStatus.Accepted, afterSync!.Status);
+        Assert.Equal("Updated context from markdown.", afterSync.Context);
+
+        // Fields sync has no business touching - these must survive unchanged.
+        Assert.Equal(record.References, afterSync.References);
+        Assert.Equal(record.RelatedTasks, afterSync.RelatedTasks);
+        Assert.Single(afterSync.SyncLinks);
+        Assert.Equal("ITEM1", afterSync.SyncLinks[0].ExternalId);
+        Assert.Equal("https://github.com/gjkaal/adr-cli/issues/7", afterSync.SyncLinks[0].ExternalUrl);
+        Assert.Equal(SyncState.Synced, afterSync.SyncLinks[0].SyncState);
     }
 }

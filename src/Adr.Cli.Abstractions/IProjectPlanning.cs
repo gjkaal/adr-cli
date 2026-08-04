@@ -144,7 +144,7 @@ public interface IProjectPlanning
     /// Compute and report what each task's export would do (create/update/mismatch, status mapping)
     /// without writing anything locally or remotely.
     /// </param>
-    Task<Response<TaskSyncBatchResult>> ExportTasksAsync(IReadOnlyList<int> taskIds, string? filter, bool force = false, bool dryRun = false);
+    Task<Response<SyncBatchResult>> ExportTasksAsync(IReadOnlyList<int> taskIds, string? filter, bool force = false, bool dryRun = false);
 
     /// <summary>
     /// Import status from the currently configured sync provider for each selected task, mapping it
@@ -171,5 +171,5 @@ public interface IProjectPlanning
     /// task whose only sync link belongs to a different, no-longer-active provider is reported as
     /// skipped, not imported.
     /// </remarks>
-    Task<Response<TaskSyncBatchResult>> ImportTaskStatusAsync(IReadOnlyList<int> taskIds, string? filter, bool dryRun = false);
+    Task<Response<SyncBatchResult>> ImportTaskStatusAsync(IReadOnlyList<int> taskIds, string? filter, bool dryRun = false);
 }

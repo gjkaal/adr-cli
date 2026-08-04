@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.6.33829.357
+# Visual Studio Version 18
+VisualStudioVersion = 18.8.12023.21
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6129A8E7-8206-4B3E-8244-45BD43132D20}"
 	ProjectSection(SolutionItems) = preProject
@@ -34,6 +34,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Adr.Cli.Sync.GitHubProjects", "Adr.Cli.Sync.GitHubProjects\Adr.Cli.Sync.GitHubProjects.csproj", "{2F7A2EBE-4300-47ED-90D8-A683C1A8DCD3}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Adr.Cli.Sync.GitHubProjects.UnitTests", "Adr.Cli.Sync.GitHubProjects.UnitTests\Adr.Cli.Sync.GitHubProjects.UnitTests.csproj", "{151E3CDD-2A65-4E9C-B82F-5D478D31B872}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Extensions", "Extensions", "{2ADC2741-CA14-4F90-AD89-AFCD4205E9D2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -237,6 +239,8 @@ Global
 		{D4E3CAC4-FF46-4D33-BD44-E76FD4A6F54A} = {637C3650-6EFB-49E1-B6F3-7051F1107985}
 		{FD7425CA-C00A-48E0-87A7-52AA62323871} = {637C3650-6EFB-49E1-B6F3-7051F1107985}
 		{17DBBBE5-BCCD-41DF-8729-04968435033C} = {637C3650-6EFB-49E1-B6F3-7051F1107985}
+		{2F7A2EBE-4300-47ED-90D8-A683C1A8DCD3} = {2ADC2741-CA14-4F90-AD89-AFCD4205E9D2}
+		{151E3CDD-2A65-4E9C-B82F-5D478D31B872} = {2ADC2741-CA14-4F90-AD89-AFCD4205E9D2}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {9906F985-5FBF-4749-8590-67E9A6D39B6C}

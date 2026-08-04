@@ -17,6 +17,7 @@ public class AdrLink : IAdrLink
 {
     private readonly ILogger<AdrLink> logger;
     private readonly IAdrRecordRepository adrRecordRepository;
+    private readonly IAdrTasksRepository tasksRepository;
     private readonly IStdOut stdOut;
 
     // Per-record locking to prevent concurrent modifications to the same ADR
@@ -25,10 +26,12 @@ public class AdrLink : IAdrLink
     public AdrLink(
         ILogger<AdrLink> logger,
         IAdrRecordRepository adrRecordRepository,
+        IAdrTasksRepository tasksRepository,
         IStdOut stdOut)
     {
         this.logger = logger;
         this.adrRecordRepository = adrRecordRepository;
+        this.tasksRepository = tasksRepository;
         this.stdOut = stdOut;
     }
 
@@ -198,5 +201,59 @@ public class AdrLink : IAdrLink
             // Always release the lock
             recordLock.Release();
         }
+    }
+
+
+    public async Task<Response> LinkAdrToTaskAsync(int adrId, int taskId, string remark)
+    {
+        logger.LogInformation($"Linking task {taskId} to ADR {adrId} for {remark}.");
+
+        var adr = await adrRecordRepository.ReadMetadataAsync(adrId);
+        if (adr == null)
+        {
+            return Response.Fail($"ADR does not exist: {adrId:D5}.");
+        }
+
+        var task = await tasksRepository.ReadMetadataAsync(taskId);
+        if (task == null)
+        {
+            return Response.Fail($"Task does not exist: {taskId:D5}.");
+        }
+
+        if (adr.RelatedTasks.ContainsKey(taskId))
+        {
+            return Response.Fail($"ADR '{adr.Title}' is already related to task '{task.Title}'.");
+        }
+
+        adr.RelatedTasks[taskId] = task.Title;
+        var updateCount = await adrRecordRepository.UpdateMetadataAsync(adrId, adr);
+
+        return updateCount < 0
+            ? Response.Fail($"Could not update ADR '{adr.Title}' with Id:{adrId}")
+            : updateCount > 0 ? Response.Ok($"ADR '{adr.Title}' with Id:{adrId} is now related to task '{task.Title}' with Id:{taskId}")
+            : Response.Fail($"ADR '{adr.Title}' with Id:{adrId} is not modified.");
+    }
+
+    public async Task<Response> RemoveAdrTaskLinkAsync(int adrId, int taskId)
+    {
+        logger.LogInformation($"Removing task {taskId} from ADR {adrId}'s related tasks.");
+
+        var adr = await adrRecordRepository.ReadMetadataAsync(adrId);
+        if (adr == null)
+        {
+            return Response.Fail($"ADR does not exist: {adrId:D5}.");
+        }
+
+        if (!adr.RelatedTasks.ContainsKey(taskId))
+        {
+            return Response.Fail($"ADR '{adr.Title}' is not related to a task with Id:{taskId}.");
+        }
+        adr.RelatedTasks.Remove(taskId);
+
+        var updateCount = await adrRecordRepository.UpdateMetadataAsync(adrId, adr);
+        return updateCount < 0
+            ? Response.Fail($"Could not update ADR '{adr.Title}' with Id:{adrId}")
+            : updateCount > 0 ? Response.Ok($"ADR '{adr.Title}' with Id:{adrId} is modified, the relation to task with Id:{taskId} is removed.")
+            : Response.Fail($"ADR '{adr.Title}' with Id:{adrId} is not modified.");
     }
 }

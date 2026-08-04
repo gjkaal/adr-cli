@@ -1,10 +1,21 @@
 {
-  "Status": "Proposed",
   "TemplateType": "Ad",
-  "Context": "",
+  "Context": "As the number of ADRs in a repository grows, individual decisions increasingly relate to one another - one ADR may extend, amend, clarify, or supersede an earlier one. Without a way to record these relationships, each ADR reads as an isolated document, and a reader has no way to discover that a later decision changed the assumptions or scope of an earlier one short of reading the whole repository by hand.",
   "References": {
     "2": "Extends"
   },
+  "RelatedTasks": {},
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1Qi0o",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/7",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T20:23:10.0256031Z"
+    }
+  ],
   "DateTime": "2025-10-28T00:00:00+01:00",
   "FileName": "00003-linking-adr\u0027s-is-a-wa-to-tie-adr\u0027s-together",
   "RecordId": 3,

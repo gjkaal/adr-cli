@@ -1,0 +1,24 @@
+{
+  "Status": "Proposed",
+  "TemplateType": "Ad",
+  "Context": "ADR 00008 and ADR 00009 established task-export/task-import against GitHub Projects (v2), deliberately scoped to Draft Issues so the PAT only ever needs project-scope write, never repository write. That was a conscious boundary, not an oversight.",
+  "References": {},
+  "RelatedTasks": {
+    "10": "Design and implement ADR sync to GitHub (Issues with tasks as sub-issues)"
+  },
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1Qhs4",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/3",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T16:42:54.3602594Z"
+    }
+  ],
+  "DateTime": "2026-08-04T00:00:00+02:00",
+  "FileName": "00010-sync-adrs-to-github-as-issues-with-related-tasks-as-sub-issues",
+  "RecordId": 10,
+  "Title": "Sync ADRs to GitHub as Issues with related Tasks as sub-issues"
+}

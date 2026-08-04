@@ -399,11 +399,11 @@ public class ProjectPlanning : IProjectPlanning
             : Response.Fail($"No status update for task '{record.Title}' with Id:{id} current status is {record.Status}");
     }
 
-    public async Task<Response<TaskSyncBatchResult>> ExportTasksAsync(IReadOnlyList<int> taskIds, string? filter, bool force = false, bool dryRun = false)
+    public async Task<Response<SyncBatchResult>> ExportTasksAsync(IReadOnlyList<int> taskIds, string? filter, bool force = false, bool dryRun = false)
     {
         if (taskIds.Count == 0 && string.IsNullOrWhiteSpace(filter))
         {
-            return new Response<TaskSyncBatchResult>(false, "Specify at least one task id (--id) or a filter (-q) to export.", new TaskSyncBatchResult());
+            return new Response<SyncBatchResult>(false, "Specify at least one task id (--id) or a filter (-q) to export.", new SyncBatchResult());
         }
 
         if (force && taskIds.Count != 1)
@@ -412,50 +412,50 @@ public class ProjectPlanning : IProjectPlanning
         }
 
         var tasks = await ResolveTaskSelectionAsync(taskIds, filter);
-        var batch = new TaskSyncBatchResult();
+        var batch = new SyncBatchResult();
 
         foreach (var task in tasks)
         {
             batch.Items.Add(await ExportOneAsync(task, force, dryRun));
         }
 
-        return new Response<TaskSyncBatchResult>(true, null, batch);
+        return new Response<SyncBatchResult>(true, null, batch);
     }
 
-    private async Task<TaskSyncItemResult> ExportOneAsync(TaskRecord task, bool force = false, bool dryRun = false)
+    private async Task<SyncItemResult> ExportOneAsync(TaskRecord task, bool force = false, bool dryRun = false)
     {
-        var item = new TaskSyncItemResult { RecordId = task.RecordId, Title = task.Title };
+        var item = new SyncItemResult { RecordId = task.RecordId, Title = task.Title };
         var existingLink = task.SyncLinks.Find(link => link.Provider == syncProvider.Name);
 
         var response = await syncProvider.ExportAsync(task, existingLink, force, dryRun);
         if (!response.Success || response.Value == null)
         {
-            item.Outcome = TaskSyncItemOutcome.Failed;
+            item.Outcome = SyncItemOutcome.Failed;
             item.Message = response.Message;
             return item;
         }
 
         var result = response.Value;
 
-        if (result.SyncState == TaskSyncState.Mismatch)
+        if (result.SyncState == SyncState.Mismatch)
         {
             // Mismatch only ever comes from the update path (an existing link with a divergent
             // remote), so existingLink is always set here - a brand-new export has no baseline to
             // check and never returns Mismatch.
             if (!dryRun)
             {
-                existingLink!.SyncState = TaskSyncState.Mismatch;
+                existingLink!.SyncState = SyncState.Mismatch;
                 existingLink.ExternalContentType = result.ExternalContentType;
                 await repository.UpdateMetadataAsync(task.RecordId, task);
             }
-            item.Outcome = TaskSyncItemOutcome.Mismatch;
+            item.Outcome = SyncItemOutcome.Mismatch;
             item.Message = response.Message ?? "Export refused: content mismatch.";
             item.ExternalId = result.ExternalId;
             return item;
         }
 
-        item.Outcome = result.SyncState == TaskSyncState.Synced ? TaskSyncItemOutcome.Succeeded : TaskSyncItemOutcome.Unmapped;
-        item.Message = result.SyncState == TaskSyncState.Synced
+        item.Outcome = result.SyncState == SyncState.Synced ? SyncItemOutcome.Succeeded : SyncItemOutcome.Unmapped;
+        item.Message = result.SyncState == SyncState.Synced
             ? (result.Created ? "Created." : "Updated.")
             : "Local status has no entry in the export status map; external item content was still created/updated.";
         item.ExternalId = result.ExternalId;
@@ -469,7 +469,7 @@ public class ProjectPlanning : IProjectPlanning
 
         if (existingLink == null)
         {
-            existingLink = new TaskSyncLink { Provider = syncProvider.Name };
+            existingLink = new SyncLink { Provider = syncProvider.Name };
             task.SyncLinks.Add(existingLink);
         }
         existingLink.ExternalScope = result.ExternalScope;
@@ -483,9 +483,9 @@ public class ProjectPlanning : IProjectPlanning
         return item;
     }
 
-    public async Task<Response<TaskSyncBatchResult>> ImportTaskStatusAsync(IReadOnlyList<int> taskIds, string? filter, bool dryRun = false)
+    public async Task<Response<SyncBatchResult>> ImportTaskStatusAsync(IReadOnlyList<int> taskIds, string? filter, bool dryRun = false)
     {
-        var batch = new TaskSyncBatchResult();
+        var batch = new SyncBatchResult();
 
         if (taskIds.Count > 0 || !string.IsNullOrWhiteSpace(filter))
         {
@@ -493,7 +493,7 @@ public class ProjectPlanning : IProjectPlanning
             {
                 batch.Items.Add(await ImportOneAsync(task, dryRun));
             }
-            return new Response<TaskSyncBatchResult>(true, null, batch);
+            return new Response<SyncBatchResult>(true, null, batch);
         }
 
         // Default scope: every task already linked to the active provider, plus discovering and
@@ -504,7 +504,7 @@ public class ProjectPlanning : IProjectPlanning
         }
         batch.Items.AddRange(await DiscoverAndAdoptNewTasksAsync(dryRun));
 
-        return new Response<TaskSyncBatchResult>(true, null, batch);
+        return new Response<SyncBatchResult>(true, null, batch);
     }
 
     /// <summary>
@@ -513,9 +513,9 @@ public class ProjectPlanning : IProjectPlanning
     /// linked, pushed once to establish a valid hash marker, and its current status imported so it
     /// doesn't sit at the default "New" status until a second <c>task-import</c> run.
     /// </summary>
-    private async Task<List<TaskSyncItemResult>> DiscoverAndAdoptNewTasksAsync(bool dryRun = false)
+    private async Task<List<SyncItemResult>> DiscoverAndAdoptNewTasksAsync(bool dryRun = false)
     {
-        var results = new List<TaskSyncItemResult>();
+        var results = new List<SyncItemResult>();
         var discoverResponse = await syncProvider.DiscoverItemsAsync();
         if (!discoverResponse.Success || discoverResponse.Value == null)
         {
@@ -546,7 +546,7 @@ public class ProjectPlanning : IProjectPlanning
         return results;
     }
 
-    private async Task<TaskSyncItemResult> AdoptDiscoveredItemAsync(DiscoveredExternalItem discovered, bool dryRun = false)
+    private async Task<SyncItemResult> AdoptDiscoveredItemAsync(DiscoveredExternalItem discovered, bool dryRun = false)
     {
         var (description, details) = TaskBodyFormat.Split(discovered.Body);
         var task = new TaskRecord
@@ -559,17 +559,17 @@ public class ProjectPlanning : IProjectPlanning
 
         if (dryRun)
         {
-            return new TaskSyncItemResult
+            return new SyncItemResult
             {
                 RecordId = 0,
                 Title = task.Title,
-                Outcome = TaskSyncItemOutcome.Succeeded,
+                Outcome = SyncItemOutcome.Succeeded,
                 Message = $"[DRY RUN] Would adopt as a new local task from {syncProvider.Name} (external id {discovered.ExternalId}). No file was created.",
                 ExternalId = discovered.ExternalId
             };
         }
 
-        var link = new TaskSyncLink
+        var link = new SyncLink
         {
             Provider = syncProvider.Name,
             ExternalScope = discovered.ExternalScope,
@@ -578,7 +578,7 @@ public class ProjectPlanning : IProjectPlanning
         task.SyncLinks.Add(link);
 
         await repository.WriteRecordAsync(task);
-        var item = new TaskSyncItemResult { RecordId = task.RecordId, Title = task.Title };
+        var item = new SyncItemResult { RecordId = task.RecordId, Title = task.Title };
 
         // Push back immediately to embed a valid hash marker, per ADR 00009 - the item currently has
         // none, so nothing can safely detect divergence against it yet.
@@ -586,7 +586,7 @@ public class ProjectPlanning : IProjectPlanning
         if (!exportResponse.Success || exportResponse.Value == null)
         {
             await repository.UpdateMetadataAsync(task.RecordId, task);
-            item.Outcome = TaskSyncItemOutcome.Failed;
+            item.Outcome = SyncItemOutcome.Failed;
             item.Message = $"Adopted as new local task #{task.RecordId} from {syncProvider.Name}, but pushing a hash marker failed: {exportResponse.Message}";
             item.ExternalId = discovered.ExternalId;
             return item;
@@ -604,20 +604,20 @@ public class ProjectPlanning : IProjectPlanning
         // task-import run.
         var statusResult = await ImportOneAsync(task);
 
-        item.Outcome = TaskSyncItemOutcome.Succeeded;
+        item.Outcome = SyncItemOutcome.Succeeded;
         item.Message = $"Adopted as new local task #{task.RecordId} from {syncProvider.Name}. {statusResult.Message}";
         item.ExternalId = link.ExternalId;
         item.ExternalUrl = link.ExternalUrl;
         return item;
     }
 
-    private async Task<TaskSyncItemResult> ImportOneAsync(TaskRecord task, bool dryRun = false)
+    private async Task<SyncItemResult> ImportOneAsync(TaskRecord task, bool dryRun = false)
     {
-        var item = new TaskSyncItemResult { RecordId = task.RecordId, Title = task.Title };
+        var item = new SyncItemResult { RecordId = task.RecordId, Title = task.Title };
         var existingLink = task.SyncLinks.Find(link => link.Provider == syncProvider.Name);
         if (existingLink == null || string.IsNullOrWhiteSpace(existingLink.ExternalId))
         {
-            item.Outcome = TaskSyncItemOutcome.Skipped;
+            item.Outcome = SyncItemOutcome.Skipped;
             item.Message = "No sync link for the currently active provider.";
             return item;
         }
@@ -625,14 +625,14 @@ public class ProjectPlanning : IProjectPlanning
         var response = await syncProvider.ImportAsync(task, existingLink, dryRun);
         if (!response.Success || response.Value == null)
         {
-            item.Outcome = TaskSyncItemOutcome.Failed;
+            item.Outcome = SyncItemOutcome.Failed;
             item.Message = response.Message;
             return item;
         }
 
         var result = response.Value;
 
-        if (result.SyncState == TaskSyncState.Mismatch)
+        if (result.SyncState == SyncState.Mismatch)
         {
             // Content diverged on both sides - neither local nor remote is touched. Status may still
             // have been read by the provider in principle, but we treat a content mismatch as
@@ -640,10 +640,10 @@ public class ProjectPlanning : IProjectPlanning
             if (!dryRun)
             {
                 existingLink.ExternalContentType = result.ExternalContentType;
-                existingLink.SyncState = TaskSyncState.Mismatch;
+                existingLink.SyncState = SyncState.Mismatch;
                 await repository.UpdateMetadataAsync(task.RecordId, task);
             }
-            item.Outcome = TaskSyncItemOutcome.Mismatch;
+            item.Outcome = SyncItemOutcome.Mismatch;
             item.Message = response.Message ?? "Import skipped: content mismatch.";
             item.ExternalId = existingLink.ExternalId;
             return item;
@@ -652,14 +652,14 @@ public class ProjectPlanning : IProjectPlanning
         var contentPulled = result.PulledTitle != null && result.PulledBody != null;
 
         string statusMessage;
-        if (result.SyncState == TaskSyncState.Synced && result.MappedStatus.HasValue)
+        if (result.SyncState == SyncState.Synced && result.MappedStatus.HasValue)
         {
-            item.Outcome = TaskSyncItemOutcome.Succeeded;
+            item.Outcome = SyncItemOutcome.Succeeded;
             statusMessage = $"Status set to {result.MappedStatus.Value}.";
         }
         else
         {
-            item.Outcome = TaskSyncItemOutcome.Unmapped;
+            item.Outcome = SyncItemOutcome.Unmapped;
             statusMessage = $"External status \"{result.ExternalStatusRaw}\" has no import mapping; local status left unchanged.";
         }
 
@@ -687,7 +687,7 @@ public class ProjectPlanning : IProjectPlanning
             task.Details = details;
         }
 
-        if (result.SyncState == TaskSyncState.Synced && result.MappedStatus.HasValue)
+        if (result.SyncState == SyncState.Synced && result.MappedStatus.HasValue)
         {
             task.Status = result.MappedStatus.Value;
             task.Logs.Add(new StatusUpdate
@@ -712,7 +712,7 @@ public class ProjectPlanning : IProjectPlanning
         // 00009), so the next sync in either direction compares against the content we just adopted,
         // not the stale pre-pull baseline.
         var pushBack = await syncProvider.ExportAsync(task, existingLink);
-        if (pushBack.Success && pushBack.Value != null && pushBack.Value.SyncState != TaskSyncState.Mismatch)
+        if (pushBack.Success && pushBack.Value != null && pushBack.Value.SyncState != SyncState.Mismatch)
         {
             existingLink.ExternalScope = pushBack.Value.ExternalScope;
             existingLink.ExternalId = pushBack.Value.ExternalId;

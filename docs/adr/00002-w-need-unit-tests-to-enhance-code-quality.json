@@ -1,7 +1,19 @@
 {
   "TemplateType": "Ad",
-  "Context": "",
+  "Context": "Architecture for agile projects has to be described and defined differently. Not all decisions will be made at once, nor will all of them be done when the project begins.",
   "References": {},
+  "RelatedTasks": {},
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1QizQ",
+      "ExternalContentType": "Issue",
+      "ExternalUrl": "https://github.com/gjkaal/adr-cli/issues/6",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T16:42:41.8789829Z"
+    }
+  ],
   "DateTime": "2025-10-28T00:00:00+01:00",
   "FileName": "00002-w-need-unit-tests-to-enhance-code-quality",
   "RecordId": 2,
