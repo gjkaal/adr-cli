@@ -1,0 +1,11 @@
+{
+  "Status": "New",
+  "Description": "Sync ADRs to GitHub as real Issues (not Draft Issues), with the repository\u0027s tasks linked as sub-issues of their related ADR. Not yet designed - this task is the handoff/starting point for a fresh session.",
+  "Related": {},
+  "Logs": [],
+  "SyncLinks": [],
+  "DateTime": "2026-08-04T00:00:00+02:00",
+  "FileName": "00010-design-and-implement-adr-sync-to-github-(issues-with-tasks-as-sub-issues)",
+  "RecordId": 10,
+  "Title": "Design and implement ADR sync to GitHub (Issues with tasks as sub-issues)"
+}

@@ -25,4 +25,16 @@ public class AdrContextInfo
     /// The configured AI provider name (e.g. "AzureFoundry"), or empty when none is configured.
     /// </summary>
     public string AiProvider { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Whether a task sync connector is configured - i.e. whether <c>task-export</c>/
+    /// <c>task-import</c> will actually reach an external provider rather than being a no-op.
+    /// </summary>
+    public bool SyncConfigured { get; set; }
+
+    /// <summary>
+    /// The configured sync provider name (e.g. "GitHubProjects", "AzureDevOps"), or empty when none
+    /// is configured.
+    /// </summary>
+    public string SyncProvider { get; set; } = string.Empty;
 }

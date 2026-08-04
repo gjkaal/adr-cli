@@ -1,6 +1,7 @@
 {
+  "Status": "Final",
   "TemplateType": "Ad",
-  "Context": "Tasks created and maintained in this repository may need to be tracked in external work-management applications such as Azure DevOps. Manually recreating tasks externally and copying status changes back into the repository is time-consuming, error-prone, and can cause the two representations to diverge.\n\nThe repository should remain the authoritative source for task content, while external applications may be used for assignment, planning, and workflow tracking. Integration therefore requires a stable association between each local task and its external work item, configurable mappings between local and external statuses, and protection against duplicate exports or unintended overwrites.\n\nDifferent external applications expose different authentication models, work-item types, fields, and APIs. The integration must not couple the task model directly to Azure DevOps or require provider-specific behavior throughout the codebase. In accordance with ADR 00005, equivalent export and import capabilities must also be available through both CLI commands and MCP tools.",
+  "Context": "Tasks created and maintained in this repository may need to be tracked in external work-management applications such as Azure DevOps. Manually recreating tasks externally and copying status changes back into the repository is time-consuming, error-prone, and can cause the two representations to diverge.",
   "References": {},
   "DateTime": "2026-07-22T00:00:00+02:00",
   "FileName": "00008-export-tasks-and-import-task-status-updates-to-and-from-external-applications-(e.g.-azure-devops)",

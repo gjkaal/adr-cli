@@ -1,11 +1,15 @@
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
+using Adr.Cli.Sync;
 using Adr.Cli.XLogger;
+
+using McpCore;
 
 using Microsoft.Extensions.Logging;
 
 using Moq;
 
+using System.Collections.Generic;
 using System.IO.Abstractions.TestingHelpers;
 using System.Threading.Tasks;
 
@@ -38,6 +42,11 @@ public sealed class WithProjectPlanning
     /// </summary>
     private ProjectPlanning CreateSut(out IAdrTasksRepository repository)
     {
+        return CreateSut(out repository, new NoOpTaskSyncProvider());
+    }
+
+    private ProjectPlanning CreateSut(out IAdrTasksRepository repository, ITaskSyncProvider syncProvider)
+    {
         var fileSystem = new MockFileSystem();
         var rootPath = "C:\\repo";
         fileSystem.Directory.CreateDirectory(rootPath);
@@ -62,7 +71,8 @@ public sealed class WithProjectPlanning
             repository,
             stdOutMock.Object,
             processHelperMock.Object,
-            new NoOpTaskProposalGenerator());
+            new NoOpTaskProposalGenerator(),
+            syncProvider);
     }
 
     [Fact]
@@ -222,5 +232,368 @@ public sealed class WithProjectPlanning
         Assert.DoesNotContain(2, taskA!.Related.Keys);
         // ...but B's reverse link back to A must remain untouched.
         Assert.Contains(1, taskB!.Related.Keys);
+    }
+
+    [Fact]
+    public async Task ExportTasksAsync_NoIdsOrFilter_FailsWithoutCallingProvider()
+    {
+        var provider = new FakeTaskSyncProvider();
+        var sut = CreateSut(out _, provider);
+
+        var result = await sut.ExportTasksAsync([], null);
+
+        Assert.False(result.Success);
+        Assert.Empty(provider.ExportedTaskIds);
+    }
+
+    [Fact]
+    public async Task ExportTasksAsync_ExplicitId_PersistsReturnedSyncLink()
+    {
+        var provider = new FakeTaskSyncProvider();
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+
+        var result = await sut.ExportTasksAsync([1], null);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.SucceededCount);
+
+        var record = await repository.ReadMetadataAsync(1);
+        var link = Assert.Single(record!.SyncLinks);
+        Assert.Equal(FakeTaskSyncProvider.Name, link.Provider);
+        Assert.Equal("ITEM-1", link.ExternalId);
+        Assert.Equal(TaskSyncState.Synced, link.SyncState);
+    }
+
+    [Fact]
+    public async Task ExportTasksAsync_ProviderFailure_DoesNotPersistSyncMetadata()
+    {
+        var provider = new FakeTaskSyncProvider { FailExport = true };
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+
+        var result = await sut.ExportTasksAsync([1], null);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.FailedCount);
+
+        var record = await repository.ReadMetadataAsync(1);
+        Assert.Empty(record!.SyncLinks);
+    }
+
+    [Fact]
+    public async Task ImportTaskStatusAsync_DefaultScope_OnlyIncludesTasksWithActiveProviderLink()
+    {
+        var provider = new FakeTaskSyncProvider();
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Has a link", "Exported already", null, false);
+        await sut.NewTaskAsync("No link", "Never exported", null, false);
+        await sut.ExportTasksAsync([1], null);
+
+        var result = await sut.ImportTaskStatusAsync([], null);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Value!.Items);
+        Assert.Equal(1, result.Value.Items[0].RecordId);
+    }
+
+    [Fact]
+    public async Task ImportTaskStatusAsync_MappedStatus_UpdatesLocalStatusAndLogsJustification()
+    {
+        var provider = new FakeTaskSyncProvider { ImportedStatus = PlanningStatus.Active };
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+        await sut.ExportTasksAsync([1], null);
+
+        var result = await sut.ImportTaskStatusAsync([1], null);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.SucceededCount);
+
+        var record = await repository.ReadMetadataAsync(1);
+        Assert.Equal(PlanningStatus.Active, record!.Status);
+        Assert.Contains(record.Logs, log => log.Justification.Contains(FakeTaskSyncProvider.Name));
+    }
+
+    [Fact]
+    public async Task ImportTaskStatusAsync_UnmappedExternalStatus_LeavesLocalStatusUnchanged()
+    {
+        var provider = new FakeTaskSyncProvider { ImportedStatus = null };
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+        await sut.ExportTasksAsync([1], null);
+
+        var result = await sut.ImportTaskStatusAsync([1], null);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.UnmappedCount);
+
+        var record = await repository.ReadMetadataAsync(1);
+        Assert.Equal(PlanningStatus.New, record!.Status);
+    }
+
+    [Fact]
+    public async Task ExportTasksAsync_ProviderReportsMismatch_ReportsMismatchAndDoesNotRefreshLastSyncedAt()
+    {
+        var provider = new FakeTaskSyncProvider();
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+        await sut.ExportTasksAsync([1], null);
+        var beforeMismatch = (await repository.ReadMetadataAsync(1))!.SyncLinks[0].LastSyncedAt;
+
+        provider.ExportMismatch = true;
+        var result = await sut.ExportTasksAsync([1], null);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.MismatchCount);
+
+        var record = await repository.ReadMetadataAsync(1);
+        var link = record!.SyncLinks[0];
+        Assert.Equal(TaskSyncState.Mismatch, link.SyncState);
+        Assert.Equal(beforeMismatch, link.LastSyncedAt);
+    }
+
+    [Fact]
+    public async Task ExportTasksAsync_Force_OverwritesDespiteMismatch()
+    {
+        var provider = new FakeTaskSyncProvider { ExportMismatch = true };
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+
+        var result = await sut.ExportTasksAsync([1], null, force: true);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.SucceededCount);
+        Assert.True(provider.ExportForceFlags[^1]);
+
+        var record = await repository.ReadMetadataAsync(1);
+        Assert.Equal(TaskSyncState.Synced, record!.SyncLinks[0].SyncState);
+    }
+
+    [Fact]
+    public async Task ExportTasksAsync_DryRun_ReportsOutcomeWithoutPersistingSyncLink()
+    {
+        var provider = new FakeTaskSyncProvider();
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+
+        var result = await sut.ExportTasksAsync([1], null, dryRun: true);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.SucceededCount);
+        Assert.True(provider.ExportDryRunFlags[^1]);
+
+        var record = await repository.ReadMetadataAsync(1);
+        Assert.Empty(record!.SyncLinks);
+    }
+
+    [Fact]
+    public async Task ImportTaskStatusAsync_DryRun_ReportsStatusWithoutPersistingOrAdopting()
+    {
+        var provider = new FakeTaskSyncProvider { ImportedStatus = PlanningStatus.Active };
+        provider.ItemsToDiscover.Add(new DiscoveredExternalItem
+        {
+            ExternalScope = "fake/scope",
+            ExternalId = "ITEM-99",
+            Title = "Created directly on the board",
+            Body = "Description from the board.",
+            HasMarker = false
+        });
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+        await sut.ExportTasksAsync([1], null);
+
+        var result = await sut.ImportTaskStatusAsync([], null, dryRun: true);
+
+        Assert.True(result.Success);
+        // Linked task #1 (would set Active) and the discovered item (would be adopted) both report,
+        // but dry-run creates no file for the latter - RecordId 0 signals nothing was actually made.
+        Assert.Equal(2, result.Value!.Items.Count);
+        Assert.All(result.Value.Items, i => Assert.Equal(TaskSyncItemOutcome.Succeeded, i.Outcome));
+        Assert.Contains(result.Value.Items, i => i.RecordId == 0 && (i.Message?.Contains("[DRY RUN]") ?? false));
+
+        var record = await repository.ReadMetadataAsync(1);
+        Assert.Equal(PlanningStatus.New, record!.Status);
+        Assert.Empty(record.Logs);
+        var files = repository.ReadMetadataAsync(2);
+        Assert.Null(await files);
+    }
+
+    [Fact]
+    public async Task ImportTaskStatusAsync_ProviderReportsMismatch_LeavesLocalTaskUntouched()
+    {
+        var provider = new FakeTaskSyncProvider();
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+        await sut.ExportTasksAsync([1], null);
+
+        provider.ImportMismatch = true;
+        var result = await sut.ImportTaskStatusAsync([1], null);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.MismatchCount);
+
+        var record = await repository.ReadMetadataAsync(1);
+        Assert.Equal(PlanningStatus.New, record!.Status);
+        Assert.Equal("Automate build and test", record.Description);
+        Assert.Equal(TaskSyncState.Mismatch, record.SyncLinks[0].SyncState);
+    }
+
+    [Fact]
+    public async Task ImportTaskStatusAsync_SafePull_AppliesRemoteContentAndPushesRefreshedMarker()
+    {
+        var provider = new FakeTaskSyncProvider();
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Wire up CI", "Automate build and test", null, false);
+        await sut.ExportTasksAsync([1], null);
+
+        provider.PulledContent = ("Wire up CI (renamed)", "Someone edited this on GitHub.");
+        var exportCallsBeforeImport = provider.ExportedTaskIds.Count;
+        var result = await sut.ImportTaskStatusAsync([1], null);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, result.Value!.SucceededCount);
+        // The import triggered a re-export to refresh the hash marker after adopting remote content.
+        Assert.Equal(exportCallsBeforeImport + 1, provider.ExportedTaskIds.Count);
+
+        var record = await repository.ReadMetadataAsync(1);
+        Assert.Equal("Wire up CI (renamed)", record!.Title);
+        Assert.Equal("Someone edited this on GitHub.", record.Description);
+    }
+
+    [Fact]
+    public async Task ImportTaskStatusAsync_DefaultScope_AdoptsUnmatchedDiscoveredItemAsNewLocalTask()
+    {
+        var provider = new FakeTaskSyncProvider();
+        provider.ItemsToDiscover.Add(new DiscoveredExternalItem
+        {
+            ExternalScope = "fake/scope",
+            ExternalId = "ITEM-99",
+            Title = "Created directly on the board",
+            Body = "Description from the board.",
+            HasMarker = false
+        });
+        var sut = CreateSut(out var repository, provider);
+
+        var result = await sut.ImportTaskStatusAsync([], null);
+
+        Assert.True(result.Success);
+        Assert.Single(result.Value!.Items);
+        var adopted = result.Value.Items[0];
+        Assert.Equal(TaskSyncItemOutcome.Succeeded, adopted.Outcome);
+
+        var record = await repository.ReadMetadataAsync(adopted.RecordId);
+        Assert.NotNull(record);
+        Assert.Equal("Created directly on the board", record!.Title);
+        Assert.Equal("Description from the board.", record.Description);
+        Assert.Single(record.SyncLinks);
+        Assert.Equal("ITEM-99", record.SyncLinks[0].ExternalId);
+    }
+
+    [Fact]
+    public async Task ImportTaskStatusAsync_DefaultScope_SkipsDiscoveredItemMatchingExistingLocalTitle()
+    {
+        var provider = new FakeTaskSyncProvider();
+        var sut = CreateSut(out var repository, provider);
+        await sut.NewTaskAsync("Already local", "Existing task", null, false);
+
+        provider.ItemsToDiscover.Add(new DiscoveredExternalItem
+        {
+            ExternalScope = "fake/scope",
+            ExternalId = "ITEM-99",
+            Title = "already local",
+            Body = "Should not create a duplicate.",
+            HasMarker = false
+        });
+
+        var result = await sut.ImportTaskStatusAsync([], null);
+
+        Assert.True(result.Success);
+        Assert.Empty(result.Value!.Items);
+
+        var files = repository.ReadMetadataAsync(2);
+        Assert.Null(await files);
+    }
+
+    /// <summary>
+    /// A minimal, in-memory ITaskSyncProvider double - not a real connector - used to exercise
+    /// ProjectPlanning's export/import orchestration (selection, persistence, batch reporting)
+    /// without a network call. Provider-internal behavior (GraphQL, field mapping, etc.) is covered
+    /// separately in Adr.Cli.Sync.GitHubProjects.UnitTests.
+    /// </summary>
+    private sealed class FakeTaskSyncProvider : ITaskSyncProvider
+    {
+        public const string Name = "Fake";
+        string ITaskSyncProvider.Name => Name;
+
+        public bool FailExport { get; set; }
+        public bool ExportMismatch { get; set; }
+        public PlanningStatus? ImportedStatus { get; set; } = PlanningStatus.Active;
+        public bool ImportMismatch { get; set; }
+        public (string Title, string Body)? PulledContent { get; set; }
+        public List<int> ExportedTaskIds { get; } = new();
+        public List<bool> ExportForceFlags { get; } = new();
+        public List<bool> ExportDryRunFlags { get; } = new();
+
+        public Task<Response<TaskExportResult>> ExportAsync(TaskRecord task, TaskSyncLink? existingLink, bool force = false, bool dryRun = false)
+        {
+            ExportedTaskIds.Add(task.RecordId);
+            ExportForceFlags.Add(force);
+            ExportDryRunFlags.Add(dryRun);
+            if (FailExport)
+            {
+                return Task.FromResult(new Response<TaskExportResult>(false, "Simulated export failure.", new TaskExportResult()));
+            }
+
+            if (ExportMismatch && !force)
+            {
+                var mismatchResult = new TaskExportResult
+                {
+                    Created = false,
+                    ExternalScope = "fake/scope",
+                    ExternalId = existingLink?.ExternalId ?? $"ITEM-{task.RecordId}",
+                    SyncState = TaskSyncState.Mismatch
+                };
+                return Task.FromResult(new Response<TaskExportResult>(true, "Simulated export mismatch.", mismatchResult));
+            }
+
+            var result = new TaskExportResult
+            {
+                Created = existingLink == null,
+                ExternalScope = "fake/scope",
+                ExternalId = dryRun && existingLink == null ? string.Empty : (!string.IsNullOrWhiteSpace(existingLink?.ExternalId) ? existingLink.ExternalId : $"ITEM-{task.RecordId}"),
+                ExternalUrl = $"https://example.invalid/items/{task.RecordId}",
+                SyncState = TaskSyncState.Synced
+            };
+            return Task.FromResult(new Response<TaskExportResult>(true, dryRun ? "[DRY RUN] Simulated." : null, result));
+        }
+
+        public Task<Response<TaskImportResult>> ImportAsync(TaskRecord task, TaskSyncLink existingLink, bool dryRun = false)
+        {
+            if (ImportMismatch)
+            {
+                return Task.FromResult(new Response<TaskImportResult>(true, "Simulated import mismatch.", new TaskImportResult { SyncState = TaskSyncState.Mismatch }));
+            }
+
+            var result = new TaskImportResult
+            {
+                MappedStatus = ImportedStatus,
+                ExternalStatusRaw = ImportedStatus?.ToString() ?? "Unmapped-External-Value",
+                SyncState = ImportedStatus.HasValue ? TaskSyncState.Synced : TaskSyncState.Unmapped
+            };
+            if (PulledContent.HasValue)
+            {
+                result.PulledTitle = PulledContent.Value.Title;
+                result.PulledBody = PulledContent.Value.Body;
+            }
+            return Task.FromResult(new Response<TaskImportResult>(true, null, result));
+        }
+
+        public List<DiscoveredExternalItem> ItemsToDiscover { get; } = new();
+
+        public Task<Response<IReadOnlyList<DiscoveredExternalItem>>> DiscoverItemsAsync()
+        {
+            return Task.FromResult(new Response<IReadOnlyList<DiscoveredExternalItem>>(true, null, ItemsToDiscover));
+        }
     }
 }

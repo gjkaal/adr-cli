@@ -27,5 +27,6 @@
     <ProjectReference Include="..\McpCore\McpCore.csproj" />
     <ProjectReference Include="..\Adr.Cli.Abstractions\Adr.Cli.Abstractions.csproj" />
     <ProjectReference Include="..\Adr.Cli.Ai.AzureFoundry\Adr.Cli.Ai.AzureFoundry.csproj" />
+    <ProjectReference Include="..\Adr.Cli.Sync.GitHubProjects\Adr.Cli.Sync.GitHubProjects.csproj" />
   </ItemGroup>
 </Project>

@@ -283,6 +283,133 @@ __Options__
 
 No options
 
+## AI-Assisted Drafting
+
+`adr new`/`adr-cli new --ai` and `task-new --ai` can draft an ADR's Decision/Consequences or a
+task's Description/Details using a configured AI provider, grounded in your existing ADRs/tasks so
+new records stay consistent with prior ones. This is entirely optional - without setup, both
+commands behave exactly as they always have, and `--ai` is a no-op if nothing is configured.
+
+Add an `ai` section to `adr.config.json`:
+
+```json
+{
+  "ai": {
+    "provider": "AzureFoundry",
+    "endpoint": "https://<your-resource>.services.ai.azure.com/openai/v1",
+    "deploymentName": "<your-deployment-name>"
+  }
+}
+```
+
+Credentials are read from the `ADR_CLI_AI_API_KEY` environment variable (falling back to
+`DefaultAzureCredential`/`az login` if unset) - never stored in `adr.config.json`. See
+[AI-Setup.md](../AI-Setup.md) for the full walkthrough, including how to authenticate, grant
+access, and troubleshoot common errors.
+
+## Task Export/Import (GitHub Projects Sync)
+
+Tasks created and maintained in this repository can be exported to and re-imported from an
+external work-management board - today, GitHub Projects (v2). The repository stays authoritative
+for task content; export pushes local title/description/details and status out, import pulls
+status (and, when safe, content) back in. Neither direction ever guesses at a conflict - see
+`docs/adr/00008-*.md` and `docs/adr/00009-*.md` for the full design rationale.
+
+### Setup
+
+Add a `sync` section to `adr.config.json`:
+
+```json
+{
+  "sync": {
+    "provider": "GitHubProjects",
+    "settings": {
+      "ownerType": "User",
+      "owner": "<your-github-username-or-org>",
+      "projectNumber": 2,
+      "statusFieldName": "Status",
+      "importStatusMap": { "Todo": "New", "In progress": "Active", "Done": "Completed" },
+      "exportStatusMap": { "New": "Todo", "Active": "In progress", "Completed": "Done" }
+    }
+  }
+}
+```
+
+- **ownerType** - `"User"` or `"Organization"`, matching whether the project belongs to a personal
+  account or an org (e.g. `github.com/users/<name>/projects/2` vs `github.com/orgs/<org>/projects/2`).
+- **owner** - the GitHub username or organization name that owns the project.
+- **projectNumber** - the numeric project number from its URL.
+- **statusFieldName** - the name of the single-select field on the board that carries workflow
+  status (defaults to `"Status"`, GitHub's default column field name).
+- **importStatusMap** / **exportStatusMap** - map GitHub's status field option names to/from this
+  tool's task status values (`New`, `OnHold`, `Planned`, `Active`, `Related`, `ReviewPending`,
+  `ReviewComplete`, `AcceptancePending`, `Completed`, `Abandoned`). The two maps are independent -
+  export is not derived by inverting import - since several GitHub options can map to the same
+  local status. A status with no entry in the relevant map is left unmapped rather than guessed.
+
+A personal access token is required, read from the `ADR_CLI_SYNC_PAT` environment variable by
+default. If this machine works across multiple repositories that each need a different token (e.g.
+different clients/orgs), set `"syncPatName"` in the `sync` section to read from a differently-named
+variable instead:
+
+```json
+"sync": { "provider": "GitHubProjects", "syncPatName": "ADR_CLI_SYNC_GITHUB_PAT", "settings": { ... } }
+```
+
+The token needs write access to the target project.
+
+Exporting creates a **Draft Issue** on the board (not a repository-backed Issue) - no target
+repository or repository permissions are needed. Reading (import/discovery) works for any item type
+on the board, including real issues someone added directly; pushing content, however, only works
+for draft issues.
+
+### Exporting tasks
+
+Create or update each task's external item and push its local status.
+
+__Usage__
+
+`adr-cli task-export --id 3`
+
+`adr-cli task-export --id "3,4,7"`
+
+`adr-cli task-export -q authentication`
+
+`adr-cli task-export --id 3 --force`
+
+__Options__
+
+```
+  --id <ids>       Comma or space separated task ids to export. Required unless --filter is given.
+  -q <filter>      Filter text to select tasks by title/description, used when --id is omitted.
+  --force          Skip the remote-divergence check and overwrite the external item with local
+                    content regardless. Intended for a single task (--id) at a time.
+```
+
+### Importing task status
+
+Pull status (and, when safe, content) from each selected task's external item.
+
+__Usage__
+
+`adr-cli task-import`
+
+`adr-cli task-import --id 3`
+
+`adr-cli task-import -q authentication`
+
+__Options__
+
+```
+  --id <ids>       Comma or space separated task ids to import.
+  -q <filter>      Filter text to select tasks by title/description.
+```
+
+With neither `--id` nor `-q`, `task-import` defaults to every task already linked to the active
+provider, plus any board item with no local counterpart yet - those are adopted as brand-new local
+tasks automatically. Each task in a batch is reported individually (succeeded / unmapped / mismatch
+/ skipped / failed) so one failure never hides the rest of the batch's results.
+
 ## Task Management
 
 The adr-cli tool includes task management capabilities to help with project planning and tracking.

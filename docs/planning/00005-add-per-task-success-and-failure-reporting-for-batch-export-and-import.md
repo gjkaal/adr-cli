@@ -25,8 +25,9 @@ No prerequisits.
 - Return results in a stable format suitable for both human-readable CLI output and structured MCP responses.
 - Include aggregate counts for succeeded, failed, and total tasks.
 - Ensure CLI exit behavior indicates when any task failed while still printing the complete batch report.
-- Preserve explicit unsynchronized outcomes from status import, including unknown or ambiguous external status mappings, rather than reporting them as successful imports.
-- Add tests covering all-success, partial-failure, and all-failure batches, including verification that later tasks are processed after an earlier failure.
-- Coordinate the result model and output behavior with tasks 00003 and 00004; provider-specific behavior remains within the adapter implemented by task 00002.
+- Preserve explicit unmapped-status outcomes from status import, including unknown or ambiguous external status mappings, rather than reporting them as successful imports.
+- Preserve a distinct "skipped" outcome (not success, not failure) for tasks whose sync link belongs to a provider other than the currently active one (see task 00004), so a stale link from a previous connector doesn't read as an error.
+- Add tests covering all-success, partial-failure, all-failure, and mixed-with-skipped batches, including verification that later tasks are processed after an earlier failure.
+- Coordinate the result model and output behavior with tasks 00003 and 00004; provider-specific behavior remains within the adapters implemented by tasks 00002 and 00007.
 
 

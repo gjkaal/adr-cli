@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 using Adr.Cli.CommandHandlers;
+using Adr.Cli.Sync;
 
 using McpCore.Protocol;
 using McpCore.Server;
@@ -65,7 +67,7 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_get_context",
-                Description = "Report which adr.config.json (path and ProjectName) is currently active for this MCP session, and whether an AI provider is connected (see AI-Setup.md - determines whether adr_new's \"ai\" option is a no-op), without changing anything.",
+                Description = "Report which adr.config.json (path and ProjectName) is currently active for this MCP session, whether an AI provider is connected (see AI-Setup.md - determines whether adr_new's \"ai\" option is a no-op), and whether a task sync provider is connected (determines whether task_export/task_import are no-ops), without changing anything.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
@@ -313,6 +315,39 @@ public class AdrMcpServer : McpServer
                     Properties = new Dictionary<string, McpPropertyDefinition>(),
                     Required = Array.Empty<string>()
                 }
+            },
+            new McpTool
+            {
+                Name = "task_export",
+                Description = "Export tasks to the currently configured sync provider (see ADR 00008/00009), creating or updating each task's external item and pushing its local title/description/details and status. On an existing link, refuses to overwrite content that changed remotely since the last sync (reported as \"Mismatch\") unless force is set. Requires either taskIds or query - unlike task_import, there is no all-tasks default. One task failing does not stop the rest of the batch; see the returned per-task outcomes (Succeeded/Unmapped/Mismatch/Failed) and counts.",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["taskIds"] = new() { Type = "string", Description = "Comma or space separated task ids to export. Takes priority over query when non-empty." },
+                        ["query"] = new() { Type = "string", Description = "task_find-style word filter against title/description, used when taskIds is omitted." },
+                        ["force"] = new() { Type = "boolean", Description = "Skip the remote-divergence check and overwrite the external item with local content regardless, even if it was edited remotely since the last sync. A deliberate override, not the default - intended for a single task (taskIds with one id) at a time, since forcing a multi-task batch can silently discard several remote edits at once.", Default = false },
+                        ["dryRun"] = new() { Type = "boolean", Description = "Report what each task's export would do (create/update/mismatch, status mapping) without writing anything locally or to the external provider.", Default = false }
+                    },
+                    Required = Array.Empty<string>()
+                }
+            },
+            new McpTool
+            {
+                Name = "task_import",
+                Description = "Import status - and, when safe, title/description/details - from the currently configured sync provider (see ADR 00008/00009) for each selected task. Content is only pulled when local hasn't changed since the last sync; if both sides diverged, the task is reported as \"Mismatch\" and neither side is touched. When both taskIds and query are omitted, defaults to every task with a sync link for the currently active provider (a task whose only link belongs to a different, no-longer-active provider is reported as skipped) plus any item on the external board with no local counterpart yet, which is adopted as a brand-new local task. One task failing does not stop the rest of the batch; see the returned per-task outcomes (Succeeded/Unmapped/Mismatch/Skipped/Failed) and counts.",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["taskIds"] = new() { Type = "string", Description = "Comma or space separated task ids to import. Takes priority over query when non-empty." },
+                        ["query"] = new() { Type = "string", Description = "task_find-style word filter against title/description, used when taskIds is omitted." },
+                        ["dryRun"] = new() { Type = "boolean", Description = "Report what each task's import would do (status mapping, content pull/mismatch, newly discovered tasks) without writing anything locally or to the external provider - including skipping the creation of any newly discovered task.", Default = false }
+                    },
+                    Required = Array.Empty<string>()
+                }
             }
         ];
     }
@@ -341,6 +376,8 @@ public class AdrMcpServer : McpServer
                 "task_link" => await HandleTaskLinkAsync(parameters.Arguments),
                 "task_unlink" => await HandleTaskUnlinkAsync(parameters.Arguments),
                 "task_generate_toc" => await HandleTaskGenerateTocAsync(),
+                "task_export" => await HandleTaskExportAsync(parameters.Arguments),
+                "task_import" => await HandleTaskImportAsync(parameters.Arguments),
                 _ => throw new ArgumentException($"Unknown tool: {parameters.Name}")
             };
 
@@ -369,7 +406,8 @@ public class AdrMcpServer : McpServer
         var context = _serviceProvider.GetRequiredService<IAdrSettings>().CurrentContext;
         var configLabel = context.ConfigFilePath ?? "(none found - using built-in defaults)";
         var aiLabel = context.AiConfigured ? $"connected ({context.AiProvider})" : "not connected";
-        return $"{text}{Environment.NewLine}{Environment.NewLine}[adr-cli context: project=\"{context.ProjectName}\", config={configLabel}, ai={aiLabel}]";
+        var syncLabel = context.SyncConfigured ? $"connected ({context.SyncProvider})" : "not connected";
+        return $"{text}{Environment.NewLine}{Environment.NewLine}[adr-cli context: project=\"{context.ProjectName}\", config={configLabel}, ai={aiLabel}, sync={syncLabel}]";
     }
 
     private async Task<string> HandleAdrInitAsync(Dictionary<string, object?> arguments)
@@ -577,6 +615,61 @@ public class AdrMcpServer : McpServer
 
         var result = await projectPlanning.GeneratePlanningTocAsync();
         return result.Success ? result.Message ?? "Task table of contents generated successfully" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskExportAsync(Dictionary<string, object?> arguments)
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var taskIds = ParseIdList(GetStringArgument(arguments, "taskIds"));
+        var query = GetStringArgument(arguments, "query");
+        var force = GetBoolArgument(arguments, "force");
+        var dryRun = GetBoolArgument(arguments, "dryRun");
+
+        var result = await projectPlanning.ExportTasksAsync(taskIds, query, force, dryRun);
+        return result.Success && result.Value != null ? FormatBatchResult(result.Value) : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleTaskImportAsync(Dictionary<string, object?> arguments)
+    {
+        var projectPlanning = _serviceProvider.GetRequiredService<IProjectPlanning>();
+
+        var taskIds = ParseIdList(GetStringArgument(arguments, "taskIds"));
+        var query = GetStringArgument(arguments, "query");
+        var dryRun = GetBoolArgument(arguments, "dryRun");
+
+        var result = await projectPlanning.ImportTaskStatusAsync(taskIds, query, dryRun);
+        return result.Success && result.Value != null ? FormatBatchResult(result.Value) : $"Failed: {result.Message}";
+    }
+
+    private static List<int> ParseIdList(string? rawIds)
+    {
+        if (string.IsNullOrWhiteSpace(rawIds))
+        {
+            return [];
+        }
+
+        var result = new List<int>();
+        foreach (var part in rawIds.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (int.TryParse(part, out var id))
+            {
+                result.Add(id);
+            }
+        }
+        return result;
+    }
+
+    private static string FormatBatchResult(TaskSyncBatchResult batch)
+    {
+        var sb = new StringBuilder();
+        foreach (var item in batch.Items)
+        {
+            sb.AppendLine($"[{item.Outcome}] #{item.RecordId} {item.Title} - {item.Message}");
+        }
+        sb.AppendLine();
+        sb.AppendLine($"Succeeded: {batch.SucceededCount}, Unmapped: {batch.UnmappedCount}, Mismatch: {batch.MismatchCount}, Failed: {batch.FailedCount}, Skipped: {batch.SkippedCount}, Total: {batch.Items.Count}");
+        return sb.ToString();
     }
 
     private static string? GetStringArgument(Dictionary<string, object?> arguments, string key)

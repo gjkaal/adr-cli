@@ -1,0 +1,30 @@
+{
+  "Status": "New",
+  "Description": "Per ADR 00008 (revised): replace the fixed organization/project/workItemType sync config fields with an opaque, provider-defined settings object, since Azure DevOps and GitHub Projects scope themselves too differently to share one fixed shape.",
+  "Related": {},
+  "Logs": [
+    {
+      "DateTime": "2026-08-04T13:52:27.6083149Z",
+      "Status": "New",
+      "Justification": "Imported from GitHubProjects (external status: Todo)."
+    },
+    {
+      "DateTime": "2026-08-04T13:57:00.3748011Z",
+      "Status": "New",
+      "Justification": "Imported from GitHubProjects (external status: Todo)."
+    }
+  ],
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1PT6I",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T13:57:00.3748Z"
+    }
+  ],
+  "DateTime": "2026-08-04T00:00:00+02:00",
+  "FileName": "00006-generalize-sync-configuration-to-a-provider-specific-settings-model",
+  "RecordId": 6,
+  "Title": "Generalize sync configuration to a provider-specific settings model"
+}

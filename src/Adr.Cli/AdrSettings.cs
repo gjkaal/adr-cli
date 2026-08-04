@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 
 using Adr.Cli.Extensions;
+using Adr.Cli.Sync;
 
 namespace Adr.Cli
 {
@@ -80,6 +81,11 @@ namespace Adr.Cli
         public AiProviderSettings AiSettings { get; set; } = new();
 
         /// <summary>
+        /// Configuration for the optional task sync connector.
+        /// </summary>
+        public TaskSyncProviderSettings SyncSettings { get; set; } = new();
+
+        /// <summary>
         /// Describes which adr.config.json is currently active for this process.
         /// </summary>
         public AdrContextInfo CurrentContext => new()
@@ -92,7 +98,9 @@ namespace Adr.Cli
             TasksFolder = TasksFolder,
             TemplateFolder = TemplateFolder,
             AiConfigured = !string.IsNullOrWhiteSpace(AiSettings.Provider),
-            AiProvider = AiSettings.Provider
+            AiProvider = AiSettings.Provider,
+            SyncConfigured = !string.IsNullOrWhiteSpace(SyncSettings.Provider),
+            SyncProvider = SyncSettings.Provider
         };
 
         /// <summary>
@@ -133,6 +141,7 @@ namespace Adr.Cli
                     TasksFolder = string.IsNullOrEmpty(value.Tasks) ? DefaultTasksPath : value.Tasks.Replace('/', '\\');
                     ProjectName = string.IsNullOrEmpty(value.ProjectName) ? ProjectName : value.ProjectName;
                     AiSettings = ToAiProviderSettings(value.Ai);
+                    SyncSettings = ToTaskSyncProviderSettings(value.Sync);
 
                     return CurrentContext;
                 }
@@ -328,6 +337,7 @@ namespace Adr.Cli
             public string Tasks { get; set; } = string.Empty;
             public string ProjectName { get; set; } = string.Empty;
             public AiConfigSection? Ai { get; set; }
+            public SyncConfigSection? Sync { get; set; }
         }
 
         private class AiConfigSection
@@ -335,6 +345,14 @@ namespace Adr.Cli
             public string Provider { get; set; } = string.Empty;
             public string Endpoint { get; set; } = string.Empty;
             public string DeploymentName { get; set; } = string.Empty;
+            public string ApiKeyName { get; set; } = string.Empty;
+        }
+
+        private class SyncConfigSection
+        {
+            public string Provider { get; set; } = string.Empty;
+            public string SyncPatName { get; set; } = string.Empty;
+            public JsonElement Settings { get; set; }
         }
 
         private static AiProviderSettings ToAiProviderSettings(AiConfigSection? section)
@@ -348,7 +366,23 @@ namespace Adr.Cli
             {
                 Provider = section.Provider,
                 Endpoint = section.Endpoint,
-                DeploymentName = section.DeploymentName
+                DeploymentName = section.DeploymentName,
+                ApiKeyName = section.ApiKeyName
+            };
+        }
+
+        private static TaskSyncProviderSettings ToTaskSyncProviderSettings(SyncConfigSection? section)
+        {
+            if (section == null)
+            {
+                return new TaskSyncProviderSettings();
+            }
+
+            return new TaskSyncProviderSettings
+            {
+                Provider = section.Provider,
+                SyncPatName = section.SyncPatName,
+                Settings = section.Settings
             };
         }
 
@@ -415,6 +449,7 @@ namespace Adr.Cli
                 settings.TasksFolder = string.IsNullOrEmpty(value.Tasks) ? settings.TasksFolder : value.Tasks.Replace('/', '\\');
                 settings.ProjectName = string.IsNullOrEmpty(value.ProjectName) ? settings.ProjectName : value.ProjectName;
                 settings.AiSettings = ToAiProviderSettings(value.Ai);
+                settings.SyncSettings = ToTaskSyncProviderSettings(value.Sync);
             }
 
             return settings;

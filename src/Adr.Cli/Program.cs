@@ -11,6 +11,8 @@ using Adr.Cli.CommandHandlers;
 using Adr.Cli.Extensions;
 using Adr.Cli.Mcp;
 using Adr.Cli.Services;
+using Adr.Cli.Sync;
+using Adr.Cli.Sync.GitHubProjects;
 
 using McpCore.JsonRpc;
 using McpCore.Server;
@@ -83,6 +85,8 @@ internal static class Program
         app.Add(ProjectPlanningSetup.NewTaskCommand(serviceProvider));
         app.Add(ProjectPlanningSetup.ListTasksCommand(serviceProvider));
         app.Add(ProjectPlanningSetup.UpdateTaskCommand(serviceProvider));
+        app.Add(ProjectPlanningSetup.ExportTaskCommand(serviceProvider));
+        app.Add(ProjectPlanningSetup.ImportTaskCommand(serviceProvider));
 
         var parseResult = app.Parse(args);
         var executeResult = parseResult.Invoke();
@@ -139,6 +143,16 @@ internal static class Program
 
             var logger = sp.GetRequiredService<ILogger<AzureFoundryTaskProposalGenerator>>();
             return new AzureFoundryTaskProposalGenerator(settings, logger);
+        });
+
+        serviceCollection.AddSingleton<ITaskSyncProvider>(sp =>
+        {
+            var settings = sp.GetRequiredService<IAdrSettings>();
+            return settings.SyncSettings.Provider switch
+            {
+                "GitHubProjects" => new GitHubProjectsTaskSyncProvider(settings, sp.GetRequiredService<ILogger<GitHubProjectsTaskSyncProvider>>()),
+                _ => new NoOpTaskSyncProvider()
+            };
         });
 
         // MCP Server

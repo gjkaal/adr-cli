@@ -353,6 +353,7 @@ namespace Adr.Cli
             public string TemplateFolder { get; set; } = string.Empty;
             public string ProjectName => "TestProject";
             public AiProviderSettings AiSettings => new();
+            public Adr.Cli.Sync.TaskSyncProviderSettings SyncSettings => new();
 
             public AdrContextInfo CurrentContext => new()
             {

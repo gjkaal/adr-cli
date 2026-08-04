@@ -31,9 +31,11 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
     /// <summary>
     /// Optional API key, read from the environment rather than adr.config.json so no secret ever
     /// needs to be committed. When unset, falls back to DefaultAzureCredential (az login locally,
-    /// managed identity when hosted).
+    /// managed identity when hosted). Used when "ai.apiKeyName" is not set in adr.config.json -
+    /// override that when a machine works across multiple repositories that each need a distinct
+    /// key stored under a distinct variable name.
     /// </summary>
-    private const string ApiKeyEnvironmentVariable = "ADR_CLI_AI_API_KEY";
+    private const string DefaultApiKeyEnvironmentVariable = "ADR_CLI_AI_API_KEY";
 
     private const string ContextSystemInstructions =
         "You draft the Context section for a new Architecture Decision Record (ADR) - the situation and " +
@@ -225,7 +227,10 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
     private AzureOpenAIClient CreateClient()
     {
         var endpoint = new Uri(settings.AiSettings.Endpoint);
-        var apiKey = Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable);
+        var apiKeyEnvironmentVariable = string.IsNullOrWhiteSpace(settings.AiSettings.ApiKeyName)
+            ? DefaultApiKeyEnvironmentVariable
+            : settings.AiSettings.ApiKeyName;
+        var apiKey = Environment.GetEnvironmentVariable(apiKeyEnvironmentVariable);
 
         return string.IsNullOrWhiteSpace(apiKey)
             ? new AzureOpenAIClient(endpoint, new DefaultAzureCredential())

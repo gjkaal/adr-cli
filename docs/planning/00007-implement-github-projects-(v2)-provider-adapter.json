@@ -1,0 +1,30 @@
+{
+  "Status": "Active",
+  "Description": "Per ADR 00008 (revised): second ITaskSyncProvider implementation, targeting GitHub Projects v2 boards (both user- and organization-owned) via GraphQL. Creates Draft Issues on export, reads/writes a configurable single-select status field, and authenticates via a GitHub PAT.",
+  "Related": {},
+  "Logs": [
+    {
+      "DateTime": "2026-08-04T13:52:27.959112Z",
+      "Status": "Active",
+      "Justification": "Imported from GitHubProjects (external status: In progress)."
+    },
+    {
+      "DateTime": "2026-08-04T13:57:00.7558048Z",
+      "Status": "Active",
+      "Justification": "Imported from GitHubProjects (external status: In progress)."
+    }
+  ],
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1PT6k",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T13:57:00.7558039Z"
+    }
+  ],
+  "DateTime": "2026-08-04T00:00:00+02:00",
+  "FileName": "00007-implement-github-projects-(v2)-provider-adapter",
+  "RecordId": 7,
+  "Title": "Implement GitHub Projects (v2) provider adapter"
+}

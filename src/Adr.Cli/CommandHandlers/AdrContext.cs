@@ -37,8 +37,9 @@ public class AdrContext : IAdrContext
     {
         var configLabel = context.ConfigFilePath ?? "(none found - using built-in defaults)";
         var aiLabel = context.AiConfigured ? $"connected ({context.AiProvider})" : "not connected";
+        var syncLabel = context.SyncConfigured ? $"connected ({context.SyncProvider})" : "not connected";
         return Response.Ok(
             $"{verb}: project=\"{context.ProjectName}\", config={configLabel}, " +
-            $"docs={context.DocFolder}, tasks={context.TasksFolder}, ai={aiLabel}.");
+            $"docs={context.DocFolder}, tasks={context.TasksFolder}, ai={aiLabel}, sync={syncLabel}.");
     }
 }

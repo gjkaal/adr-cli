@@ -102,6 +102,7 @@ public sealed class WithAzureFoundryProposalGeneratorIntegration
         }
 
         public AiProviderSettings AiSettings { get; }
+        public Adr.Cli.Sync.TaskSyncProviderSettings SyncSettings => throw new NotSupportedException();
 
         public string CurrentPath => throw new NotSupportedException();
         public string DefaultDocFolder => throw new NotSupportedException();

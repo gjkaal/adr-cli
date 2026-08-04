@@ -1,3 +1,5 @@
+using Adr.Cli.Sync;
+
 using System.IO.Abstractions;
 
 namespace Adr.Cli;
@@ -61,6 +63,14 @@ public interface IAdrSettings
     /// <see cref="AiProviderSettings.Provider" /> means AI generation is not configured.
     /// </summary>
     AiProviderSettings AiSettings { get; }
+
+    /// <summary>
+    /// Configuration for the optional task sync connector (Azure DevOps, GitHub Projects, ...). An
+    /// empty <see cref="TaskSyncProviderSettings.Provider" /> means no connector is configured, and
+    /// the registered <c>ITaskSyncProvider</c> will be a no-op. Only one connector is active at a
+    /// time; see <see cref="TaskSyncProviderSettings" /> for why its settings are opaque here.
+    /// </summary>
+    TaskSyncProviderSettings SyncSettings { get; }
 
     /// <summary>
     /// Re-resolve settings from the adr.config.json found by searching upward from

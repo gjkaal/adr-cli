@@ -1,0 +1,11 @@
+{
+  "Status": "New",
+  "Description": "Per ADR 00009: ContentSyncMarker hash/marker mechanics, TaskSyncState.Mismatch, symmetric export/import divergence checks, --force override.",
+  "Related": {},
+  "Logs": [],
+  "SyncLinks": [],
+  "DateTime": "2026-08-04T00:00:00+02:00",
+  "FileName": "00008-add-hash-based-content-conflict-detection-to-task-export-import",
+  "RecordId": 8,
+  "Title": "Add hash-based content conflict detection to task export/import"
+}

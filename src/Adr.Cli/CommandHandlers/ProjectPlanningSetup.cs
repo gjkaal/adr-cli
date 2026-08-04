@@ -1,7 +1,12 @@
 using System;
 using System.CommandLine;
+using System.Collections.Generic;
+using System.Text;
 
 using Adr.Cli.Services;
+using Adr.Cli.Sync;
+
+using McpCore;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -221,5 +226,99 @@ public static class ProjectPlanningSetup
             stdOut.Write(result);
         });
         return cmd;
+    }
+
+    public static Command ExportTaskCommand(IServiceProvider serviceProvider)
+    {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
+        var cmd = new Command("task-export", "Export tasks to the currently configured sync provider (see ADR 00008), creating or updating each task's external item and pushing its local status.");
+
+        var ids = new Option<string>("--id") { Description = "Comma or space separated task ids to export. Required unless --filter is given." };
+        var filter = CommandOptions.Filter;
+        var force = new Option<bool>("--force") { Description = "Skip the remote-divergence check and overwrite the external item with local content regardless. Intended for a single task (--id) at a time." };
+        var dryRun = new Option<bool>("--dry-run") { Description = "Report what would be created/updated/mismatched, including local status mapping, without writing anything locally or remotely." };
+
+        cmd.Options.Add(ids);
+        cmd.Options.Add(filter);
+        cmd.Options.Add(force);
+        cmd.Options.Add(dryRun);
+
+        cmd.SetAction(async (ParseResult ctx) =>
+        {
+            var idValues = ParseIds(ctx.GetValue(ids));
+            var filterValue = ctx.GetValue(filter);
+            var forceValue = ctx.GetValue(force);
+            var dryRunValue = ctx.GetValue(dryRun);
+
+            var c = serviceProvider.GetRequiredService<IProjectPlanning>();
+            var result = await c.ExportTasksAsync(idValues, filterValue, forceValue, dryRunValue);
+            stdOut.Write(FormatBatchResponse(result));
+        });
+        return cmd;
+    }
+
+    public static Command ImportTaskCommand(IServiceProvider serviceProvider)
+    {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
+        var cmd = new Command("task-import", "Import task status from the currently configured sync provider (see ADR 00008). Defaults to every task with a sync link for the active provider when neither --id nor --filter is given.");
+
+        var ids = new Option<string>("--id") { Description = "Comma or space separated task ids to import." };
+        var filter = CommandOptions.Filter;
+        var dryRun = new Option<bool>("--dry-run") { Description = "Report what would be imported (status mapping, content pull/mismatch, newly discovered tasks) without writing anything locally or remotely." };
+
+        cmd.Options.Add(ids);
+        cmd.Options.Add(filter);
+        cmd.Options.Add(dryRun);
+
+        cmd.SetAction(async (ParseResult ctx) =>
+        {
+            var idValues = ParseIds(ctx.GetValue(ids));
+            var filterValue = ctx.GetValue(filter);
+            var dryRunValue = ctx.GetValue(dryRun);
+
+            var c = serviceProvider.GetRequiredService<IProjectPlanning>();
+            var result = await c.ImportTaskStatusAsync(idValues, filterValue, dryRunValue);
+            stdOut.Write(FormatBatchResponse(result));
+        });
+        return cmd;
+    }
+
+    private static List<int> ParseIds(string? rawIds)
+    {
+        if (string.IsNullOrWhiteSpace(rawIds))
+        {
+            return [];
+        }
+
+        var result = new List<int>();
+        foreach (var part in rawIds.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (int.TryParse(part, out var id))
+            {
+                result.Add(id);
+            }
+        }
+        return result;
+    }
+
+    private static Response FormatBatchResponse(Response<TaskSyncBatchResult> response)
+    {
+        if (!response.Success || response.Value == null)
+        {
+            return Response.Fail(response.Message ?? "The operation failed.");
+        }
+
+        var batch = response.Value;
+        var sb = new StringBuilder();
+        foreach (var item in batch.Items)
+        {
+            sb.AppendLine($"[{item.Outcome}] #{item.RecordId} {item.Title} - {item.Message}");
+        }
+        sb.AppendLine();
+        sb.AppendLine($"Succeeded: {batch.SucceededCount}, Unmapped: {batch.UnmappedCount}, Mismatch: {batch.MismatchCount}, Failed: {batch.FailedCount}, Skipped: {batch.SkippedCount}, Total: {batch.Items.Count}");
+
+        return batch.FailedCount > 0
+            ? Response.Fail(sb.ToString())
+            : Response.Ok(sb.ToString());
     }
 }

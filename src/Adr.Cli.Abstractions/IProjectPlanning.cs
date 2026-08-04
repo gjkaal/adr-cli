@@ -1,3 +1,6 @@
+using Adr.Cli.Sync;
+
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 using McpCore;
@@ -118,4 +121,55 @@ public interface IProjectPlanning
     /// Generate a table of content markdown file in the configuration root, next to the config file.
     /// </summary>
     Task<Response> GeneratePlanningTocAsync();
+
+    /// <summary>
+    /// Export tasks to the currently configured sync provider, creating or updating each task's
+    /// external item and pushing its local status via the provider's local-to-external status map.
+    /// One task failing does not stop the rest of the batch.
+    /// </summary>
+    /// <param name="taskIds">
+    /// Explicit task ids to export. Takes priority over <paramref name="filter" /> when non-empty.
+    /// </param>
+    /// <param name="filter">
+    /// A <c>task-find</c>-style word filter against title/description, used when
+    /// <paramref name="taskIds" /> is empty. At least one of the two is required - unlike import,
+    /// export has no all-tasks default.
+    /// </param>
+    /// <param name="force">
+    /// Skip the remote-divergence check for every task in this batch and push local content
+    /// regardless, overwriting whatever is on the external item. A deliberate override, not the
+    /// default - intended for a single task at a time (see <see cref="ITaskSyncProvider.ExportAsync" />).
+    /// </param>
+    /// <param name="dryRun">
+    /// Compute and report what each task's export would do (create/update/mismatch, status mapping)
+    /// without writing anything locally or remotely.
+    /// </param>
+    Task<Response<TaskSyncBatchResult>> ExportTasksAsync(IReadOnlyList<int> taskIds, string? filter, bool force = false, bool dryRun = false);
+
+    /// <summary>
+    /// Import status from the currently configured sync provider for each selected task, mapping it
+    /// to a local <c>PlanningStatus</c> via the provider's external-to-local status map. One task
+    /// failing does not stop the rest of the batch.
+    /// </summary>
+    /// <param name="taskIds">
+    /// Explicit task ids to import. Takes priority over <paramref name="filter" /> when non-empty.
+    /// </param>
+    /// <param name="filter">
+    /// A <c>task-find</c>-style word filter against title/description, used when
+    /// <paramref name="taskIds" /> is empty.
+    /// </param>
+    /// <param name="dryRun">
+    /// Compute and report what each task's import would do (status mapping, content pull/mismatch)
+    /// without writing anything locally or remotely - including skipping the marker-refreshing
+    /// re-export that would normally follow a safe content pull, and skipping the creation of any
+    /// newly discovered task.
+    /// </param>
+    /// <remarks>
+    /// When both <paramref name="taskIds" /> and <paramref name="filter" /> are empty, defaults to
+    /// every task carrying a sync link for the currently active provider, plus discovering and
+    /// (unless <paramref name="dryRun" />) adopting board items with no local counterpart yet. A
+    /// task whose only sync link belongs to a different, no-longer-active provider is reported as
+    /// skipped, not imported.
+    /// </remarks>
+    Task<Response<TaskSyncBatchResult>> ImportTaskStatusAsync(IReadOnlyList<int> taskIds, string? filter, bool dryRun = false);
 }

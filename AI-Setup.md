@@ -36,6 +36,10 @@ order:
 `az login` alone is enough to get started - the API key is only needed if you'd rather not rely on
 an interactive/managed-identity login.
 
+If you work across multiple repositories that each need a different API key (e.g. different Azure
+AI Foundry projects per client), set `"apiKeyName"` in the `ai` section (step 2) to read from a
+differently-named environment variable instead of the `ADR_CLI_AI_API_KEY` default - see step 2.
+
 ## 2. Add the `ai` section to `adr.config.json`
 
 Add an `ai` object next to the existing `path` / `templates` / `tasks` settings:
@@ -65,6 +69,9 @@ Add an `ai` object next to the existing `path` / `templates` / `tasks` settings:
   Endpoints** for the resource. Note some models (e.g. older `gpt-4o` versions) may be in a
   deprecating state and unavailable for new deployments - check the model catalog if deployment
   fails.
+- **apiKeyName** (optional) - name of the environment variable to read the API key from, instead of
+  the `ADR_CLI_AI_API_KEY` default. Only needed if this machine works across multiple repositories
+  that each need a distinct key stored under a distinct variable name.
 
 ## 3. Grant access
 

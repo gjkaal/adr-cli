@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Adr.Cli.Ai;
 using Adr.Cli.Extensions;
 using Adr.Cli.Services;
+using Adr.Cli.Sync;
 
 using McpCore;
 
@@ -22,6 +23,7 @@ public class ProjectPlanning : IProjectPlanning
     private readonly IStdOut stdOut;
     private readonly IProcessHelper processHelper;
     private readonly ITaskProposalGenerator proposalGenerator;
+    private readonly ITaskSyncProvider syncProvider;
 
     public ProjectPlanning(
         IAdrSettings settings,
@@ -29,7 +31,8 @@ public class ProjectPlanning : IProjectPlanning
         IAdrTasksRepository repository,
         IStdOut stdOut,
         IProcessHelper processHelper,
-        ITaskProposalGenerator proposalGenerator)
+        ITaskProposalGenerator proposalGenerator,
+        ITaskSyncProvider syncProvider)
     {
         this.settings = settings;
         this.logger = logger;
@@ -37,6 +40,7 @@ public class ProjectPlanning : IProjectPlanning
         this.stdOut = stdOut;
         this.processHelper = processHelper;
         this.proposalGenerator = proposalGenerator;
+        this.syncProvider = syncProvider;
     }
 
     public async Task<Response> NewTaskAsync(string title, string description, string? dueDate, bool useAi)
@@ -393,5 +397,389 @@ public class ProjectPlanning : IProjectPlanning
             ? Response.Fail($"Could not update task '{record.Title}' with Id:{id} current status is {record.Status}")
             : updateCount > 0 ? Response.Ok($"Task '{record.Title}' with Id:{id} has a new status: {record.Status}")
             : Response.Fail($"No status update for task '{record.Title}' with Id:{id} current status is {record.Status}");
+    }
+
+    public async Task<Response<TaskSyncBatchResult>> ExportTasksAsync(IReadOnlyList<int> taskIds, string? filter, bool force = false, bool dryRun = false)
+    {
+        if (taskIds.Count == 0 && string.IsNullOrWhiteSpace(filter))
+        {
+            return new Response<TaskSyncBatchResult>(false, "Specify at least one task id (--id) or a filter (-q) to export.", new TaskSyncBatchResult());
+        }
+
+        if (force && taskIds.Count != 1)
+        {
+            logger.LogWarning("task-export --force used with {Count} tasks selected - intended for a single task at a time.", taskIds.Count == 0 ? "a filter matching multiple" : taskIds.Count.ToString());
+        }
+
+        var tasks = await ResolveTaskSelectionAsync(taskIds, filter);
+        var batch = new TaskSyncBatchResult();
+
+        foreach (var task in tasks)
+        {
+            batch.Items.Add(await ExportOneAsync(task, force, dryRun));
+        }
+
+        return new Response<TaskSyncBatchResult>(true, null, batch);
+    }
+
+    private async Task<TaskSyncItemResult> ExportOneAsync(TaskRecord task, bool force = false, bool dryRun = false)
+    {
+        var item = new TaskSyncItemResult { RecordId = task.RecordId, Title = task.Title };
+        var existingLink = task.SyncLinks.Find(link => link.Provider == syncProvider.Name);
+
+        var response = await syncProvider.ExportAsync(task, existingLink, force, dryRun);
+        if (!response.Success || response.Value == null)
+        {
+            item.Outcome = TaskSyncItemOutcome.Failed;
+            item.Message = response.Message;
+            return item;
+        }
+
+        var result = response.Value;
+
+        if (result.SyncState == TaskSyncState.Mismatch)
+        {
+            // Mismatch only ever comes from the update path (an existing link with a divergent
+            // remote), so existingLink is always set here - a brand-new export has no baseline to
+            // check and never returns Mismatch.
+            if (!dryRun)
+            {
+                existingLink!.SyncState = TaskSyncState.Mismatch;
+                existingLink.ExternalContentType = result.ExternalContentType;
+                await repository.UpdateMetadataAsync(task.RecordId, task);
+            }
+            item.Outcome = TaskSyncItemOutcome.Mismatch;
+            item.Message = response.Message ?? "Export refused: content mismatch.";
+            item.ExternalId = result.ExternalId;
+            return item;
+        }
+
+        item.Outcome = result.SyncState == TaskSyncState.Synced ? TaskSyncItemOutcome.Succeeded : TaskSyncItemOutcome.Unmapped;
+        item.Message = result.SyncState == TaskSyncState.Synced
+            ? (result.Created ? "Created." : "Updated.")
+            : "Local status has no entry in the export status map; external item content was still created/updated.";
+        item.ExternalId = result.ExternalId;
+        item.ExternalUrl = result.ExternalUrl;
+
+        if (dryRun)
+        {
+            item.Message = response.Message ?? item.Message;
+            return item;
+        }
+
+        if (existingLink == null)
+        {
+            existingLink = new TaskSyncLink { Provider = syncProvider.Name };
+            task.SyncLinks.Add(existingLink);
+        }
+        existingLink.ExternalScope = result.ExternalScope;
+        existingLink.ExternalId = result.ExternalId;
+        existingLink.ExternalContentType = result.ExternalContentType;
+        existingLink.ExternalUrl = result.ExternalUrl;
+        existingLink.SyncState = result.SyncState;
+        existingLink.LastSyncedAt = DateTime.UtcNow;
+        await repository.UpdateMetadataAsync(task.RecordId, task);
+
+        return item;
+    }
+
+    public async Task<Response<TaskSyncBatchResult>> ImportTaskStatusAsync(IReadOnlyList<int> taskIds, string? filter, bool dryRun = false)
+    {
+        var batch = new TaskSyncBatchResult();
+
+        if (taskIds.Count > 0 || !string.IsNullOrWhiteSpace(filter))
+        {
+            foreach (var task in await ResolveTaskSelectionAsync(taskIds, filter))
+            {
+                batch.Items.Add(await ImportOneAsync(task, dryRun));
+            }
+            return new Response<TaskSyncBatchResult>(true, null, batch);
+        }
+
+        // Default scope: every task already linked to the active provider, plus discovering and
+        // adopting board items that have no local counterpart yet (see ADR 00009).
+        foreach (var task in await ResolveTasksWithActiveProviderLinkAsync())
+        {
+            batch.Items.Add(await ImportOneAsync(task, dryRun));
+        }
+        batch.Items.AddRange(await DiscoverAndAdoptNewTasksAsync(dryRun));
+
+        return new Response<TaskSyncBatchResult>(true, null, batch);
+    }
+
+    /// <summary>
+    /// Finds items on the active provider's board with no content-sync marker (never pushed through
+    /// this tool) and no matching local task title, and adopts each as a brand-new local task -
+    /// linked, pushed once to establish a valid hash marker, and its current status imported so it
+    /// doesn't sit at the default "New" status until a second <c>task-import</c> run.
+    /// </summary>
+    private async Task<List<TaskSyncItemResult>> DiscoverAndAdoptNewTasksAsync(bool dryRun = false)
+    {
+        var results = new List<TaskSyncItemResult>();
+        var discoverResponse = await syncProvider.DiscoverItemsAsync();
+        if (!discoverResponse.Success || discoverResponse.Value == null)
+        {
+            // Best-effort: discovery not supported/configured is not a batch failure.
+            return results;
+        }
+
+        var localTitles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var id in FindRecordIds(0).Distinct())
+        {
+            var record = await repository.ReadMetadataAsync(id);
+            if (record != null)
+            {
+                localTitles.Add(record.Title.Trim());
+            }
+        }
+
+        foreach (var discovered in discoverResponse.Value)
+        {
+            if (discovered.HasMarker || localTitles.Contains(discovered.Title.Trim()))
+            {
+                continue;
+            }
+
+            results.Add(await AdoptDiscoveredItemAsync(discovered, dryRun));
+        }
+
+        return results;
+    }
+
+    private async Task<TaskSyncItemResult> AdoptDiscoveredItemAsync(DiscoveredExternalItem discovered, bool dryRun = false)
+    {
+        var (description, details) = TaskBodyFormat.Split(discovered.Body);
+        var task = new TaskRecord
+        {
+            Title = discovered.Title,
+            Status = PlanningStatus.New,
+            Description = description,
+            Details = details
+        };
+
+        if (dryRun)
+        {
+            return new TaskSyncItemResult
+            {
+                RecordId = 0,
+                Title = task.Title,
+                Outcome = TaskSyncItemOutcome.Succeeded,
+                Message = $"[DRY RUN] Would adopt as a new local task from {syncProvider.Name} (external id {discovered.ExternalId}). No file was created.",
+                ExternalId = discovered.ExternalId
+            };
+        }
+
+        var link = new TaskSyncLink
+        {
+            Provider = syncProvider.Name,
+            ExternalScope = discovered.ExternalScope,
+            ExternalId = discovered.ExternalId
+        };
+        task.SyncLinks.Add(link);
+
+        await repository.WriteRecordAsync(task);
+        var item = new TaskSyncItemResult { RecordId = task.RecordId, Title = task.Title };
+
+        // Push back immediately to embed a valid hash marker, per ADR 00009 - the item currently has
+        // none, so nothing can safely detect divergence against it yet.
+        var exportResponse = await syncProvider.ExportAsync(task, link);
+        if (!exportResponse.Success || exportResponse.Value == null)
+        {
+            await repository.UpdateMetadataAsync(task.RecordId, task);
+            item.Outcome = TaskSyncItemOutcome.Failed;
+            item.Message = $"Adopted as new local task #{task.RecordId} from {syncProvider.Name}, but pushing a hash marker failed: {exportResponse.Message}";
+            item.ExternalId = discovered.ExternalId;
+            return item;
+        }
+
+        link.ExternalScope = exportResponse.Value.ExternalScope;
+        link.ExternalId = exportResponse.Value.ExternalId;
+        link.ExternalContentType = exportResponse.Value.ExternalContentType;
+        link.ExternalUrl = exportResponse.Value.ExternalUrl;
+        link.SyncState = exportResponse.Value.SyncState;
+        link.LastSyncedAt = DateTime.UtcNow;
+        await repository.UpdateMetadataAsync(task.RecordId, task);
+
+        // Also pull current status right away, so the new task doesn't sit at "New" until a second
+        // task-import run.
+        var statusResult = await ImportOneAsync(task);
+
+        item.Outcome = TaskSyncItemOutcome.Succeeded;
+        item.Message = $"Adopted as new local task #{task.RecordId} from {syncProvider.Name}. {statusResult.Message}";
+        item.ExternalId = link.ExternalId;
+        item.ExternalUrl = link.ExternalUrl;
+        return item;
+    }
+
+    private async Task<TaskSyncItemResult> ImportOneAsync(TaskRecord task, bool dryRun = false)
+    {
+        var item = new TaskSyncItemResult { RecordId = task.RecordId, Title = task.Title };
+        var existingLink = task.SyncLinks.Find(link => link.Provider == syncProvider.Name);
+        if (existingLink == null || string.IsNullOrWhiteSpace(existingLink.ExternalId))
+        {
+            item.Outcome = TaskSyncItemOutcome.Skipped;
+            item.Message = "No sync link for the currently active provider.";
+            return item;
+        }
+
+        var response = await syncProvider.ImportAsync(task, existingLink, dryRun);
+        if (!response.Success || response.Value == null)
+        {
+            item.Outcome = TaskSyncItemOutcome.Failed;
+            item.Message = response.Message;
+            return item;
+        }
+
+        var result = response.Value;
+
+        if (result.SyncState == TaskSyncState.Mismatch)
+        {
+            // Content diverged on both sides - neither local nor remote is touched. Status may still
+            // have been read by the provider in principle, but we treat a content mismatch as
+            // blocking the whole import, so status is left alone here too.
+            if (!dryRun)
+            {
+                existingLink.ExternalContentType = result.ExternalContentType;
+                existingLink.SyncState = TaskSyncState.Mismatch;
+                await repository.UpdateMetadataAsync(task.RecordId, task);
+            }
+            item.Outcome = TaskSyncItemOutcome.Mismatch;
+            item.Message = response.Message ?? "Import skipped: content mismatch.";
+            item.ExternalId = existingLink.ExternalId;
+            return item;
+        }
+
+        var contentPulled = result.PulledTitle != null && result.PulledBody != null;
+
+        string statusMessage;
+        if (result.SyncState == TaskSyncState.Synced && result.MappedStatus.HasValue)
+        {
+            item.Outcome = TaskSyncItemOutcome.Succeeded;
+            statusMessage = $"Status set to {result.MappedStatus.Value}.";
+        }
+        else
+        {
+            item.Outcome = TaskSyncItemOutcome.Unmapped;
+            statusMessage = $"External status \"{result.ExternalStatusRaw}\" has no import mapping; local status left unchanged.";
+        }
+
+        item.ExternalId = existingLink.ExternalId;
+
+        if (dryRun)
+        {
+            item.Message = contentPulled
+                ? $"[DRY RUN] Would pull updated content from {syncProvider.Name} and refresh its hash marker. {statusMessage}"
+                : $"[DRY RUN] {statusMessage}";
+            return item;
+        }
+
+        existingLink.ExternalContentType = result.ExternalContentType;
+        if (!string.IsNullOrEmpty(result.ExternalUrl))
+        {
+            existingLink.ExternalUrl = result.ExternalUrl;
+        }
+
+        if (contentPulled)
+        {
+            task.Title = result.PulledTitle!;
+            var (description, details) = TaskBodyFormat.Split(result.PulledBody!);
+            task.Description = description;
+            task.Details = details;
+        }
+
+        if (result.SyncState == TaskSyncState.Synced && result.MappedStatus.HasValue)
+        {
+            task.Status = result.MappedStatus.Value;
+            task.Logs.Add(new StatusUpdate
+            {
+                DateTime = DateTime.UtcNow,
+                Status = result.MappedStatus.Value,
+                Justification = $"Imported from {syncProvider.Name} (external status: {result.ExternalStatusRaw})."
+            });
+        }
+
+        existingLink.SyncState = result.SyncState;
+        existingLink.LastSyncedAt = DateTime.UtcNow;
+        await repository.UpdateMetadataAsync(task.RecordId, task);
+
+        if (!contentPulled)
+        {
+            item.Message = statusMessage;
+            return item;
+        }
+
+        // Local adopted remote's content - push again to refresh the hash marker baseline (see ADR
+        // 00009), so the next sync in either direction compares against the content we just adopted,
+        // not the stale pre-pull baseline.
+        var pushBack = await syncProvider.ExportAsync(task, existingLink);
+        if (pushBack.Success && pushBack.Value != null && pushBack.Value.SyncState != TaskSyncState.Mismatch)
+        {
+            existingLink.ExternalScope = pushBack.Value.ExternalScope;
+            existingLink.ExternalId = pushBack.Value.ExternalId;
+            existingLink.ExternalContentType = pushBack.Value.ExternalContentType;
+            existingLink.ExternalUrl = pushBack.Value.ExternalUrl;
+            existingLink.LastSyncedAt = DateTime.UtcNow;
+            await repository.UpdateMetadataAsync(task.RecordId, task);
+            item.Message = $"Pulled updated content from {syncProvider.Name}. {statusMessage}";
+        }
+        else
+        {
+            item.Message = $"Pulled updated content from {syncProvider.Name}, but refreshing the remote hash marker failed: {pushBack.Message ?? "unknown error"}. {statusMessage}";
+        }
+
+        return item;
+    }
+
+    private async Task<List<TaskRecord>> ResolveTaskSelectionAsync(IReadOnlyList<int> taskIds, string? filter)
+    {
+        var records = new List<TaskRecord>();
+
+        if (taskIds.Count > 0)
+        {
+            foreach (var id in taskIds.Distinct())
+            {
+                var record = await repository.ReadMetadataAsync(id);
+                if (record != null)
+                {
+                    records.Add(record);
+                }
+            }
+            return records;
+        }
+
+        var words = (filter ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var id in FindRecordIds(0).Distinct())
+        {
+            var record = await repository.ReadMetadataAsync(id);
+            if (record == null)
+            {
+                continue;
+            }
+
+            if (words.Any(word => record.Title.Contains(word, StringComparison.OrdinalIgnoreCase) || record.Description.Contains(word, StringComparison.OrdinalIgnoreCase)))
+            {
+                records.Add(record);
+            }
+        }
+        return records;
+    }
+
+    private async Task<List<TaskRecord>> ResolveTasksWithActiveProviderLinkAsync()
+    {
+        var records = new List<TaskRecord>();
+        foreach (var id in FindRecordIds(0).Distinct())
+        {
+            var record = await repository.ReadMetadataAsync(id);
+            if (record == null)
+            {
+                continue;
+            }
+
+            if (record.SyncLinks.Exists(link => link.Provider == syncProvider.Name && !string.IsNullOrWhiteSpace(link.ExternalId)))
+            {
+                records.Add(record);
+            }
+        }
+        return records;
     }
 }

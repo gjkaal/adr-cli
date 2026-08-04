@@ -1,4 +1,5 @@
 using Adr.Cli.CommandHandlers;
+using Adr.Cli.Sync;
 
 using System;
 using System.Collections.Generic;
@@ -27,6 +28,13 @@ public class TaskRecord : AdrRecordBase, ICloneable
     public Dictionary<int, string> Related { get; set; } = new();
     public List<StatusUpdate> Logs { get; set; } = [];
 
+    /// <summary>
+    /// Per-provider synchronization links for this task. Only one provider is active per
+    /// repository at a time (see <see cref="Sync.TaskSyncLink.Provider" />), but the list can carry
+    /// an inert link left over from a previously-configured provider.
+    /// </summary>
+    public List<TaskSyncLink> SyncLinks { get; set; } = [];
+
     public object Clone()
     {
         var result = new TaskRecord
@@ -43,6 +51,19 @@ public class TaskRecord : AdrRecordBase, ICloneable
         {
             var reference = Related[key];
             result.Related.Add(key, reference);
+        }
+        foreach (var link in SyncLinks)
+        {
+            result.SyncLinks.Add(new TaskSyncLink
+            {
+                Provider = link.Provider,
+                ExternalScope = link.ExternalScope,
+                ExternalId = link.ExternalId,
+                ExternalContentType = link.ExternalContentType,
+                ExternalUrl = link.ExternalUrl,
+                SyncState = link.SyncState,
+                LastSyncedAt = link.LastSyncedAt
+            });
         }
         return result;
     }

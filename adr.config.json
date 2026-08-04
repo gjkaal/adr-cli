@@ -7,5 +7,25 @@
     "provider": "AzureFoundry",
     "endpoint": "https://gjkaal-8671-resource.cognitiveservices.azure.com/",
     "deploymentName": "gpt-5.6-sol"
+  },
+  "sync": {
+    "provider": "GitHubProjects",
+    "syncPatName": "ADR_CLI_SYNC_GITHUB_PAT",
+    "settings": {
+      "ownerType": "User",
+      "owner": "gjkaal",
+      "projectNumber": 2,
+      "statusFieldName": "Status",
+      "importStatusMap": {
+        "Todo": "New",
+        "In progress": "Active",
+        "Done": "Completed"
+      },
+      "exportStatusMap": {
+        "New": "Todo",
+        "Active": "In progress",
+        "Completed": "Done"
+      }
+    }
   }
 }

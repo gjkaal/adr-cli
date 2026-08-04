@@ -1,0 +1,11 @@
+{
+  "Status": "New",
+  "Description": "Per ADR 00009: ITaskSyncProvider.DiscoverItemsAsync, title-matching against local tasks, auto-create\u002Blink\u002Bpush for unmatched board items, GitHub Issue/PullRequest content support alongside DraftIssue.",
+  "Related": {},
+  "Logs": [],
+  "SyncLinks": [],
+  "DateTime": "2026-08-04T00:00:00+02:00",
+  "FileName": "00009-add-remote-item-discovery-and-adoption-to-task-import-default-scope",
+  "RecordId": 9,
+  "Title": "Add remote-item discovery and adoption to task-import default scope"
+}

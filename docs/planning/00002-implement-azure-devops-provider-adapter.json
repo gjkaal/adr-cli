@@ -2,7 +2,27 @@
   "Status": "New",
   "Description": "Per ADR 00008: first ITaskSyncProvider implementation. Handles Azure DevOps authentication, work-item creation/update, and field translation between TaskRecord and Azure DevOps work items. Credentials come from secure configuration/environment, never written to task files.",
   "Related": {},
-  "Logs": [],
+  "Logs": [
+    {
+      "DateTime": "2026-08-04T13:52:26.2213916Z",
+      "Status": "New",
+      "Justification": "Imported from GitHubProjects (external status: Todo)."
+    },
+    {
+      "DateTime": "2026-08-04T13:56:58.9767683Z",
+      "Status": "New",
+      "Justification": "Imported from GitHubProjects (external status: Todo)."
+    }
+  ],
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1PT3U",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T13:56:58.9767668Z"
+    }
+  ],
   "DateTime": "2026-07-22T00:00:00+02:00",
   "FileName": "00002-implement-azure-devops-provider-adapter",
   "RecordId": 2,

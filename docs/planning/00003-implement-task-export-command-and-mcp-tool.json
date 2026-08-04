@@ -1,8 +1,28 @@
 {
-  "Status": "New",
+  "Status": "Completed",
   "Description": "Per ADR 00008: export a local task to its configured external provider, creating a new work item or updating the existing one via stored sync metadata. Expose equivalent behavior through both a CLI command and an MCP tool per ADR 00005.",
   "Related": {},
-  "Logs": [],
+  "Logs": [
+    {
+      "DateTime": "2026-08-04T13:52:26.5379485Z",
+      "Status": "Active",
+      "Justification": "Imported from GitHubProjects (external status: In progress)."
+    },
+    {
+      "DateTime": "2026-08-04T13:56:59.3414555Z",
+      "Status": "Completed",
+      "Justification": "Imported from GitHubProjects (external status: Done)."
+    }
+  ],
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1PT4A",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T13:56:59.3414542Z"
+    }
+  ],
   "DateTime": "2026-07-22T00:00:00+02:00",
   "FileName": "00003-implement-task-export-command-and-mcp-tool",
   "RecordId": 3,

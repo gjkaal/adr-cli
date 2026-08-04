@@ -1,0 +1,12 @@
+{
+  "Status": "Final",
+  "TemplateType": "Ad",
+  "Context": "ADR 00008 established \u0060task-export\u0060/\u0060task-import\u0060 as one-directional, non-merging operations: export always overwrites the external item\u0027s title/description/details from local, and import only ever pulls status, never content - \u0022changes made externally to titles, descriptions, or other unsupported fields are not imported and may be overwritten by a later export.\u0022 That protected against accidental overwrites by simply never attempting the risky direction.",
+  "References": {
+    "8": "Extends and partially supersedes ADR 00008\u0027s content-import restriction"
+  },
+  "DateTime": "2026-08-04T00:00:00+02:00",
+  "FileName": "00009-task-content-and-status-synchronization--hash-based-conflict-detection-and-remote-item-discovery",
+  "RecordId": 9,
+  "Title": "Task content and status synchronization: hash-based conflict detection and remote-item discovery"
+}

@@ -2,7 +2,27 @@
   "Status": "New",
   "Description": "Per ADR 00008: introduce a provider-agnostic interface for exporting/importing tasks, and extend TaskRecord with sync metadata (provider, external project/scope, external work-item id) so exports can update existing work items instead of duplicating them.",
   "Related": {},
-  "Logs": [],
+  "Logs": [
+    {
+      "DateTime": "2026-08-04T13:52:25.856044Z",
+      "Status": "New",
+      "Justification": "Imported from GitHubProjects (external status: Todo)."
+    },
+    {
+      "DateTime": "2026-08-04T13:56:58.5748745Z",
+      "Status": "New",
+      "Justification": "Imported from GitHubProjects (external status: Todo)."
+    }
+  ],
+  "SyncLinks": [
+    {
+      "Provider": "GitHubProjects",
+      "ExternalScope": "gjkaal/2",
+      "ExternalId": "PVTI_lAHOAHlL5s4BfWcqzg1PT2k",
+      "SyncState": "Synced",
+      "LastSyncedAt": "2026-08-04T13:56:58.5746064Z"
+    }
+  ],
   "DateTime": "2026-07-22T00:00:00+02:00",
   "FileName": "00001-define-itasksyncprovider-abstraction-and-add-sync-metadata-to-taskrecord",
   "RecordId": 1,
