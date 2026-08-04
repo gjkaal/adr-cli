@@ -7,21 +7,73 @@ namespace Adr.Cli.Ai.AzureFoundry;
 public sealed class WithAzureFoundryProposalGenerator
 {
     [Fact]
-    public void ParseProposal_WellFormedJson_FormatsConsequencesAsProsAndConsLists()
+    public void ParseContext_WellFormedJson_ReturnsContext()
+    {
+        var reply = """{"context": "Services currently call each other synchronously over HTTP."}""";
+
+        var context = AzureFoundryProposalGenerator.ParseContext(reply);
+
+        Assert.Equal("Services currently call each other synchronously over HTTP.", context);
+    }
+
+    [Fact]
+    public void ParseContext_MalformedJson_ReturnsEmpty()
+    {
+        var context = AzureFoundryProposalGenerator.ParseContext("I recommend adopting a message bus.");
+
+        Assert.Equal(string.Empty, context);
+    }
+
+    [Fact]
+    public void ParseDecision_PropertyNameCasingDiffersFromModel_StillDeserializes()
+    {
+        var reply = """{"Decision":"Adopt a message bus for service integration."}""";
+
+        var decision = AzureFoundryProposalGenerator.ParseDecision(reply);
+
+        Assert.Equal("Adopt a message bus for service integration.", decision);
+    }
+
+    [Fact]
+    public void ParseDecision_MalformedJson_ReturnsEmpty()
+    {
+        var decision = AzureFoundryProposalGenerator.ParseDecision("not json");
+
+        Assert.Equal(string.Empty, decision);
+    }
+
+    [Fact]
+    public void ParseConsequences_WellFormedJson_ReturnsProsAndCons()
     {
         var reply = """
             {
-                "context": "Services currently call each other synchronously over HTTP.",
-                "decision": "Adopt a message bus for service integration.",
                 "pros": ["Services are decoupled.", "Retries become easier."],
                 "cons": ["Operational overhead increases (mitigate with managed hosting)."]
             }
             """;
 
-        var proposal = AzureFoundryProposalGenerator.ParseProposal(reply);
+        var (pros, cons) = AzureFoundryProposalGenerator.ParseConsequences(reply);
 
-        Assert.Equal("Services currently call each other synchronously over HTTP.", proposal.Context);
-        Assert.Equal("Adopt a message bus for service integration.", proposal.Decision);
+        Assert.Equal(["Services are decoupled.", "Retries become easier."], pros);
+        Assert.Equal(["Operational overhead increases (mitigate with managed hosting)."], cons);
+    }
+
+    [Fact]
+    public void ParseConsequences_MalformedJson_ReturnsEmptyLists()
+    {
+        var (pros, cons) = AzureFoundryProposalGenerator.ParseConsequences("not json");
+
+        Assert.Empty(pros);
+        Assert.Empty(cons);
+    }
+
+    [Fact]
+    public void FormatConsequences_ProsAndCons_RendersAsMarkdownLists()
+    {
+        var formatted = AzureFoundryProposalGenerator.FormatConsequences(
+            ["Services are decoupled.", "Retries become easier."],
+            ["Operational overhead increases (mitigate with managed hosting)."]);
+
         Assert.Equal(
             "*Pro's:*\n" +
             "- Services are decoupled.\n" +
@@ -29,42 +81,15 @@ public sealed class WithAzureFoundryProposalGenerator
             "\n" +
             "*Con's:*\n" +
             "- Operational overhead increases (mitigate with managed hosting).",
-            proposal.Consequences);
+            formatted);
     }
 
     [Fact]
-    public void ParseProposal_PropertyNameCasingDiffersFromModel_StillDeserializes()
+    public void FormatConsequences_NoProsOrCons_ReturnsEmpty()
     {
-        var reply = """{"Context":"Ctx","Decision":"Dec","Pros":["Pro one"],"Cons":["Con one"]}""";
+        var formatted = AzureFoundryProposalGenerator.FormatConsequences([], []);
 
-        var proposal = AzureFoundryProposalGenerator.ParseProposal(reply);
-
-        Assert.Equal("Ctx", proposal.Context);
-        Assert.Equal("Dec", proposal.Decision);
-        Assert.Contains("Pro one", proposal.Consequences);
-        Assert.Contains("Con one", proposal.Consequences);
-    }
-
-    [Fact]
-    public void ParseProposal_MalformedJson_ReturnsEmptyProposal()
-    {
-        var reply = "I recommend adopting a message bus.";
-
-        var proposal = AzureFoundryProposalGenerator.ParseProposal(reply);
-
-        Assert.Equal(string.Empty, proposal.Context);
-        Assert.Equal(string.Empty, proposal.Decision);
-        Assert.Equal(string.Empty, proposal.Consequences);
-    }
-
-    [Fact]
-    public void ParseProposal_NoProsOrCons_ConsequencesIsEmpty()
-    {
-        var reply = """{"context":"Ctx","decision":"Dec","pros":[],"cons":[]}""";
-
-        var proposal = AzureFoundryProposalGenerator.ParseProposal(reply);
-
-        Assert.Equal(string.Empty, proposal.Consequences);
+        Assert.Equal(string.Empty, formatted);
     }
 
     [Fact]

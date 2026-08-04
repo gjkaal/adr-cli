@@ -20,8 +20,11 @@ namespace Adr.Cli.Ai.AzureFoundry;
 /// <summary>
 /// Drafts ADR proposals via the Azure OpenAI Chat Completions API - the stable, GA surface, not the
 /// newer/experimental Responses or Projects/Agents APIs, both of which had unresolvable version
-/// churn against this deployment. Existing-ADR summaries are stuffed directly into a single
-/// request - no persistent agent, thread, or tool-calling round trip.
+/// churn against this deployment. Context, Decision, and Consequences are drafted as three
+/// sequential requests rather than one combined structured-output call - a single call asking the
+/// model for all three fields at once was found to intermittently return an empty Decision and/or
+/// Consequences even with a strict JSON schema. Each call has a narrower job and a smaller schema,
+/// and later calls are grounded in the earlier calls' actual output (not just the user's input).
 /// </summary>
 public class AzureFoundryProposalGenerator : IAdrProposalGenerator
 {
@@ -32,25 +35,56 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
     /// </summary>
     private const string ApiKeyEnvironmentVariable = "ADR_CLI_AI_API_KEY";
 
-    private const string SystemInstructions =
-        "You draft the Context, Decision, and Consequences sections for a new Architecture Decision Record (ADR). " +
-        "If the user already provided a Context, refine or complete it rather than discarding it - stay consistent with their intent. " +
-        "If no Context was provided, draft one from the title and the existing ADRs listed in the prompt. " +
-        "A template may be included as a structure and tone example - follow its style but never copy its placeholder text. " +
-        "The Decision must follow directly from the Context you return. " +
-        "Consequences are not prose - list them as separate pros and cons, each a short, distinct, beneficial or negative result " +
-        "that follows directly from the Decision. A con may optionally end with a short mitigation in parentheses. " +
-        "Never restate the Context or Decision as a pro or con.";
+    private const string ContextSystemInstructions =
+        "You draft the Context section for a new Architecture Decision Record (ADR) - the situation and " +
+        "forces behind the decision, not the decision itself. If the user already provided a Context, " +
+        "refine or complete it rather than discarding it - stay consistent with their intent. If no " +
+        "Context was provided, draft one from the title and the existing ADRs listed in the prompt. A " +
+        "template may be included as a structure and tone example - follow its style but never copy its " +
+        "placeholder text.";
 
-    private const string ProposalSchemaName = "adr_proposal";
+    private const string DecisionSystemInstructions =
+        "You draft the Decision section for a new Architecture Decision Record (ADR), given its Title and " +
+        "Context. The Decision must follow directly from the Context - state what was decided and, " +
+        "briefly, why. Never restate the Context. A template may be included as a structure and tone " +
+        "example - follow its style but never copy its placeholder text.";
 
-    private static readonly BinaryData ProposalSchema = BinaryData.FromBytes(
+    private const string ConsequencesSystemInstructions =
+        "You draft the Consequences section for a new Architecture Decision Record (ADR), given its " +
+        "Title, Context, and Decision. Consequences are not prose - list them as separate pros and cons, " +
+        "each a short, distinct, beneficial or negative result that follows directly from the Decision. " +
+        "A con may optionally end with a short mitigation in parentheses. Never restate the Context or " +
+        "Decision as a pro or con.";
+
+    private static readonly BinaryData ContextSchema = BinaryData.FromBytes(
         """
         {
             "type": "object",
             "properties": {
-                "context": { "type": "string", "description": "The situation and forces behind the decision." },
-                "decision": { "type": "string", "description": "The decision made. Must follow from context, not restate it." },
+                "context": { "type": "string", "description": "The situation and forces behind the decision." }
+            },
+            "required": ["context"],
+            "additionalProperties": false
+        }
+        """u8.ToArray());
+
+    private static readonly BinaryData DecisionSchema = BinaryData.FromBytes(
+        """
+        {
+            "type": "object",
+            "properties": {
+                "decision": { "type": "string", "description": "The decision made. Must follow from context, not restate it." }
+            },
+            "required": ["decision"],
+            "additionalProperties": false
+        }
+        """u8.ToArray());
+
+    private static readonly BinaryData ConsequencesSchema = BinaryData.FromBytes(
+        """
+        {
+            "type": "object",
+            "properties": {
                 "pros": {
                     "type": "array",
                     "items": { "type": "string" },
@@ -62,7 +96,7 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
                     "description": "Negative results of the decision, one per entry, optionally ending with a mitigation in parentheses."
                 }
             },
-            "required": ["context", "decision", "pros", "cons"],
+            "required": ["pros", "cons"],
             "additionalProperties": false
         }
         """u8.ToArray());
@@ -84,19 +118,19 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
         {
             var azureClient = CreateClient();
             var chatClient = azureClient.GetChatClient(settings.AiSettings.DeploymentName);
-
             var templateExample = await TryReadTemplateExampleAsync(templateType);
-            var userPrompt = BuildUserPrompt(title, context, existingRecords, templateExample);
-            var options = new ChatCompletionOptions
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(ProposalSchemaName, ProposalSchema, jsonSchemaIsStrict: true)
-            };
-            ChatCompletion completion = await chatClient.CompleteChatAsync(
-                [new SystemChatMessage(SystemInstructions), new UserChatMessage(userPrompt)],
-                options);
 
-            var replyText = string.Concat(completion.Content.Select(part => part.Text));
-            var proposal = ParseProposal(replyText);
+            var draftedContext = await DraftContextAsync(chatClient, title, context, existingRecords, templateExample);
+            var draftedDecision = await DraftDecisionAsync(chatClient, title, draftedContext, templateExample);
+            var (pros, cons) = await DraftConsequencesAsync(chatClient, title, draftedContext, draftedDecision);
+
+            var proposal = new AdrProposal
+            {
+                Context = draftedContext,
+                Decision = draftedDecision,
+                Consequences = FormatConsequences(pros, cons)
+            };
+
             if (!IsWellFormed(proposal))
             {
                 logger.LogWarning("AI proposal generation returned incomplete or degenerate content for '{Title}'.", title);
@@ -113,6 +147,79 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
             logger.LogWarning(ex, "AI proposal generation failed for '{Title}'.", title);
             return new Response<AdrProposal>(false, $"AI proposal generation failed: {ex.Message}", new AdrProposal());
         }
+    }
+
+    private async Task<string> DraftContextAsync(ChatClient chatClient, string title, string context, IReadOnlyList<AdrSummary> existingRecords, string? templateExample)
+    {
+        var prompt = new StringBuilder();
+        prompt.AppendLine($"Title: {title}");
+        if (!string.IsNullOrWhiteSpace(context))
+        {
+            prompt.AppendLine($"Context so far (refine or complete it, don't discard it): {context}");
+        }
+        else
+        {
+            prompt.AppendLine("No context has been written yet - draft one from the title and the existing ADRs below.");
+        }
+
+        AppendTemplateExample(prompt, templateExample);
+
+        if (existingRecords.Count > 0)
+        {
+            prompt.AppendLine();
+            prompt.AppendLine("Existing ADRs in this repository, for consistency and to flag conflicts:");
+            prompt.AppendLine(SearchExistingRecords([], existingRecords));
+        }
+
+        var replyText = await CompleteAsync(chatClient, ContextSystemInstructions, prompt.ToString(), "adr_context", ContextSchema);
+        return ParseContext(replyText);
+    }
+
+    private async Task<string> DraftDecisionAsync(ChatClient chatClient, string title, string draftedContext, string? templateExample)
+    {
+        var prompt = new StringBuilder();
+        prompt.AppendLine($"Title: {title}");
+        prompt.AppendLine($"Context: {draftedContext}");
+        AppendTemplateExample(prompt, templateExample);
+
+        var replyText = await CompleteAsync(chatClient, DecisionSystemInstructions, prompt.ToString(), "adr_decision", DecisionSchema);
+        return ParseDecision(replyText);
+    }
+
+    private async Task<(List<string> Pros, List<string> Cons)> DraftConsequencesAsync(ChatClient chatClient, string title, string draftedContext, string draftedDecision)
+    {
+        var prompt = new StringBuilder();
+        prompt.AppendLine($"Title: {title}");
+        prompt.AppendLine($"Context: {draftedContext}");
+        prompt.AppendLine($"Decision: {draftedDecision}");
+
+        var replyText = await CompleteAsync(chatClient, ConsequencesSystemInstructions, prompt.ToString(), "adr_consequences", ConsequencesSchema);
+        return ParseConsequences(replyText);
+    }
+
+    private static async Task<string> CompleteAsync(ChatClient chatClient, string systemInstructions, string userPrompt, string schemaName, BinaryData schema)
+    {
+        var options = new ChatCompletionOptions
+        {
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(schemaName, schema, jsonSchemaIsStrict: true)
+        };
+        ChatCompletion completion = await chatClient.CompleteChatAsync(
+            [new SystemChatMessage(systemInstructions), new UserChatMessage(userPrompt)],
+            options);
+
+        return string.Concat(completion.Content.Select(part => part.Text));
+    }
+
+    private static void AppendTemplateExample(StringBuilder prompt, string? templateExample)
+    {
+        if (string.IsNullOrWhiteSpace(templateExample))
+        {
+            return;
+        }
+
+        prompt.AppendLine();
+        prompt.AppendLine("This repository's ADR template, as a structure/tone example (do not copy its placeholder text):");
+        prompt.AppendLine(templateExample);
     }
 
     private AzureOpenAIClient CreateClient()
@@ -156,40 +263,10 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
         }
     }
 
-    private static string BuildUserPrompt(string title, string context, IReadOnlyList<AdrSummary> existingRecords, string? templateExample)
-    {
-        var prompt = new StringBuilder();
-        prompt.AppendLine($"Title: {title}");
-        if (!string.IsNullOrWhiteSpace(context))
-        {
-            prompt.AppendLine($"Context so far (refine or complete it, don't discard it): {context}");
-        }
-        else
-        {
-            prompt.AppendLine("No context has been written yet - draft one from the title and the existing ADRs below.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(templateExample))
-        {
-            prompt.AppendLine();
-            prompt.AppendLine("This repository's ADR template, as a structure/tone example (do not copy its placeholder text):");
-            prompt.AppendLine(templateExample);
-        }
-
-        if (existingRecords.Count > 0)
-        {
-            prompt.AppendLine();
-            prompt.AppendLine("Existing ADRs in this repository, for consistency and to flag conflicts:");
-            prompt.AppendLine(SearchExistingRecords([], existingRecords));
-        }
-
-        return prompt.ToString();
-    }
-
     /// <summary>
     /// Formats existing-ADR summaries, optionally filtered by keyword. Called with no keywords to
     /// inline the full grounding list into the prompt; kept as a standalone, directly-testable
-    /// method rather than inlined into BuildUserPrompt.
+    /// method rather than inlined into the prompt builders.
     /// </summary>
     internal static string SearchExistingRecords(string[] keywords, IReadOnlyList<AdrSummary> existingRecords)
     {
@@ -206,54 +283,59 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
             : string.Join('\n', matches);
     }
 
-    /// <summary>
-    /// The model's raw structured-output shape - Consequences arrive as separate pros/cons lists so
-    /// formatting into the Pro's/Con's markdown lists is under this application's control rather than
-    /// the model's.
-    /// </summary>
-    private sealed class ProposalReply
+    private sealed class ContextReply
     {
         public string Context { get; set; } = string.Empty;
+    }
+
+    private sealed class DecisionReply
+    {
         public string Decision { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// The model's raw structured-output shape for the Consequences call - pros/cons arrive as
+    /// separate lists so formatting into the Pro's/Con's markdown lists is under this application's
+    /// control rather than the model's.
+    /// </summary>
+    private sealed class ConsequencesReply
+    {
         public List<string> Pros { get; set; } = new();
         public List<string> Cons { get; set; } = new();
     }
 
-    /// <summary>
-    /// Parses the model's structured-output reply and formats pros/cons into the Consequences
-    /// markdown. The chat request constrains the model to the <see cref="ProposalSchema" /> JSON
-    /// shape, so this is a plain deserialization rather than markdown-section scanning - there is no
-    /// partial/reordered-header case to recover from.
-    /// </summary>
-    internal static AdrProposal ParseProposal(string replyText)
+    internal static string ParseContext(string replyText)
     {
-        ProposalReply? reply;
+        return TryDeserialize<ContextReply>(replyText)?.Context ?? string.Empty;
+    }
+
+    internal static string ParseDecision(string replyText)
+    {
+        return TryDeserialize<DecisionReply>(replyText)?.Decision ?? string.Empty;
+    }
+
+    internal static (List<string> Pros, List<string> Cons) ParseConsequences(string replyText)
+    {
+        var reply = TryDeserialize<ConsequencesReply>(replyText);
+        return reply == null ? (new List<string>(), new List<string>()) : (reply.Pros, reply.Cons);
+    }
+
+    private static T? TryDeserialize<T>(string json) where T : class
+    {
         try
         {
-            reply = JsonSerializer.Deserialize<ProposalReply>(replyText, JsonOptions);
+            return JsonSerializer.Deserialize<T>(json, JsonOptions);
         }
         catch (JsonException)
         {
-            reply = null;
+            return null;
         }
-
-        if (reply == null)
-        {
-            return new AdrProposal();
-        }
-
-        return new AdrProposal
-        {
-            Context = reply.Context,
-            Decision = reply.Decision,
-            Consequences = FormatConsequences(reply.Pros, reply.Cons)
-        };
     }
 
     /// <summary>
     /// Renders pros/cons as the two markdown lists ADRs in this repository expect under Consequences.
     /// </summary>
-    private static string FormatConsequences(IReadOnlyList<string> pros, IReadOnlyList<string> cons)
+    internal static string FormatConsequences(IReadOnlyList<string> pros, IReadOnlyList<string> cons)
     {
         if (pros.Count == 0 && cons.Count == 0)
         {
@@ -278,7 +360,7 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
     }
 
     /// <summary>
-    /// Structural check against the returned Context: catches the model producing an empty field, or
+    /// Structural check against the returned Context: catches a call producing an empty field, or
     /// degenerate output where Decision restates Context, or Consequences missing a pro or a con
     /// entirely. Purely local - no extra AI round trip.
     /// </summary>

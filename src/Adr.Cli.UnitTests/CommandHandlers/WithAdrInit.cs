@@ -56,6 +56,7 @@ public sealed class WithAdrInit
         settingsMock.SetupGet(m => m.DefaultTasksFolder).Returns("\\adrInit\\tests\\tasks");
         settingsMock.Setup(m => m.GetContentFile(It.IsAny<DocumentType>(), It.IsAny<string>())).Returns(contentFileMock.Object);
         settingsMock.SetupGet(m => m.DocFolderInfo().FullName).Returns("testFolder");
+        settingsMock.SetupGet(m => m.AiSettings).Returns(new AiProviderSettings());
         contentFileMock.SetupGet(m => m.Exists).Returns(true);
         AdrInit sut = new AdrInit(settingsMock.Object, logger, repositoryMock.Object, stdOutMock.Object, procesMock.Object);
         var result = await sut.InitializeAsync("doc", "template", "planning");

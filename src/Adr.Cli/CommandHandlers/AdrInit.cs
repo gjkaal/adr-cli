@@ -24,6 +24,34 @@ public class AdrInit : IAdrInit
     private readonly IStdOut stdOut;
     private readonly IProcessHelper processHelper;
 
+    /// <summary>
+    /// Written verbatim into ADR-00001's Context on a clean init - the template's generic
+    /// {Context} placeholder must never be what a new repository's first ADR shows.
+    /// </summary>
+    private const string InitialContext =
+        "Architecture for agile projects has to be described and defined differently. Not all " +
+        "decisions will be made at once, nor will all of them be done when the project begins.";
+
+    private const string InitialDecision =
+        "We will keep a collection of records for \"architecturally significant\" decisions: those " +
+        "that affect the structure, non-functional characteristics, dependencies, interfaces, or " +
+        "construction techniques.";
+
+    /// <summary>
+    /// Appended to <see cref="InitialDecision" /> only when an AI provider is configured at init
+    /// time - documents, in the ADR itself, that AI-assisted drafting is part of this repository's
+    /// ADR workflow rather than a silent implementation detail.
+    /// </summary>
+    private const string AiDraftingDecisionNote =
+        " Where an AI provider is configured, a preliminary draft of each new ADR's Context, " +
+        "Decision, and Consequences is proposed by an AI agent and must be reviewed before it is " +
+        "treated as final.";
+
+    private const string InitialConsequences =
+        "See [cognitect 2011.11.15](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) " +
+        "for more information about ADR's.\n\n" +
+        "This documentation is created using the [adr-cli tool](https://github.com/gjkaal/adr-cli).";
+
     public AdrInit(
         IAdrSettings settings,
         ILogger<AdrInit> logger,
@@ -66,11 +94,15 @@ public class AdrInit : IAdrInit
             return Response.Ok($"Initialization is already done for {adrRootPath}.");
         }
 
+        var aiConfigured = !string.IsNullOrWhiteSpace(settings.AiSettings.Provider);
         var record = new AdrRecord
         {
             TemplateType = TemplateType.Init,
-            Title = "Record Architecture Decisions initialization",
-            Status = AdrStatus.Accepted
+            Title = "We need ADR's to document architectural decisions",
+            Status = AdrStatus.Accepted,
+            Context = InitialContext,
+            Decision = aiConfigured ? InitialDecision + AiDraftingDecisionNote : InitialDecision,
+            Consequences = InitialConsequences
         };
         await adrRecordRepository.WriteRecordAsync(record);
         record.LaunchEditor(settings, processHelper);
