@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+
 namespace Adr.Cli;
 
 /// <summary>
@@ -8,6 +11,15 @@ public class AdrContextInfo
 {
     public bool Success { get; set; }
     public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// Populated only on a failed <see cref="IAdrSettings.TrySetContext" /> call where more than one
+    /// adr.config.json was found (via downward search, or more than one project sharing the
+    /// requested name) - the caller should call it again with one of these folder paths or project
+    /// names to disambiguate.
+    /// </summary>
+    public IReadOnlyList<AdrContextCandidate> Candidates { get; set; } = Array.Empty<AdrContextCandidate>();
+
     public string ProjectName { get; set; } = string.Empty;
     public string? ConfigFilePath { get; set; }
     public string CurrentPath { get; set; } = string.Empty;

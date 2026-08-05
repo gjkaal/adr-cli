@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Abstractions;
 using System.Linq;
@@ -18,12 +19,34 @@ namespace Adr.Cli
         private const string DefaultAdrPath = "\\docs\\adr";
         private const string DefaultTasksPath = "\\docs\\planning";
 
+        /// <summary>
+        /// How many folder levels TrySetContext's downward search descends before giving up. Bounds
+        /// scan cost in large multi-repo workspaces - deep enough to reach a repo directly nested a
+        /// few levels under a workspace root, shallow enough to not wander into unrelated trees.
+        /// </summary>
+        private const int MaxDownwardSearchDepth = 4;
+
+        /// <summary>
+        /// Folder names the downward search never descends into. Anything starting with '.' is also
+        /// skipped (.git, .vs, .vscode, .serena, .idea, ...) - see <see cref="ShouldSkipDuringDownwardSearch" />.
+        /// </summary>
+        private static readonly HashSet<string> DownwardSearchSkipNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "bin", "obj", "node_modules", "packages", "dist", "build"
+        };
+
         private readonly IPath path;
         private readonly IDirectory directoryService;
         private readonly IFileInfoFactory fileInfoFactory;
         private readonly IDirectoryInfoFactory directoryInfoFactory;
         private string currentPath;
         private string? resolvedConfigFilePath;
+
+        /// <summary>
+        /// Candidates found by the most recent downward search in <see cref="TrySetContext" />, kept
+        /// so a follow-up call can select one by project name without re-scanning the disk.
+        /// </summary>
+        private IReadOnlyList<AdrContextCandidate> lastDiscoveredCandidates = Array.Empty<AdrContextCandidate>();
 
         public AdrSettings(IFileSystem fs)
         {
@@ -104,63 +127,235 @@ namespace Adr.Cli
         };
 
         /// <summary>
-        /// Re-resolve settings from the adr.config.json found by searching upward from
-        /// <paramref name="workingDirectory" />. Never creates a config file or ADR folders - if
-        /// none is found, existing settings are left untouched and a failure is returned.
+        /// Re-resolve settings from an adr.config.json. Never creates a config file or ADR folders -
+        /// if none is found (and nothing can be disambiguated), existing settings are left untouched
+        /// and a failure is returned. See <see cref="IAdrSettings.TrySetContext" /> for the full
+        /// directory-vs-project-name contract.
         /// </summary>
-        public AdrContextInfo TrySetContext(string workingDirectory)
+        public AdrContextInfo TrySetContext(string workingDirectoryOrProjectName)
         {
-            if (string.IsNullOrWhiteSpace(workingDirectory))
+            if (string.IsNullOrWhiteSpace(workingDirectoryOrProjectName))
             {
-                return new AdrContextInfo { Success = false, ErrorMessage = "A working directory is required." };
+                return new AdrContextInfo { Success = false, ErrorMessage = "A directory or project name is required." };
             }
 
-            var directory = directoryInfoFactory.New(workingDirectory);
-            if (!directory.Exists)
+            var directory = TryGetDirectory(workingDirectoryOrProjectName);
+            if (directory != null && directory.Exists)
             {
-                return new AdrContextInfo { Success = false, ErrorMessage = $"Directory does not exist: {workingDirectory}" };
+                var upward = TryResolveUpward(directory.FullName);
+                if (upward != null)
+                {
+                    return upward;
+                }
+
+                var found = FindConfigFilesDownward(directory);
+                lastDiscoveredCandidates = found;
+                return ResolveCandidates(
+                    found,
+                    $"'{workingDirectoryOrProjectName}' has no {DefaultFileName}, and none was found in its parent " +
+                    "directories or subfolders. Run adr_init there first if you want to initialize a new repository.");
             }
 
-            var findPath = directory.FullName;
+            var pool = lastDiscoveredCandidates.Count > 0
+                ? lastDiscoveredCandidates
+                : FindConfigFilesDownward(directoryInfoFactory.New(currentPath));
+            lastDiscoveredCandidates = pool;
+
+            var matches = pool
+                .Where(c => string.Equals(c.ProjectName, workingDirectoryOrProjectName, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+
+            if (matches.Length == 0)
+            {
+                return new AdrContextInfo
+                {
+                    Success = false,
+                    ErrorMessage = $"'{workingDirectoryOrProjectName}' is not an existing directory, and no ADR project " +
+                        $"with that name was found under '{currentPath}'. Call adr_set_context with a directory first " +
+                        "to discover candidates."
+                };
+            }
+
+            return matches.Length == 1
+                ? ApplyCandidate(matches[0])
+                : new AdrContextInfo
+                {
+                    Success = false,
+                    ErrorMessage = $"Multiple ADR projects are named '{workingDirectoryOrProjectName}'.",
+                    Candidates = matches
+                };
+        }
+
+        /// <summary>
+        /// Searches upward only, exactly like the original single-directory contract. Returns null
+        /// (rather than a failure) when nothing is found, so the caller can fall back to a downward
+        /// search instead of giving up - a parse error, in contrast, is returned immediately since
+        /// falling back wouldn't help.
+        /// </summary>
+        private AdrContextInfo? TryResolveUpward(string startPath)
+        {
+            var findPath = startPath;
             while (true)
             {
                 var candidatePath = path.Combine(findPath, DefaultFileName);
                 var candidate = fileInfoFactory.New(candidatePath);
                 if (candidate.Exists)
                 {
-                    using var stream = candidate.Open(FileMode.Open);
-                    if (JsonSerializer.Deserialize(stream, typeof(AdrSettingsFile), jsonOptions) is not AdrSettingsFile value)
-                    {
-                        return new AdrContextInfo { Success = false, ErrorMessage = $"Could not parse {candidate.FullName}." };
-                    }
-
-                    currentPath = findPath;
-                    resolvedConfigFilePath = candidate.FullName;
-                    DocFolder = string.IsNullOrEmpty(value.Path) ? DefaultAdrPath : value.Path.Replace('/', '\\');
-                    TemplateFolder = string.IsNullOrEmpty(value.Templates) ? DefaultTemplatePath : value.Templates.Replace('/', '\\');
-                    TasksFolder = string.IsNullOrEmpty(value.Tasks) ? DefaultTasksPath : value.Tasks.Replace('/', '\\');
-                    ProjectName = string.IsNullOrEmpty(value.ProjectName) ? ProjectName : value.ProjectName;
-                    AiSettings = ToAiProviderSettings(value.Ai);
-                    SyncSettings = ToTaskSyncProviderSettings(value.Sync);
-
-                    return CurrentContext;
+                    return TryApplyConfigFile(candidate, findPath, out var error)
+                        ? CurrentContext
+                        : new AdrContextInfo { Success = false, ErrorMessage = error };
                 }
 
                 var separatorIndex = findPath.LastIndexOf('\\');
                 if (separatorIndex <= 0)
                 {
-                    break;
+                    return null;
                 }
 
                 findPath = findPath[..separatorIndex];
+            }
+        }
+
+        private AdrContextInfo ResolveCandidates(IReadOnlyList<AdrContextCandidate> candidates, string notFoundMessage)
+        {
+            if (candidates.Count == 0)
+            {
+                return new AdrContextInfo { Success = false, ErrorMessage = notFoundMessage };
+            }
+
+            if (candidates.Count == 1)
+            {
+                return ApplyCandidate(candidates[0]);
             }
 
             return new AdrContextInfo
             {
                 Success = false,
-                ErrorMessage = $"No {DefaultFileName} found in '{workingDirectory}' or any parent directory. " +
-                    "Run adr_init there first if you want to initialize a new repository."
+                ErrorMessage = $"Found {candidates.Count} adr.config.json files. Call adr_set_context again with one " +
+                    "of these folder paths or project names.",
+                Candidates = candidates
             };
+        }
+
+        private AdrContextInfo ApplyCandidate(AdrContextCandidate candidate)
+        {
+            var fileInfo = fileInfoFactory.New(candidate.ConfigFilePath);
+            return TryApplyConfigFile(fileInfo, candidate.FolderPath, out var error)
+                ? CurrentContext
+                : new AdrContextInfo { Success = false, ErrorMessage = error };
+        }
+
+        private bool TryApplyConfigFile(IFileInfo candidate, string folderPath, out string? error)
+        {
+            using var stream = candidate.Open(FileMode.Open);
+            if (JsonSerializer.Deserialize(stream, typeof(AdrSettingsFile), jsonOptions) is not AdrSettingsFile value)
+            {
+                error = $"Could not parse {candidate.FullName}.";
+                return false;
+            }
+
+            currentPath = folderPath;
+            resolvedConfigFilePath = candidate.FullName;
+            DocFolder = string.IsNullOrEmpty(value.Path) ? DefaultAdrPath : value.Path.Replace('/', '\\');
+            TemplateFolder = string.IsNullOrEmpty(value.Templates) ? DefaultTemplatePath : value.Templates.Replace('/', '\\');
+            TasksFolder = string.IsNullOrEmpty(value.Tasks) ? DefaultTasksPath : value.Tasks.Replace('/', '\\');
+            ProjectName = string.IsNullOrEmpty(value.ProjectName) ? ProjectName : value.ProjectName;
+            AiSettings = ToAiProviderSettings(value.Ai);
+            SyncSettings = ToTaskSyncProviderSettings(value.Sync);
+            error = null;
+            return true;
+        }
+
+        private IDirectoryInfo? TryGetDirectory(string candidatePath)
+        {
+            try
+            {
+                return directoryInfoFactory.New(candidatePath);
+            }
+            catch (ArgumentException)
+            {
+                // Not a syntactically valid path (e.g. contains characters illegal in a path) - it
+                // can only be meant as a project name.
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Finds every adr.config.json in the subtree under <paramref name="root" />, bounded by
+        /// <see cref="MaxDownwardSearchDepth" />. Does not descend past a folder where a config was
+        /// found - a nested config inside an already-discovered repo is not a separate candidate.
+        /// </summary>
+        private List<AdrContextCandidate> FindConfigFilesDownward(IDirectoryInfo root)
+        {
+            var results = new List<AdrContextCandidate>();
+            ScanDownward(root, MaxDownwardSearchDepth, results);
+            return results;
+        }
+
+        private void ScanDownward(IDirectoryInfo directory, int depthRemaining, List<AdrContextCandidate> results)
+        {
+            if (depthRemaining < 0)
+            {
+                return;
+            }
+
+            IDirectoryInfo[] children;
+            try
+            {
+                children = directory.GetDirectories();
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                return;
+            }
+
+            foreach (var child in children)
+            {
+                if (ShouldSkipDuringDownwardSearch(child.Name))
+                {
+                    continue;
+                }
+
+                var configPath = path.Combine(child.FullName, DefaultFileName);
+                var configFile = fileInfoFactory.New(configPath);
+                if (configFile.Exists)
+                {
+                    results.Add(new AdrContextCandidate
+                    {
+                        ProjectName = TryReadProjectName(configFile) ?? child.Name,
+                        FolderPath = child.FullName,
+                        ConfigFilePath = configFile.FullName
+                    });
+                    continue;
+                }
+
+                ScanDownward(child, depthRemaining - 1, results);
+            }
+        }
+
+        private static bool ShouldSkipDuringDownwardSearch(string directoryName)
+        {
+            return directoryName.StartsWith('.') || DownwardSearchSkipNames.Contains(directoryName);
+        }
+
+        private string? TryReadProjectName(IFileInfo configFile)
+        {
+            try
+            {
+                using var stream = configFile.OpenRead();
+                if (JsonSerializer.Deserialize(stream, typeof(AdrSettingsFile), jsonOptions) is AdrSettingsFile value
+                    && !string.IsNullOrWhiteSpace(value.ProjectName))
+                {
+                    return value.ProjectName;
+                }
+            }
+            catch (Exception ex) when (ex is JsonException or IOException)
+            {
+                // Unreadable/corrupt config - still surface it as a candidate (folder name as
+                // fallback) rather than silently hiding a real repository from the picker.
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -318,12 +513,18 @@ namespace Adr.Cli
             var fileInfoPath = path.Combine(currentPath, DefaultFileName);
             var fileInfo = fileInfoFactory.New(fileInfoPath);
 
-            using (Stream stream = fileInfo.Open(FileMode.OpenOrCreate))
+            // FileMode.Create truncates - OpenOrCreate does not, and would leave trailing bytes
+            // from a previous, longer config file behind, corrupting the JSON.
+            using (Stream stream = fileInfo.Open(FileMode.Create))
             {
                 var value = new AdrSettingsFile
                 {
                     Path = DocFolder,
-                    Templates = TemplateFolder
+                    Templates = TemplateFolder,
+                    Tasks = TasksFolder,
+                    ProjectName = ProjectName,
+                    Ai = ToAiConfigSection(AiSettings),
+                    Sync = ToSyncConfigSection(SyncSettings)
                 };
                 JsonSerializer.Serialize(stream, value, typeof(AdrSettingsFile), jsonOptions);
             }
@@ -383,6 +584,37 @@ namespace Adr.Cli
                 Provider = section.Provider,
                 SyncPatName = section.SyncPatName,
                 Settings = section.Settings
+            };
+        }
+
+        private static AiConfigSection? ToAiConfigSection(AiProviderSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.Provider))
+            {
+                return null;
+            }
+
+            return new AiConfigSection
+            {
+                Provider = settings.Provider,
+                Endpoint = settings.Endpoint,
+                DeploymentName = settings.DeploymentName,
+                ApiKeyName = settings.ApiKeyName
+            };
+        }
+
+        private static SyncConfigSection? ToSyncConfigSection(TaskSyncProviderSettings settings)
+        {
+            if (string.IsNullOrWhiteSpace(settings.Provider))
+            {
+                return null;
+            }
+
+            return new SyncConfigSection
+            {
+                Provider = settings.Provider,
+                SyncPatName = settings.SyncPatName,
+                Settings = settings.Settings
             };
         }
 

@@ -87,12 +87,13 @@ public class AdrInit : IAdrInit
         settings.DocFolder = adrRootPath;
         settings.TasksFolder = projectRootPath;
         settings.TemplateFolder = templateRootPath;
-        settings.Write();
 
         if (settings.RepositoryInitialized())
         {
             return Response.Ok($"Initialization is already done for {adrRootPath}.");
         }
+
+        settings.Write();
 
         var aiConfigured = !string.IsNullOrWhiteSpace(settings.AiSettings.Provider);
         var record = new AdrRecord

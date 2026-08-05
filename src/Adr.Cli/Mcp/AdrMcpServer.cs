@@ -53,13 +53,13 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_set_context",
-                Description = "Pin this MCP session to a specific, already-initialized ADR repository, identified by any directory inside it. Searches upward for an existing adr.config.json; never creates one. Use this in a multi-repo workspace to avoid silently operating against the wrong project's ADRs.",
+                Description = "Pin this MCP session to a specific, already-initialized ADR repository, identified by a directory or by project name. Never creates a config file. For a directory: searches upward first (any directory inside the target repository resolves immediately); if nothing is found upward, searches downward into subfolders instead, so pointing this at a multi-repo workspace root discovers the repositories nested under it. For a project name (when the value isn't an existing directory): matched against whatever adr.config.json files the most recent downward search found. If more than one candidate matches (several nested repos, or several projects sharing a name), the response lists each project name and folder path instead of guessing - call this again with one of them. Use this in a multi-repo workspace to avoid silently operating against the wrong project's ADRs.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
                     Properties = new Dictionary<string, McpPropertyDefinition>
                     {
-                        ["workingDirectory"] = new() { Type = "string", Description = "Any directory inside the target ADR repository (e.g. the repo root or a subfolder). The nearest adr.config.json found by searching upward from here becomes active for the rest of this session (required)." }
+                        ["workingDirectory"] = new() { Type = "string", Description = "A directory inside, above, or containing the target ADR repository/repositories (e.g. the repo root, a subfolder, or a multi-repo workspace root) - or, if not an existing directory, an ADR project's name (required)." }
                     },
                     Required = new[] { "workingDirectory" }
                 }

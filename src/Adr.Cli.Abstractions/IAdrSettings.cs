@@ -73,19 +73,29 @@ public interface IAdrSettings
     TaskSyncProviderSettings SyncSettings { get; }
 
     /// <summary>
-    /// Re-resolve settings from the adr.config.json found by searching upward from
-    /// <paramref name="workingDirectory" />, without creating anything. Intended for a long-lived
-    /// MCP server process to be pointed at a specific, already-initialized repository instead of
-    /// staying fixed to whatever directory the process happened to start in.
+    /// Re-resolve settings from an adr.config.json, without ever creating one. Intended for a
+    /// long-lived MCP server process to be pointed at a specific, already-initialized repository
+    /// instead of staying fixed to whatever directory the process happened to start in.
     /// </summary>
-    /// <param name="workingDirectory">
-    /// Any directory inside the target ADR repository.
+    /// <param name="workingDirectoryOrProjectName">
+    /// Either:
+    /// <list type="bullet">
+    /// <item>A directory. Searches upward first (any directory inside the target ADR repository
+    /// resolves immediately, unambiguously). If nothing is found upward, searches downward into
+    /// subfolders instead (bounded depth, skipping build/hidden folders) to discover nested
+    /// repositories - e.g. pointing this at a multi-repo workspace root.</item>
+    /// <item>A project name (when the value isn't an existing directory). Matched, case-insensitively,
+    /// against whatever adr.config.json files were found by the most recent downward search (or a
+    /// fresh one from the current root if none has run yet).</item>
+    /// </list>
     /// </param>
     /// <returns>
-    /// On success, the resolved context. On failure (no config.json found in that directory or any
-    /// parent), a failed result with an explanatory message; existing settings are left unchanged.
+    /// On success, the resolved context. On failure, a result with an explanatory message and
+    /// existing settings left unchanged - if more than one candidate matched (several nested repos,
+    /// or several projects sharing a name), <see cref="AdrContextInfo.Candidates" /> lists each
+    /// project name and folder path so the caller can call this again with one of them.
     /// </returns>
-    AdrContextInfo TrySetContext(string workingDirectory);
+    AdrContextInfo TrySetContext(string workingDirectoryOrProjectName);
 
     /// <summary>
     /// Directory information for the ADR documents.

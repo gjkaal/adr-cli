@@ -1,3 +1,4 @@
+using System.Text;
 using System.Threading.Tasks;
 
 using McpCore;
@@ -23,14 +24,19 @@ public class AdrContext : IAdrContext
         return Task.FromResult(Format("Current context", settings.CurrentContext));
     }
 
-    public Task<Response> SetContextAsync(string workingDirectory)
+    public Task<Response> SetContextAsync(string workingDirectoryOrProjectName)
     {
-        var context = settings.TrySetContext(workingDirectory);
-        var response = context.Success
-            ? Format("Context set", context)
-            : Response.Fail(context.ErrorMessage ?? $"Could not set context to '{workingDirectory}'.");
+        var context = settings.TrySetContext(workingDirectoryOrProjectName);
+        if (context.Success)
+        {
+            return Task.FromResult(Format("Context set", context));
+        }
 
-        return Task.FromResult(response);
+        var message = context.Candidates.Count > 0
+            ? FormatCandidates(context)
+            : context.ErrorMessage ?? $"Could not set context to '{workingDirectoryOrProjectName}'.";
+
+        return Task.FromResult(Response.Fail(message));
     }
 
     private static Response Format(string verb, AdrContextInfo context)
@@ -41,5 +47,17 @@ public class AdrContext : IAdrContext
         return Response.Ok(
             $"{verb}: project=\"{context.ProjectName}\", config={configLabel}, " +
             $"docs={context.DocFolder}, tasks={context.TasksFolder}, ai={aiLabel}, sync={syncLabel}.");
+    }
+
+    private static string FormatCandidates(AdrContextInfo context)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(context.ErrorMessage);
+        foreach (var candidate in context.Candidates)
+        {
+            sb.AppendLine($"- \"{candidate.ProjectName}\" -> {candidate.FolderPath}");
+        }
+        sb.Append("Call adr_set_context again with one of the folder paths or project names above.");
+        return sb.ToString();
     }
 }

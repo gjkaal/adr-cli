@@ -16,11 +16,15 @@ public interface IAdrContext
     Task<Response> GetContextAsync();
 
     /// <summary>
-    /// Re-resolve settings from the adr.config.json found by searching upward from
-    /// <paramref name="workingDirectory" />. Never creates a config file or ADR folders.
+    /// Re-resolve settings from an adr.config.json, identified either by a directory (searched
+    /// upward first, then downward into subfolders if nothing is found) or by project name. Never
+    /// creates a config file or ADR folders. If more than one candidate matches, the response lists
+    /// each one's project name and folder path instead of guessing - call this again with one of
+    /// them.
     /// </summary>
-    /// <param name="workingDirectory">
-    /// Any directory inside the target ADR repository.
+    /// <param name="workingDirectoryOrProjectName">
+    /// Any directory inside (or above) the target ADR repository, a workspace root to search
+    /// downward from, or an ADR project's name.
     /// </param>
-    Task<Response> SetContextAsync(string workingDirectory);
+    Task<Response> SetContextAsync(string workingDirectoryOrProjectName);
 }
