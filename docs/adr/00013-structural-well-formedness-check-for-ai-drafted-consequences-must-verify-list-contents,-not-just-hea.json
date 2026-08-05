@@ -1,0 +1,12 @@
+{
+  "Status": "Accepted",
+  "TemplateType": "Ad",
+  "Context": "The AI proposal generator (Adr.Cli.Ai.AzureFoundry.AzureFoundryProposalGenerator) drafts Context, Decision, and Consequences as three separate structured-output calls, then runs a local IsWellFormed check before accepting the result - rejecting empty fields, a Decision that merely restates Context, or a Consequences block missing a Pro\u0027s/Con\u0027s section entirely. That check only looked for the \u0022Pro\u0027s:\u0022/\u0022Con\u0027s:\u0022 header substrings in the formatted Consequences text. FormatConsequences always emits both headers even when one list (pros or cons) is empty - e.g. an empty cons array still renders as \u0022*Pro\u0027s:*\\n- a\\n\\n*Con\u0027s:*\\n\u0022 with no items under Con\u0027s. This is schema-valid (the JSON schema doesn\u0027t require non-empty arrays) and passed IsWellFormed, so a real user-visible symptom was ADRs created with ai:true ending up with a Consequences section that had a header but no actual content under it - functionally the same failure as an empty field, just disguised by the header text being present.",
+  "References": {},
+  "RelatedTasks": {},
+  "SyncLinks": [],
+  "DateTime": "2026-08-05T00:00:00+02:00",
+  "FileName": "00013-structural-well-formedness-check-for-ai-drafted-consequences-must-verify-list-contents,-not-just-hea",
+  "RecordId": 13,
+  "Title": "Structural well-formedness check for AI-drafted Consequences must verify list contents, not just headers"
+}

@@ -142,6 +142,38 @@ public sealed class WithAzureFoundryProposalGenerator
         Assert.False(AzureFoundryProposalGenerator.IsWellFormed(proposal));
     }
 
+    /// <summary>
+    /// Regression test: a schema-valid completion with an empty cons array (or pros array) used to
+    /// pass IsWellFormed, because it only checked for the "Con's:"/"Pro's:" header substrings, which
+    /// FormatConsequences still emits even with zero items under them. An empty list is the same
+    /// failure as an empty field entirely - content that looks present but answers nothing.
+    /// </summary>
+    [Fact]
+    public void IsWellFormed_ConsequencesHasHeaderButNoConsItems_ReturnsFalse()
+    {
+        var proposal = new AdrProposal
+        {
+            Context = "Services call each other synchronously over HTTP.",
+            Decision = "Adopt a message bus for service integration.",
+            Consequences = AzureFoundryProposalGenerator.FormatConsequences(["Decoupling improves."], [])
+        };
+
+        Assert.False(AzureFoundryProposalGenerator.IsWellFormed(proposal));
+    }
+
+    [Fact]
+    public void IsWellFormed_ConsequencesHasHeaderButNoProsItems_ReturnsFalse()
+    {
+        var proposal = new AdrProposal
+        {
+            Context = "Services call each other synchronously over HTTP.",
+            Decision = "Adopt a message bus for service integration.",
+            Consequences = AzureFoundryProposalGenerator.FormatConsequences([], ["Operational overhead increases."])
+        };
+
+        Assert.False(AzureFoundryProposalGenerator.IsWellFormed(proposal));
+    }
+
     [Fact]
     public void SearchExistingRecords_NoKeywords_ReturnsAllRecords()
     {

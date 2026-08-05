@@ -30,10 +30,64 @@ public class AdrMcpServer : McpServer
         _serviceProvider = serviceProvider;
     }
 
+    /// <summary>
+    /// Static text returned by adr_workflow_guide. Unlike per-tool descriptions (which only describe
+    /// that one tool's own contract), this states the workflow itself: which files are safe to touch
+    /// directly and which must only ever be changed through a tool, so that fact doesn't have to be
+    /// reverse-engineered from source once per session. Deliberately contains no ADR number
+    /// references - this text ships inside the tool itself and runs against whatever repository has
+    /// adr-cli installed, which has no guaranteed relationship to this project's own docs/adr folder.
+    /// </summary>
+    private const string WorkflowGuideText =
+        "n2adr workflow guide - call this once at the start of a session, before any other adr_*/task_* tool.\n\n" +
+        "1. MULTI-REPO SAFETY. This MCP server is a long-lived process; the adr.config.json it resolved at " +
+        "startup can be stale, or belong to an unrelated repository entirely, with no reliable relationship " +
+        "to whatever directory you're actually working in. Call adr_get_context first, every session. If " +
+        "the reported project/path doesn't match the repository you're actually working in, call " +
+        "adr_set_context with a directory (searches upward, then downward into subfolders if nothing is " +
+        "found upward) or a project name. If it reports multiple candidates, call it again with one of the " +
+        "listed folder paths or project names - never guess.\n\n" +
+        "2. AUTHORING ADR/TASK CONTENT. adr_new/adr_copy (and task_new) create the record and open it for " +
+        "editing. Decision and Consequences exist only in the markdown file, never in the .json metadata - " +
+        "populate them by passing ai:true to have the configured AI provider draft them, by calling " +
+        "adr_update_content (record content has no task equivalent yet), or by editing the created .md file " +
+        "directly by hand. A hand edit (unlike ai:true or adr_update_content, which only ever touch " +
+        "Decision/Consequences) can also change Title/Status/Context, which do live in the .json - after a " +
+        "hand edit, call adr_sync (record: <id>) so the .json metadata is re-derived from it; metadata left " +
+        "unsynced after a hand edit will drift and mislead adr_list/adr_find, which read the .json, not the " +
+        "markdown.\n\n" +
+        "3. RELATIONSHIPS. Use adr_link/adr_unlink (task_link/task_unlink, adr_link_task) instead of writing " +
+        "reference lines into the markdown yourself - these keep the metadata reference and the visible " +
+        "markdown line under Status in sync. Links are one-directional; link the reverse pair explicitly if " +
+        "you want it to show on both records.\n\n" +
+        "4. BOOKKEEPING. Call adr_generate_toc / task_generate_toc after adding, linking, or changing the " +
+        "status of any ADR/task - both table-of-contents files are fully overwritten from current metadata, " +
+        "not incrementally patched, so a stale call just means an out-of-date table, not corruption.\n\n" +
+        "5. NEVER edit adr.config.json, a record's .json metadata file, adr-toc.md, or tasks-toc.md directly " +
+        "- always go through the tool that owns that file (adr_init/adr_set_context for the config, " +
+        "adr_sync for metadata, adr_generate_toc/task_generate_toc for the TOCs). Direct edits bypass the " +
+        "validation and cross-file consistency those tools provide. For the full adr.config.json schema " +
+        "(ai/sync provider sections, folder layout, etc.) and command-by-command usage, see the adr-cli user " +
+        "manual: https://github.com/gjkaal/adr-cli/blob/trunk/src/User%20manual.md\n\n" +
+        "6. EXTERNAL SYNC (optional). If a sync provider is configured (adr_get_context reports it), " +
+        "adr_export/adr_import and task_export/task_import push/pull to the configured external system " +
+        "(e.g. GitHub Projects or Azure DevOps). Not needed for local-only ADR/task work.";
+
     protected override McpTool[] GetAvailableTools()
     {
         return
         [
+            new McpTool
+            {
+                Name = "adr_workflow_guide",
+                Description = "Read this first, once per session, before calling any other adr_*/task_* tool - explains the intended workflow (multi-repo context safety, how ADR/task content is actually authored, linking, table-of-contents bookkeeping, and which files must never be edited directly). Takes no arguments and changes nothing.",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>(),
+                    Required = Array.Empty<string>()
+                }
+            },
             new McpTool
             {
                 Name = "adr_init",
@@ -78,7 +132,7 @@ public class AdrMcpServer : McpServer
             new McpTool
             {
                 Name = "adr_new",
-                Description = "Create a new, blank Architecture Decision Record from a template and open it for editing. An ADR records a decision and its consequences - for a unit of work to be done instead, use task_new. To copy an existing ADR's content into a new record instead of starting blank, use adr_copy.",
+                Description = "Create a new, blank Architecture Decision Record from a template and open it for editing. An ADR records a decision and its consequences - for a unit of work to be done instead, use task_new. To copy an existing ADR's content into a new record instead of starting blank, use adr_copy. Decision/Consequences start blank unless ai:true drafts them - use adr_update_content afterward to set them directly, or edit the created .md file's sections by hand.",
                 InputSchema = new McpInputSchema
                 {
                     Type = "object",
@@ -169,6 +223,22 @@ public class AdrMcpServer : McpServer
                         ["rev"] = new() { Type = "boolean", Description = "If true, link the new ADR back to the source with \"Supersedes\" (use when the copy is meant to replace/revise the source). If false, link with \"Copied from\" (no supersession implied).", Default = false }
                     },
                     Required = new[] { "source" }
+                }
+            },
+            new McpTool
+            {
+                Name = "adr_update_content",
+                Description = "Replace the Decision and/or Consequences section of an existing ADR's markdown, in place - a convenience alternative to hand-editing the .md file directly. Both fields are markdown-only (never stored in the .json metadata), so this never requires a follow-up adr_sync. Provide at least one of decision/consequences; whichever is omitted is left unchanged.",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["recordId"] = new() { Type = "integer", Description = "The existing ADR's ID." },
+                        ["decision"] = new() { Type = "string", Description = "Replacement text for the Decision section. Omit to leave it unchanged." },
+                        ["consequences"] = new() { Type = "string", Description = "Replacement text for the Consequences section. Omit to leave it unchanged." }
+                    },
+                    Required = new[] { "recordId" }
                 }
             },
             new McpTool
@@ -422,6 +492,7 @@ public class AdrMcpServer : McpServer
         {
             var result = parameters.Name switch
             {
+                "adr_workflow_guide" => WorkflowGuideText,
                 "adr_init" => await HandleAdrInitAsync(parameters.Arguments),
                 "adr_set_context" => await HandleAdrSetContextAsync(parameters.Arguments),
                 "adr_get_context" => await HandleAdrGetContextAsync(),
@@ -431,6 +502,7 @@ public class AdrMcpServer : McpServer
                 "adr_link" => await HandleAdrLinkAsync(parameters.Arguments),
                 "adr_unlink" => await HandleAdrUnlinkAsync(parameters.Arguments),
                 "adr_copy" => await HandleAdrCopyAsync(parameters.Arguments),
+                "adr_update_content" => await HandleAdrUpdateContentAsync(parameters.Arguments),
                 "adr_sync" => await HandleAdrSyncAsync(parameters.Arguments),
                 "adr_generate_toc" => await HandleAdrGenerateTocAsync(),
                 "task_new" => await HandleTaskNewAsync(parameters.Arguments),
@@ -579,6 +651,18 @@ public class AdrMcpServer : McpServer
 
         var result = await adrNew.CopyAdrAsync(source.ToString(), rev);
         return result.Success ? result.Message ?? "ADR copied successfully" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleAdrUpdateContentAsync(Dictionary<string, object?> arguments)
+    {
+        var adrNew = _serviceProvider.GetRequiredService<IAdrNew>();
+
+        var recordId = GetIntArgument(arguments, "recordId") ?? throw new ArgumentException("recordId is required");
+        var decision = GetStringArgument(arguments, "decision");
+        var consequences = GetStringArgument(arguments, "consequences");
+
+        var result = await adrNew.UpdateContentAsync(recordId, decision, consequences);
+        return result.Success ? result.Message ?? "Content updated" : $"Failed: {result.Message}";
     }
 
     private async Task<string> HandleAdrSyncAsync(Dictionary<string, object?> arguments)

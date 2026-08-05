@@ -1,0 +1,14 @@
+{
+  "Status": "Accepted",
+  "TemplateType": "Ad",
+  "Context": "While creating ADR 00011, the assistant used direct file edits (Read/Edit) to author an ADR\u0027s Decision/Consequences content and only reconciled that back through \u0060adr_sync\u0060/\u0060adr_link\u0060/\u0060adr_generate_toc\u0060 after being explicitly told to. This wasn\u0027t a one-off lapse: nothing in the MCP surface states the intended workflow up front. Each tool (\u0060adr_new\u0060, \u0060adr_sync\u0060, \u0060adr_link\u0060, \u0060adr_set_context\u0060, etc.) documents its own contract reasonably well, but there is no equivalent to an onboarding call (the kind of thing a caller invokes once at the start of a session to learn \u0022how work gets done here\u0022) - a caller has to reconstruct the overall workflow from individual tool descriptions, or from reading the tool\u0027s own source, neither of which is reliable.",
+  "References": {
+    "11": "Related to"
+  },
+  "RelatedTasks": {},
+  "SyncLinks": [],
+  "DateTime": "2026-08-05T00:00:00+02:00",
+  "FileName": "00012-explicit-workflow-guidance-for-mcp-tool-callers-(adr_workflow_guide)",
+  "RecordId": 12,
+  "Title": "Explicit workflow guidance for MCP tool callers (adr_workflow_guide)"
+}

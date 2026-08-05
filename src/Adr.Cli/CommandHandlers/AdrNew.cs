@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Adr.Cli.Ai;
@@ -147,6 +148,54 @@ public class AdrNew : IAdrNew
         record.LaunchEditor(settings, processHelper);
 
         return Response.Ok($"ASR is created in {settings.DocFolder}.{BuildFallbackNote(record, aiWarning)}");
+    }
+
+    /// <summary>
+    /// Replace Decision and/or Consequences in place on an existing ADR's markdown - a convenience
+    /// alternative to hand-editing the .md file directly. Both fields are markdown-only (never
+    /// stored in the .json metadata - see AdrRecord's [JsonIgnore] on Decision/Consequences), so
+    /// this never touches metadata and never requires a follow-up adr_sync.
+    /// </summary>
+    public async Task<Response> UpdateContentAsync(int recordId, string? decision, string? consequences)
+    {
+        if (string.IsNullOrWhiteSpace(decision) && string.IsNullOrWhiteSpace(consequences))
+        {
+            return Response.Fail("Provide at least one of decision or consequences to update.");
+        }
+
+        var record = await adrRecordRepository.ReadMetadataAsync(recordId);
+        if (record == null)
+        {
+            return Response.Fail($"Cannot find a record with id: {recordId}");
+        }
+
+        var content = await adrRecordRepository.ReadContentAsync(recordId);
+        if (content.Length == 0)
+        {
+            return Response.Fail($"Cannot find markdown content for ADR {recordId}");
+        }
+
+        var updatedFields = new List<string>();
+        if (!string.IsNullOrWhiteSpace(decision))
+        {
+            content = content.ReplaceMdContent("Decision", SplitIntoLines(decision)).ToArray();
+            updatedFields.Add("Decision");
+        }
+        if (!string.IsNullOrWhiteSpace(consequences))
+        {
+            content = content.ReplaceMdContent("Consequences", SplitIntoLines(consequences)).ToArray();
+            updatedFields.Add("Consequences");
+        }
+
+        var bytesWritten = await adrRecordRepository.UpdateContentAsync(record, content);
+        return bytesWritten > 0
+            ? Response.Ok($"Updated {string.Join(" and ", updatedFields)} for ADR {recordId:D5}.")
+            : Response.Fail($"Could not write updated content for ADR {recordId:D5}.");
+    }
+
+    private static string[] SplitIntoLines(string text)
+    {
+        return text.ReplaceLineEndings("\n").Split('\n');
     }
 
     /// <summary>

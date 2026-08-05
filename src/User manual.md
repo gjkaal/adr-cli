@@ -52,9 +52,11 @@ decision records
 | command | description |
 | ------- | ---------- |
 | init         | Initialize a new ADR folder |
+| context      | Show which adr.config.json is currently active for this directory |
 | sync         | Sync the metadata using the content in the markdown files |
 | new          | Create a new Architecture Decision Record |
 | copy         | Copy an existing ADR to as a new ADR |
+| update-content | Replace the Decision and/or Consequences section of an existing ADR, in place |
 | list         | List all Architecture Decision Records |
 | find         | Find Architecture Decision Records |
 | link         | Link 2 ADR's for ammend / clarify or some other reason |
@@ -102,6 +104,42 @@ __Options__
   --adrRoot <adrRoot>  Set the adr root directory
   --tmpRoot <tmpRoot>  Set the template root directory
 ```
+
+### Configuration file (adr.config.json)
+
+Every field is optional - anything omitted falls back to a built-in default. A repository with AI
+drafting and GitHub sync both configured looks like this:
+
+```json
+{
+  "path": "docs\\adr",
+  "templates": "docs\\adr-templates",
+  "tasks": "docs\\planning",
+  "projectName": "My Project",
+  "ai": { "provider": "AzureFoundry", "...": "see AI-Assisted Drafting below" },
+  "sync": { "provider": "GitHubProjects", "...": "see Task/ADR Export-Import below" }
+}
+```
+
+- **path** - folder for ADR markdown/json files, relative to the config file's own folder. Defaults
+  to `\docs\adr`.
+- **templates** - folder for markdown templates, created on first use if it doesn't exist yet.
+  Defaults to `\docs\adr-templates`.
+- **tasks** - folder for task planning markdown/json files. Defaults to `\docs\planning`.
+- **projectName** - free-text name shown in `adr-cli context` and in generated table-of-contents
+  files. Defaults to `"ADR Documentation"` if left empty.
+- **ai** - optional AI provider configuration for drafting ADR/task content (`adr new --ai`,
+  `task-new --ai`). See [AI-Assisted Drafting](#ai-assisted-drafting) below for the full shape.
+- **sync** - optional external sync provider configuration (GitHub Projects task sync and/or GitHub
+  Issues ADR sync). See [Task Export/Import](#task-exportimport-github-projects-sync) and
+  [ADR Export/Import](#adr-exportimport-github-issues-sync) below for the full shape - both features
+  share this same section.
+
+The tool re-reads this file each time it starts (the CLI is a fresh process per invocation) by
+searching upward from the current directory for the nearest `adr.config.json` - so it's found
+whether you run `adr-cli` from the repository root or any subfolder inside it. Hand-editing the file
+takes effect immediately; only the documentation/template *folders themselves* need to be moved by
+hand if you change their configured location.
 
 ### Creating new records
 
@@ -163,6 +201,31 @@ __Options__
 ```
   -s | --source <recordId>  (REQUIRED)   Define the source ADR record
   --rev                                  Create the copy as a revision
+```
+
+### Update Decision/Consequences
+
+Decision and Consequences are markdown-only fields - they're never stored in the `.json` metadata
+file, so there's no risk of them drifting out of sync there. Besides AI drafting (`--ai` on `new`)
+and hand-editing the `.md` file directly, `update-content` sets either or both in place without
+opening an editor - convenient for scripting or for a tool/agent that already has the text ready.
+Provide at least one of `--decision`/`--consequences`; whichever is omitted is left unchanged.
+
+__Usage__
+
+`adr-cli update-content --record 12 --decision "We will use a message bus for service integration."`
+
+Multi-line text (e.g. a full Pro's/Con's Consequences block) works the same way - pass a single
+string containing real newlines, however your shell supports that (a quoted multi-line argument, an
+environment variable, etc.). Via the MCP tool (`adr_update_content`), just pass the multi-line string
+as the `consequences` argument directly.
+
+__Options__
+
+```
+  --record <recordId> (REQUIRED)  The existing ADR's ID
+  --decision <text>               Replacement text for the Decision section
+  --consequences <text>           Replacement text for the Consequences section
 ```
 
 ### Sync Markup documents and metadata

@@ -13,6 +13,8 @@ public static class CommandOptions
     public static Option<string> AdrRoot => new("--adrRoot") { Description = "Set the adr root directory.", DefaultValueFactory = (a) => string.Empty };
 
     public static Option<string> Context => new("--context") { Description = "Optional Context for the ADR - the situation and forces behind the decision (otherwise a default value will be used)." };
+    public static Option<string> Decision => new("--decision") { Description = "Replacement text for the Decision section. Omit to leave it unchanged." };
+    public static Option<string> Consequences => new("--consequences") { Description = "Replacement text for the Consequences section. Omit to leave it unchanged." };
 
     public static Option<string> Filter => new("-q") { Description = "Only show an ADR if a word or words in used the ADR." };
     public static Option<bool> IncludeContent => new("--full") { Description = "Search the full records (slow)." };

@@ -199,6 +199,13 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
         return ParseConsequences(replyText);
     }
 
+    /// <summary>
+    /// A completion that didn't finish with Stop (truncated by max tokens, refused by the content
+    /// filter, etc.) can still be schema-valid JSON - e.g. a filter cutting the reply short after
+    /// `{"pros": [` still deserializes to an empty list, which reads as legitimate "no cons" rather
+    /// than "the model never got to answer". Reject it here rather than letting it silently pass
+    /// downstream parsing/well-formedness checks that have no way to distinguish the two.
+    /// </summary>
     private static async Task<string> CompleteAsync(ChatClient chatClient, string systemInstructions, string userPrompt, string schemaName, BinaryData schema)
     {
         var options = new ChatCompletionOptions
@@ -208,6 +215,13 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
         ChatCompletion completion = await chatClient.CompleteChatAsync(
             [new SystemChatMessage(systemInstructions), new UserChatMessage(userPrompt)],
             options);
+
+        if (completion.FinishReason != ChatFinishReason.Stop)
+        {
+            throw new InvalidOperationException(
+                $"AI completion for '{schemaName}' ended with FinishReason={completion.FinishReason} instead of Stop " +
+                "(truncated, content-filtered, or otherwise incomplete) - discarding rather than treating as a real answer.");
+        }
 
         return string.Concat(completion.Content.Select(part => part.Text));
     }
@@ -369,6 +383,13 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
     /// degenerate output where Decision restates Context, or Consequences missing a pro or a con
     /// entirely. Purely local - no extra AI round trip.
     /// </summary>
+    /// <remarks>
+    /// The Pro's/Con's check used to only look for the header substrings, which a header-with-no-
+    /// items (e.g. cons: []) still contains - a schema-valid, "successful" completion could produce
+    /// "*Pro's:*\n- a\n\n*Con's:*\n" and pass. That's the same failure as an empty field entirely -
+    /// content that looks present but answers nothing - so it must fail the same way: each section
+    /// must contain at least one "- " list item, not merely its own header.
+    /// </remarks>
     internal static bool IsWellFormed(AdrProposal proposal)
     {
         if (string.IsNullOrWhiteSpace(proposal.Context)
@@ -378,8 +399,15 @@ public class AzureFoundryProposalGenerator : IAdrProposalGenerator
             return false;
         }
 
-        if (!proposal.Consequences.Contains("Pro's:", StringComparison.OrdinalIgnoreCase)
-            || !proposal.Consequences.Contains("Con's:", StringComparison.OrdinalIgnoreCase))
+        var consHeaderIndex = proposal.Consequences.IndexOf("Con's:", StringComparison.OrdinalIgnoreCase);
+        if (!proposal.Consequences.Contains("Pro's:", StringComparison.OrdinalIgnoreCase) || consHeaderIndex < 0)
+        {
+            return false;
+        }
+
+        var prosSection = proposal.Consequences[..consHeaderIndex];
+        var consSection = proposal.Consequences[consHeaderIndex..];
+        if (!prosSection.Contains("- ", StringComparison.Ordinal) || !consSection.Contains("- ", StringComparison.Ordinal))
         {
             return false;
         }

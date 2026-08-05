@@ -1,0 +1,14 @@
+{
+  "Status": "Accepted",
+  "TemplateType": "Ad",
+  "Context": "ADR 00004 fixed \u0060AdrSettings\u0060\u0027s config resolution so a caller could explicitly pin an MCP session to a specific repo via \u0060adr_set_context(workingDirectory)\u0060 - but that fix only searched **upward** from the given directory. It could resolve an exact repo (or any directory inside one), but had no way to discover a repository nested *under* a given directory.",
+  "References": {
+    "4": "Extends"
+  },
+  "RelatedTasks": {},
+  "SyncLinks": [],
+  "DateTime": "2026-08-05T00:00:00+02:00",
+  "FileName": "00011-downward-context-search-and-project-name-lookup-for-adr_set_context",
+  "RecordId": 11,
+  "Title": "Downward context search and project-name lookup for adr_set_context"
+}

@@ -47,4 +47,24 @@ public interface IAdrNew
     /// <returns>
     /// </returns>
     Task<Response> CopyAdrAsync(string sourceId, bool isRevision);
+
+    /// <summary>
+    /// Replace the Decision and/or Consequences section of an existing ADR's markdown, in place -
+    /// a convenience alternative to hand-editing the .md file directly. Decision/Consequences are
+    /// markdown-only (never stored in the .json metadata), so this never touches metadata and never
+    /// requires a follow-up sync.
+    /// </summary>
+    /// <param name="recordId">
+    /// The existing ADR's ID.
+    /// </param>
+    /// <param name="decision">
+    /// Replacement text for the Decision section. Null/omitted leaves it unchanged.
+    /// </param>
+    /// <param name="consequences">
+    /// Replacement text for the Consequences section. Null/omitted leaves it unchanged.
+    /// </param>
+    /// <returns>
+    /// A failure if the record doesn't exist or neither parameter was supplied.
+    /// </returns>
+    Task<Response> UpdateContentAsync(int recordId, string? decision, string? consequences);
 }

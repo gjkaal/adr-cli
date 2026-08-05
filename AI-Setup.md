@@ -89,9 +89,16 @@ adr new --title "Use a message bus for service integration" --ai
 `adr-cli` will:
 
 1. Gather short summaries (title, status, context) of your existing ADRs.
-2. Send them, along with the title and context, to the configured model in a single request - so it
-   can stay consistent with (or flag conflicts with) prior decisions.
-3. Fill in `Decision` and `Consequences` from the model's reply, then open the ADR in your editor
+2. Draft `Context`, `Decision`, and `Consequences` as three separate, sequential requests to the
+   configured model, each constrained to a strict JSON schema for just that field - not one combined
+   request. The Context call is grounded in the existing-ADR summaries (so it can stay consistent
+   with, or flag conflicts with, prior decisions); the Decision call is grounded in the drafted
+   Context; the Consequences call is grounded in both, and asks for pros/cons as separate lists
+   rather than free-text prose.
+3. Check the result isn't degenerate (empty, restating an earlier field, or a Pro's/Con's list with
+   no actual items) before accepting it - if it fails this check, drafting is treated as failed
+   (see Failure behavior below) rather than writing hollow content.
+4. Fill in `Decision` and `Consequences` from the drafted result, then open the ADR in your editor
    as usual so you can review and edit before committing.
 
 Via MCP, pass `"ai": true` as an argument to the `adr_new` tool.
@@ -112,4 +119,5 @@ never a blocker.
 | `404 Resource not found` | `endpoint` is likely the plain Cognitive Services endpoint or the Foundry project endpoint instead of the `.../openai/v1` endpoint - see step 2 above. |
 | `404 DeploymentNotFound` | `deploymentName` doesn't match an existing deployment on this resource - check **Models + Endpoints** in the Foundry portal for the exact name (deployment names are user-chosen and don't have to match the underlying model name). |
 | Request is slow or times out | The model deployment may be slow, overloaded, or unreachable - verify `endpoint` and `deploymentName`, and check the deployment's status in Azure AI Foundry. |
-| Decision/Consequences look wrong or empty | The agent didn't follow the expected `## Decision` / `## Consequences` format; the raw reply is kept as the Decision text so nothing is lost - edit the ADR by hand after it opens. |
+| Decision/Consequences are placeholder text even though a provider is configured | The drafted content was rejected as degenerate (empty, a field restating an earlier one, or a Pro's/Con's list with no actual items) or the completion didn't finish normally (truncated by length, or refused by a content filter) - drafting is treated as a failure in either case rather than writing hollow content, and the ADR is created exactly as it would be without `--ai`. Edit the ADR by hand after it opens, or retry `--ai`. |
+| Decision/Consequences look wrong (but non-empty) | The model produced well-formed but poor-quality content - this passes the structural check, which only catches emptiness/repetition/degenerate lists, not quality. Edit the ADR by hand after it opens. |

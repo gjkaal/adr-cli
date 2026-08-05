@@ -63,4 +63,37 @@ public static class AdrNewSetup
         });
         return cmd;
     }
+
+    public static Command UpdateContentCommand(IServiceProvider serviceProvider)
+    {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
+        var cmd = new Command("update-content", "Replace the Decision and/or Consequences section of an existing ADR's markdown, in place - a convenience alternative to hand-editing the .md file directly.");
+        var record = CommandOptions.Record;
+        var decision = CommandOptions.Decision;
+        var consequences = CommandOptions.Consequences;
+
+        record.Required = true;
+
+        cmd.Options.Add(record);
+        cmd.Options.Add(decision);
+        cmd.Options.Add(consequences);
+
+        cmd.SetAction(async (ParseResult ctx) =>
+        {
+            var recordValue = ctx.GetValue(record) ?? "";
+            var decisionValue = ctx.GetValue(decision);
+            var consequencesValue = ctx.GetValue(consequences);
+
+            if (!int.TryParse(recordValue, out var recordId) || recordId <= 0)
+            {
+                stdOut.Write(McpCore.Response.Fail($"Invalid record id [{recordValue}], it should be a positive integer number."));
+                return;
+            }
+
+            var c = serviceProvider.GetRequiredService<IAdrNew>();
+            var result = await c.UpdateContentAsync(recordId, decisionValue, consequencesValue);
+            stdOut.Write(result);
+        });
+        return cmd;
+    }
 }
