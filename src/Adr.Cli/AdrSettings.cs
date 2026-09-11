@@ -17,7 +17,7 @@ namespace Adr.Cli
         private const string DefaultFileName = "adr.config.json";
         private const string DefaultTemplatePath = "\\docs\\adr-templates";
         private const string DefaultAdrPath = "\\docs\\adr";
-        private const string DefaultTasksPath = "\\docs\\planning";
+        private const string DefaultTasksPath = "\\docs\\tasks";
 
         /// <summary>
         /// How many folder levels TrySetContext's downward search descends before giving up. Bounds

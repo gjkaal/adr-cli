@@ -50,6 +50,9 @@ public class ProjectPlanning : IProjectPlanning
             return Response.Fail($"Tasks folder is not initialized {settings.TasksFolderInfo().FullName}.");
         }
 
+        title = title.NormalizeDashes();
+        description = description.NormalizeDashes();
+
         Response result;
         logger.LogInformation($"Creating new tasks record.");
         result = await CreateTaskAsync(title, description, dueDate, useAi);
@@ -111,9 +114,9 @@ public class ProjectPlanning : IProjectPlanning
 
         if (!hadUserSuppliedDescription && !string.IsNullOrEmpty(result.Value.Description))
         {
-            record.Description = result.Value.Description;
+            record.Description = result.Value.Description.NormalizeDashes();
         }
-        record.Details = result.Value.Details;
+        record.Details = result.Value.Details.NormalizeDashes();
     }
 
     private async Task<IReadOnlyList<TaskSummary>> GetExistingTaskSummariesAsync()

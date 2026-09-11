@@ -81,7 +81,7 @@ public class AdrInit : IAdrInit
     public async Task<Response> InitializeAsync(string adrRootPath = "", string templateRootPath = "", string projectRootPath = "")
     {
         adrRootPath = GetPathWithDefault(adrRootPath, settings.DocFolder ?? settings.DefaultDocFolder);
-        projectRootPath = GetPathWithDefault(adrRootPath, settings.DocFolder ?? settings.DefaultTasksFolder);
+        projectRootPath = GetPathWithDefault(adrRootPath, settings.TasksFolder ?? settings.DefaultTasksFolder);
         templateRootPath = GetPathWithDefault(templateRootPath, settings.TemplateFolder ?? settings.DefaultTemplates);
 
         settings.DocFolder = adrRootPath;

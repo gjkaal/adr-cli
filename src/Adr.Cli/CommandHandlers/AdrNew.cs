@@ -50,6 +50,9 @@ public class AdrNew : IAdrNew
             return Response.Fail($"Architecture Decision folder is not initialized {settings.DocFolderInfo().FullName}.");
         }
 
+        title = title.NormalizeDashes();
+        context = context.NormalizeDashes();
+
         var effectiveUseAi = useAi ?? !string.IsNullOrWhiteSpace(settings.AiSettings.Provider);
 
         Response result;
@@ -178,12 +181,12 @@ public class AdrNew : IAdrNew
         var updatedFields = new List<string>();
         if (!string.IsNullOrWhiteSpace(decision))
         {
-            content = content.ReplaceMdContent("Decision", SplitIntoLines(decision)).ToArray();
+            content = content.ReplaceMdContent("Decision", SplitIntoLines(decision.NormalizeDashes())).ToArray();
             updatedFields.Add("Decision");
         }
         if (!string.IsNullOrWhiteSpace(consequences))
         {
-            content = content.ReplaceMdContent("Consequences", SplitIntoLines(consequences)).ToArray();
+            content = content.ReplaceMdContent("Consequences", SplitIntoLines(consequences.NormalizeDashes())).ToArray();
             updatedFields.Add("Consequences");
         }
 
@@ -266,10 +269,10 @@ public class AdrNew : IAdrNew
 
         if (!hadUserSuppliedContext && !string.IsNullOrEmpty(result.Value.Context))
         {
-            record.Context = result.Value.Context;
+            record.Context = result.Value.Context.NormalizeDashes();
         }
-        record.Decision = result.Value.Decision;
-        record.Consequences = result.Value.Consequences;
+        record.Decision = result.Value.Decision.NormalizeDashes();
+        record.Consequences = result.Value.Consequences.NormalizeDashes();
         return VerifyAiDraftNote;
     }
 

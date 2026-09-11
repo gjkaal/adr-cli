@@ -1,6 +1,8 @@
 using System;
 using System.CommandLine;
+using System.IO;
 using System.IO.Abstractions;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -31,6 +33,8 @@ internal static class Program
 
     private static async Task<int> Main(string[] args)
     {
+        UseUtf8ConsoleEncoding();
+
         var serviceCollection = new ServiceCollection();
         ConfigureServices(serviceCollection);
         var serviceProvider = serviceCollection.BuildServiceProvider();
@@ -175,6 +179,25 @@ internal static class Program
 
         // MCP Server
         serviceCollection.AddSingleton<IMcpServer, AdrMcpServer>();
+    }
+
+    /// <summary>
+    /// Force UTF-8 (no BOM) for console stdin/stdout/stderr. Without this, .NET on Windows resolves
+    /// Console.InputEncoding/OutputEncoding from the process's OEM codepage (e.g. 850) even when
+    /// stdin/stdout are redirected pipes rather than a real console - as they always are for the MCP
+    /// server and often are for CI/automation invocations of the CLI. Any non-ASCII character
+    /// (an em dash, a curly quote, ...) read from stdin under that codepage is silently mis-decoded,
+    /// then re-encoded as UTF-8 on write, corrupting it. Setting both encodings explicitly, before
+    /// anything reads or writes through Console, avoids that class of corruption entirely. Wrapped in
+    /// try/catch because setting Console.InputEncoding/OutputEncoding can throw when a stream is fully
+    /// redirected with no underlying console handle at all (observed on some non-Windows hosts) - in
+    /// that case .NET's default is already UTF-8, so there is nothing to fix.
+    /// </summary>
+    private static void UseUtf8ConsoleEncoding()
+    {
+        var utf8NoBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+        try { Console.InputEncoding = utf8NoBom; } catch (IOException) { }
+        try { Console.OutputEncoding = utf8NoBom; } catch (IOException) { }
     }
 
     private static async Task<int> RunMcpServerAsync(IServiceProvider serviceProvider)

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+
+- Fixed non-ASCII characters (e.g. em dashes) getting corrupted when written through MCP tool calls (`adr_new`, `adr_update_content`, `task_new`) on Windows. `Console.InputEncoding`/`OutputEncoding` are now forced to UTF-8 at startup instead of defaulting to the process's OEM codepage for redirected stdio, which was silently mis-decoding any non-ASCII character read from stdin.
+- Normalized typographic dashes (em dash, en dash, horizontal bar) to a plain ASCII hyphen in ADR/task Title, Context, Decision, Consequences, Description, and Details content, whether typed manually or drafted by AI - see `TextSanitizerExtensions.NormalizeDashes`.
+
 ## 1.0.0.10 — 2026-07-22
 
 ### AI-assisted drafting
