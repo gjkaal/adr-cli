@@ -67,4 +67,25 @@ public interface IAdrNew
     /// A failure if the record doesn't exist or neither parameter was supplied.
     /// </returns>
     Task<Response> UpdateContentAsync(int recordId, string? decision, string? consequences);
+
+    /// <summary>
+    /// Change an ADR's status, writing the markdown "## Status" section and the .json metadata in
+    /// one operation so the two can never disagree, appending a status log entry, and regenerating
+    /// adr-toc.md - the tool that item 5 of the workflow guide says must own this file, closing the
+    /// gap that previously forced a hand-edit + adr_sync for the most common ADR lifecycle operation.
+    /// </summary>
+    /// <param name="recordId">
+    /// The existing ADR's ID.
+    /// </param>
+    /// <param name="status">
+    /// The new status.
+    /// </param>
+    /// <param name="justification">
+    /// Why the status is changing. Recorded in the ADR's status log alongside the new status and
+    /// timestamp. Optional.
+    /// </param>
+    /// <returns>
+    /// A failure if the record doesn't exist.
+    /// </returns>
+    Task<Response> UpdateStatusAsync(int recordId, AdrStatus status, string justification);
 }

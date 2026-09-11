@@ -193,6 +193,13 @@ public sealed class WithProjectPlanning
         Assert.Equal(2, record.Logs.Count);
         Assert.Equal("Started investigating", record.Logs[0].Justification);
         Assert.Equal("Root cause fixed", record.Logs[1].Justification);
+
+        // task_update must keep the task's own markdown in agreement with the metadata - it used to
+        // only write the .json, leaving the .md's "## Status" section permanently stale.
+        var content = await repository.ReadContentAsync(1);
+        var markdown = string.Join('\n', content);
+        Assert.Contains("__Completed__", markdown);
+        Assert.DoesNotContain("__Active__", markdown);
     }
 
     [Fact]

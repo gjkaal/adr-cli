@@ -57,6 +57,7 @@ decision records
 | new          | Create a new Architecture Decision Record |
 | copy         | Copy an existing ADR to as a new ADR |
 | update-content | Replace the Decision and/or Consequences section of an existing ADR, in place |
+| update-status | Change an ADR's status, writing the markdown and metadata together |
 | list         | List all Architecture Decision Records |
 | find         | Find Architecture Decision Records |
 | link         | Link 2 ADR's for ammend / clarify or some other reason |
@@ -226,6 +227,26 @@ __Options__
   --record <recordId> (REQUIRED)  The existing ADR's ID
   --decision <text>               Replacement text for the Decision section
   --consequences <text>           Replacement text for the Consequences section
+```
+
+### Update ADR status
+
+`update-status` is the tool that owns an ADR's Status - never hand-edit the `## Status` section of
+the markdown or the `Status` field in the `.json` metadata directly. It writes both in the same
+operation, so they cannot disagree, appends a status log entry (timestamp, new status, and an
+optional justification), and regenerates `adr-toc.md` automatically since every status change
+invalidates it.
+
+__Usage__
+
+`adr-cli update-status --record 12 --status Accepted --justification "Reviewed and approved"`
+
+__Options__
+
+```
+  --record <recordId> (REQUIRED)  The existing ADR's ID
+  --status <status> (REQUIRED)    New status for the ADR (New, Proposed, Final, Accepted, Error, Obsolete)
+  --justification, -j <text>      Justification for the status change
 ```
 
 ### Sync Markup documents and metadata

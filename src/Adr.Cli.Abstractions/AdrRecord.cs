@@ -12,9 +12,26 @@ public abstract class AdrRecordBase
     public string Title { get; set; } = string.Empty;
 }
 
+/// <summary>
+/// One recorded status transition for an AdrRecord - see AdrRecord.Logs. Mirrors TaskRecord's
+/// StatusUpdate, but kept as its own type since that one is hardcoded to PlanningStatus.
+/// </summary>
+public class AdrStatusUpdate
+{
+    public DateTime DateTime { get; set; }
+    public AdrStatus Status { get; set; } = AdrStatus.None;
+    public string Justification { get; set; } = string.Empty;
+}
+
 public class AdrRecord : AdrRecordBase, ICloneable
 {
     public AdrStatus Status { get; set; } = AdrStatus.New;
+
+    /// <summary>
+    /// History of status transitions, appended to by adr_update_status. Not carried over by Clone()
+    /// - a copy or revision is a new document and starts its own history.
+    /// </summary>
+    public List<AdrStatusUpdate> Logs { get; set; } = [];
 
     [JsonIgnore]
     public AdrRecord? SuperSedes { get; set; }

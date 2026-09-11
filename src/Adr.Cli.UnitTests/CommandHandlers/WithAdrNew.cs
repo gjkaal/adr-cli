@@ -36,6 +36,7 @@ public sealed class WithAdrNew
         settings = new AdrSettings(fileSystem);
         var fileLock = new FileLockService(fileSystem, XUnitLogger.CreateLogger<FileLockService>(testOutputHelper));
         repository = new AdrRecordRepository(fileSystem, settings, stdOutMock.Object, fileLock, XUnitLogger.CreateLogger<AdrRecordRepository>(testOutputHelper));
+        var adrInit = new AdrInit(settings, XUnitLogger.CreateLogger<AdrInit>(testOutputHelper), repository, stdOutMock.Object, processHelperMock.Object);
 
         return new AdrNew(
             settings,
@@ -44,7 +45,8 @@ public sealed class WithAdrNew
             stdOutMock.Object,
             processHelperMock.Object,
             linkMock.Object,
-            proposalGeneratorMock.Object);
+            proposalGeneratorMock.Object,
+            adrInit);
     }
 
     private static MockFileSystem CreateRepoFileSystem(string rootPath)
@@ -176,6 +178,43 @@ public sealed class WithAdrNew
         var query = new AdrQuery(settings, XUnitLogger.CreateLogger<AdrNew>(testOutputHelper), repository, stdOutMock.Object);
         var listResult = await query.ListAdrAsync(false, false);
         Assert.Contains("New", listResult.Message);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_ChangesStatus_WritesMarkdownAndMetadataTogether_AndKeepsHistory()
+    {
+        var fileSystem = CreateRepoFileSystem(@"C:\repo");
+        var sut = CreateSut(fileSystem, out var settings, out var repository);
+
+        var record = new AdrRecord { Title = "Use a message bus", Status = AdrStatus.Proposed, TemplateType = TemplateType.Ad };
+        await repository.WriteRecordAsync(record);
+
+        var result = await sut.UpdateStatusAsync(record.RecordId, AdrStatus.Accepted, "Reviewed and approved");
+        Assert.True(result.Success, result.Message);
+
+        var metadata = await repository.ReadMetadataAsync(record.RecordId);
+        Assert.Equal(AdrStatus.Accepted, metadata!.Status);
+        Assert.Single(metadata.Logs);
+        Assert.Equal("Reviewed and approved", metadata.Logs[0].Justification);
+
+        var content = await repository.ReadContentAsync(record.RecordId);
+        var markdown = string.Join('\n', content);
+        Assert.Contains("__Accepted__", markdown);
+        Assert.DoesNotContain("__Proposed__", markdown);
+
+        var toc = await fileSystem.File.ReadAllTextAsync(fileSystem.Path.Combine(@"C:\repo\docs", "adr-toc.md"));
+        Assert.Contains("Accepted", toc);
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_RecordDoesNotExist_FailsCleanly()
+    {
+        var fileSystem = CreateRepoFileSystem(@"C:\repo");
+        var sut = CreateSut(fileSystem, out var settings, out var repository);
+
+        var result = await sut.UpdateStatusAsync(999, AdrStatus.Accepted, "");
+
+        Assert.False(result.Success);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ public class AdrNew : IAdrNew
     private readonly IProcessHelper processHelper;
     private readonly IAdrLink linkCommandHandler;
     private readonly IAdrProposalGenerator proposalGenerator;
+    private readonly IAdrInit adrInit;
 
     public AdrNew(
         IAdrSettings settings,
@@ -29,7 +31,8 @@ public class AdrNew : IAdrNew
         IStdOut stdOut,
         IProcessHelper processHelper,
         IAdrLink linkCommandHandler,
-        IAdrProposalGenerator proposalGenerator)
+        IAdrProposalGenerator proposalGenerator,
+        IAdrInit adrInit)
     {
         this.settings = settings;
         this.logger = logger;
@@ -38,6 +41,7 @@ public class AdrNew : IAdrNew
         this.processHelper = processHelper;
         this.linkCommandHandler = linkCommandHandler;
         this.proposalGenerator = proposalGenerator;
+        this.adrInit = adrInit;
     }
 
     /// <summary>
@@ -194,6 +198,48 @@ public class AdrNew : IAdrNew
         return bytesWritten > 0
             ? Response.Ok($"Updated {string.Join(" and ", updatedFields)} for ADR {recordId:D5}.")
             : Response.Fail($"Could not write updated content for ADR {recordId:D5}.");
+    }
+
+    /// <summary>
+    /// Change an ADR's status - see IAdrNew.UpdateStatusAsync. Writes markdown and metadata in the
+    /// same call (the defect this closes: adr_new's Status was already written to both, but the two
+    /// files could still only be brought back into agreement via a hand-edit + adr_sync round trip),
+    /// then regenerates adr-toc.md since every status change invalidates it.
+    /// </summary>
+    public async Task<Response> UpdateStatusAsync(int recordId, AdrStatus status, string justification)
+    {
+        var record = await adrRecordRepository.ReadMetadataAsync(recordId);
+        if (record == null)
+        {
+            return Response.Fail($"Cannot find a record with id: {recordId}");
+        }
+
+        var content = await adrRecordRepository.ReadContentAsync(recordId);
+        if (content.Length == 0)
+        {
+            return Response.Fail($"Cannot find markdown content for ADR {recordId}");
+        }
+
+        record.Status = status;
+        record.Logs.Add(new AdrStatusUpdate { DateTime = DateTime.UtcNow, Status = status, Justification = justification });
+
+        var metaWritten = await adrRecordRepository.UpdateMetadataAsync(recordId, record);
+        if (metaWritten <= 0)
+        {
+            return Response.Fail($"Could not update metadata for ADR {recordId:D5}.");
+        }
+
+        content = content.ReplaceMdContent("Status", [$"__{status}__"]).ToArray();
+        var contentWritten = await adrRecordRepository.UpdateContentAsync(record, content);
+        if (contentWritten <= 0)
+        {
+            return Response.Fail($"Could not update markdown for ADR {recordId:D5}.");
+        }
+
+        var tocResult = await adrInit.GenerateTocAsync();
+        var tocNote = tocResult.Success ? string.Empty : $" (adr-toc.md was not regenerated: {tocResult.Message})";
+
+        return Response.Ok($"ADR {recordId:D5} status set to {status}.{tocNote}");
     }
 
     private static string[] SplitIntoLines(string text)

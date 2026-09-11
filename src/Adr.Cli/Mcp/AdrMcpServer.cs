@@ -51,11 +51,13 @@ public class AdrMcpServer : McpServer
         "editing. Decision and Consequences exist only in the markdown file, never in the .json metadata - " +
         "populate them by passing ai:true to have the configured AI provider draft them, by calling " +
         "adr_update_content (record content has no task equivalent yet), or by editing the created .md file " +
-        "directly by hand. A hand edit (unlike ai:true or adr_update_content, which only ever touch " +
-        "Decision/Consequences) can also change Title/Status/Context, which do live in the .json - after a " +
-        "hand edit, call adr_sync (record: <id>) so the .json metadata is re-derived from it; metadata left " +
-        "unsynced after a hand edit will drift and mislead adr_list/adr_find, which read the .json, not the " +
-        "markdown.\n\n" +
+        "directly by hand. Status is owned by adr_update_status/task_update - never hand-edit an ADR's " +
+        "'## Status' section or a task's, and never hand-edit Status in the .json either; both tools write " +
+        "the markdown and the metadata together so the two can never disagree, and adr_update_status also " +
+        "regenerates adr-toc.md for you. A hand edit can still change Title/Context, which do live in the " +
+        ".json - after a hand edit, call adr_sync (record: <id>) so the .json metadata is re-derived from " +
+        "it; metadata left unsynced after a hand edit will drift and mislead adr_list/adr_find, which read " +
+        "the .json, not the markdown.\n\n" +
         "3. RELATIONSHIPS. Use adr_link/adr_unlink (task_link/task_unlink, adr_link_task) instead of writing " +
         "reference lines into the markdown yourself - these keep the metadata reference and the visible " +
         "markdown line under Status in sync. Links are one-directional; link the reverse pair explicitly if " +
@@ -65,7 +67,8 @@ public class AdrMcpServer : McpServer
         "not incrementally patched, so a stale call just means an out-of-date table, not corruption.\n\n" +
         "5. NEVER edit adr.config.json, a record's .json metadata file, adr-toc.md, or tasks-toc.md directly " +
         "- always go through the tool that owns that file (adr_init/adr_set_context for the config, " +
-        "adr_sync for metadata, adr_generate_toc/task_generate_toc for the TOCs). Direct edits bypass the " +
+        "adr_update_status/task_update for Status specifically, adr_sync for the rest of an ADR's metadata, " +
+        "adr_generate_toc/task_generate_toc for the TOCs). Direct edits bypass the " +
         "validation and cross-file consistency those tools provide. For the full adr.config.json schema " +
         "(ai/sync provider sections, folder layout, etc.) and command-by-command usage, see the adr-cli user " +
         "manual: https://github.com/gjkaal/adr-cli/blob/trunk/src/User%20manual.md\n\n" +
@@ -239,6 +242,27 @@ public class AdrMcpServer : McpServer
                         ["consequences"] = new() { Type = "string", Description = "Replacement text for the Consequences section. Omit to leave it unchanged." }
                     },
                     Required = new[] { "recordId" }
+                }
+            },
+            new McpTool
+            {
+                Name = "adr_update_status",
+                Description = "Change an ADR's status and append a justification entry to its status log (the log is kept, not overwritten - every status change is retained for history). Writes the markdown '## Status' section and the .json metadata in the same operation, so they cannot disagree, and regenerates adr-toc.md automatically since every status change invalidates it. This is the tool that owns Status - never hand-edit it (see adr_workflow_guide item 2).",
+                InputSchema = new McpInputSchema
+                {
+                    Type = "object",
+                    Properties = new Dictionary<string, McpPropertyDefinition>
+                    {
+                        ["recordId"] = new() { Type = "integer", Description = "The existing ADR's ID." },
+                        ["status"] = new()
+                        {
+                            Type = "string",
+                            Description = "The ADR's new status.",
+                            Enum = new[] { "New", "Proposed", "Final", "Accepted", "Error", "Obsolete" }
+                        },
+                        ["justification"] = new() { Type = "string", Description = "Why the status is changing. Recorded in the ADR's status log alongside the new status and timestamp." }
+                    },
+                    Required = new[] { "recordId", "status" }
                 }
             },
             new McpTool
@@ -503,6 +527,7 @@ public class AdrMcpServer : McpServer
                 "adr_unlink" => await HandleAdrUnlinkAsync(parameters.Arguments),
                 "adr_copy" => await HandleAdrCopyAsync(parameters.Arguments),
                 "adr_update_content" => await HandleAdrUpdateContentAsync(parameters.Arguments),
+                "adr_update_status" => await HandleAdrUpdateStatusAsync(parameters.Arguments),
                 "adr_sync" => await HandleAdrSyncAsync(parameters.Arguments),
                 "adr_generate_toc" => await HandleAdrGenerateTocAsync(),
                 "task_new" => await HandleTaskNewAsync(parameters.Arguments),
@@ -663,6 +688,21 @@ public class AdrMcpServer : McpServer
 
         var result = await adrNew.UpdateContentAsync(recordId, decision, consequences);
         return result.Success ? result.Message ?? "Content updated" : $"Failed: {result.Message}";
+    }
+
+    private async Task<string> HandleAdrUpdateStatusAsync(Dictionary<string, object?> arguments)
+    {
+        var adrNew = _serviceProvider.GetRequiredService<IAdrNew>();
+
+        var recordId = GetIntArgument(arguments, "recordId") ?? throw new ArgumentException("recordId is required");
+        var statusStr = GetStringArgument(arguments, "status") ?? throw new ArgumentException("Status is required");
+        var status = Enum.TryParse<AdrStatus>(statusStr, true, out var parsedStatus)
+            ? parsedStatus
+            : throw new ArgumentException($"Invalid status: {statusStr}");
+        var justification = GetStringArgument(arguments, "justification") ?? string.Empty;
+
+        var result = await adrNew.UpdateStatusAsync(recordId, status, justification);
+        return result.Success ? result.Message ?? "Status updated" : $"Failed: {result.Message}";
     }
 
     private async Task<string> HandleAdrSyncAsync(Dictionary<string, object?> arguments)

@@ -73,6 +73,7 @@ internal static class Program
         app.Add(AdrNewSetup.NewAdrCommand(serviceProvider));
         app.Add(AdrNewSetup.CopyAdrCommand(serviceProvider));
         app.Add(AdrNewSetup.UpdateContentCommand(serviceProvider));
+        app.Add(AdrNewSetup.UpdateStatusCommand(serviceProvider));
 
         // Query the ADR, lists, searching etc.
         app.Add(AdrQuerySetup.QueryCommand(serviceProvider));

@@ -381,6 +381,12 @@ public class ProjectPlanning : IProjectPlanning
             : Response.Fail($"Task '{source.Title}' with Id:{sourceId} is not modified.");
     }
 
+    /// <summary>
+    /// Update a task's status. Writes the markdown "## Status" section and the .json metadata in
+    /// the same call - previously this only touched the .json, leaving the task's own markdown
+    /// showing a stale status on every update with no task_sync equivalent to repair it - and
+    /// regenerates tasks-toc.md since every status change invalidates it.
+    /// </summary>
     public async Task<Response> UpdateTaskAsync(string sourceId, PlanningStatus status, string justification)
     {
         if (!int.TryParse(sourceId, out var id))
@@ -392,14 +398,35 @@ public class ProjectPlanning : IProjectPlanning
         {
             return Response.Fail($"Could not find record with id {sourceId}");
         }
+
+        var content = await repository.ReadContentAsync(id);
+        if (content.Length == 0)
+        {
+            return Response.Fail($"Could not find markdown content for task {id}");
+        }
+
         record.Status = status;
         record.Logs.Add(new StatusUpdate { DateTime = DateTime.UtcNow, Status = status, Justification = justification });
         var updateCount = await repository.UpdateMetadataAsync(id, record);
 
-        return updateCount < 0
-            ? Response.Fail($"Could not update task '{record.Title}' with Id:{id} current status is {record.Status}")
-            : updateCount > 0 ? Response.Ok($"Task '{record.Title}' with Id:{id} has a new status: {record.Status}")
-            : Response.Fail($"No status update for task '{record.Title}' with Id:{id} current status is {record.Status}");
+        if (updateCount <= 0)
+        {
+            return updateCount < 0
+                ? Response.Fail($"Could not update task '{record.Title}' with Id:{id} current status is {record.Status}")
+                : Response.Fail($"No status update for task '{record.Title}' with Id:{id} current status is {record.Status}");
+        }
+
+        content = content.ReplaceMdContent("Status", [$"__{status}__"]).ToArray();
+        var contentWritten = await repository.UpdateContentAsync(record, content);
+        if (contentWritten <= 0)
+        {
+            return Response.Fail($"Could not update markdown for task '{record.Title}' with Id:{id}.");
+        }
+
+        var tocResult = await GeneratePlanningTocAsync();
+        var tocNote = tocResult.Success ? string.Empty : $" (tasks-toc.md was not regenerated: {tocResult.Message})";
+
+        return Response.Ok($"Task '{record.Title}' with Id:{id} has a new status: {record.Status}.{tocNote}");
     }
 
     public async Task<Response<SyncBatchResult>> ExportTasksAsync(IReadOnlyList<int> taskIds, string? filter, bool force = false, bool dryRun = false)

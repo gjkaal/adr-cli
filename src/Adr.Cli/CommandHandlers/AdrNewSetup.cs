@@ -96,4 +96,38 @@ public static class AdrNewSetup
         });
         return cmd;
     }
+
+    public static Command UpdateStatusCommand(IServiceProvider serviceProvider)
+    {
+        var stdOut = serviceProvider.GetRequiredService<IStdOut>();
+        var cmd = new Command("update-status", "Change an ADR's status, writing the markdown and metadata together so they cannot disagree.");
+        var record = CommandOptions.Record;
+        var status = new Option<AdrStatus>("--status") { Description = "The ADR's new status." };
+        var justification = new Option<string>("--justification", "-j") { Description = "Why the status is changing." };
+
+        record.Required = true;
+        status.Required = true;
+
+        cmd.Options.Add(record);
+        cmd.Options.Add(status);
+        cmd.Options.Add(justification);
+
+        cmd.SetAction(async (ParseResult ctx) =>
+        {
+            var recordValue = ctx.GetValue(record) ?? "";
+            var statusValue = ctx.GetValue(status);
+            var justificationValue = ctx.GetValue(justification) ?? "";
+
+            if (!int.TryParse(recordValue, out var recordId) || recordId <= 0)
+            {
+                stdOut.Write(McpCore.Response.Fail($"Invalid record id [{recordValue}], it should be a positive integer number."));
+                return;
+            }
+
+            var c = serviceProvider.GetRequiredService<IAdrNew>();
+            var result = await c.UpdateStatusAsync(recordId, statusValue, justificationValue);
+            stdOut.Write(result);
+        });
+        return cmd;
+    }
 }
