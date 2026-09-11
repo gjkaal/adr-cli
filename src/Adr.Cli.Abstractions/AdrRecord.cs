@@ -14,7 +14,7 @@ public abstract class AdrRecordBase
 
 public class AdrRecord : AdrRecordBase, ICloneable
 {
-    public AdrStatus Status { get; set; } = AdrStatus.Proposed;
+    public AdrStatus Status { get; set; } = AdrStatus.New;
 
     [JsonIgnore]
     public AdrRecord? SuperSedes { get; set; }

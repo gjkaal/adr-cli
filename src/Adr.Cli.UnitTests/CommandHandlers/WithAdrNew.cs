@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 
 using System.IO.Abstractions.TestingHelpers;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Xunit;
@@ -139,6 +140,42 @@ public sealed class WithAdrNew
         var metadata = await repository.ReadMetadataAsync(record.RecordId);
         Assert.Equal(AdrStatus.Proposed, metadata!.Status);
         Assert.Equal("Original context.", metadata.Context);
+    }
+
+    [Fact]
+    public async Task NewAdrAsync_CreatesDecisionRecord_MarkdownAndMetadataStatusAgree()
+    {
+        var fileSystem = CreateRepoFileSystem(@"C:\repo");
+        var sut = CreateSut(fileSystem, out var settings, out var repository);
+
+        // RepositoryInitialized() requires at least one existing .md, mirroring what adr_init leaves behind.
+        await repository.WriteRecordAsync(new AdrRecord { Title = "Use ADRs", Status = AdrStatus.Accepted, TemplateType = TemplateType.Ad });
+
+        var result = await sut.NewAdrAsync("Use a message bus", false, "0", "", false);
+        Assert.True(result.Success, result.Message);
+
+        var newestFile = settings.DocFolderInfo().EnumerateFiles("*.md")
+            .OrderByDescending(f => int.Parse(f.Name.Split('-')[0]))
+            .First();
+        var recordId = int.Parse(newestFile.Name.Split('-')[0]);
+
+        // The .json must not silently drop Status just because it equals AdrStatus.New - that was
+        // the exact defect (New used to be the enum's zero value, and WhenWritingDefault omits
+        // properties equal to their type's CLR default).
+        var jsonFile = settings.GetMetaFile(DocumentType.Adr, newestFile.Name.Replace(".md", string.Empty));
+        var jsonContent = await jsonFile.OpenText().ReadToEndAsync();
+        Assert.Contains("\"Status\"", jsonContent);
+
+        var metadata = await repository.ReadMetadataAsync(recordId);
+        Assert.Equal(AdrStatus.New, metadata!.Status);
+
+        var content = await repository.ReadContentAsync(recordId);
+        var markdown = string.Join('\n', content);
+        Assert.Contains("__New__", markdown);
+
+        var query = new AdrQuery(settings, XUnitLogger.CreateLogger<AdrNew>(testOutputHelper), repository, stdOutMock.Object);
+        var listResult = await query.ListAdrAsync(false, false);
+        Assert.Contains("New", listResult.Message);
     }
 
     [Fact]
