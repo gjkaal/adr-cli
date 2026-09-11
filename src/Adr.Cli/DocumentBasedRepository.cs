@@ -197,14 +197,20 @@ public abstract class DocumentBasedRepository
         {
             logger.LogInformation("Update #{RecordId} with new content.", record.RecordId);
             var contextRecord = settings.GetContentFile(documentType, record.FileName);
-            var backupFileName = record.FileName + ".bak";
-            var contextBackup = settings.GetContentFile(documentType, backupFileName);
             if (!contextRecord.Exists)
             {
                 return -1;
             }
 
-            contextRecord.CopyTo(backupFileName, true);
+            // Written next to the record itself (docs/adr/*.bak, docs/planning/*.bak), not wherever
+            // the process's current working directory happens to be. FileInfo.CopyTo(destFileName,
+            // overwrite) resolves a directory-less destFileName against the CWD, not the source
+            // file's folder - passing a bare file name here used to scatter backups at the repo
+            // root. Checked/deleted via IFileSystem.File rather than a second IFileInfo, since an
+            // IFileInfo constructed before the file exists can report a stale (cached) Exists.
+            var backupPath = fileSystem.Path.Combine(contextRecord.DirectoryName!, record.FileName + ".bak");
+            contextRecord.CopyTo(backupPath, true);
+
             var contentLength = 0;
             var charactersWritten = 0;
             try
@@ -223,9 +229,9 @@ public abstract class DocumentBasedRepository
             }
             finally
             {
-                if (contextBackup.Exists)
+                if (fileSystem.File.Exists(backupPath))
                 {
-                    contextBackup.Delete();
+                    fileSystem.File.Delete(backupPath);
                 }
             }
 

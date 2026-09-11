@@ -109,6 +109,39 @@ namespace Adr.Cli
         }
 
         [Fact]
+        public async Task AdrRecordRepository_UpdateContentAsync_WritesBackupNextToRecord_NotAsABareRelativeName()
+        {
+            // Regression test for the .bak-in-cwd defect: FileInfo.CopyTo(destFileName, overwrite)
+            // resolves a directory-less destFileName against the process's current working
+            // directory, not the source file's folder. The fix must pass CopyTo a full path built
+            // from the record's own directory - captured here rather than asserted against a real
+            // filesystem, since the write-then-delete happens inside a single call with no external
+            // hook to observe the backup file mid-flight.
+            using var stream = new MemoryStream();
+            using var writer = new StreamWriter(stream) { AutoFlush = true };
+            var contentFileMock = new Mock<IFileInfo>();
+            contentFileMock.SetupGet(m => m.Exists).Returns(true);
+            contentFileMock.SetupGet(m => m.DirectoryName).Returns("x:\\temp\\adr\\doc");
+            contentFileMock.Setup(m => m.CreateText()).Returns(writer);
+
+            string? capturedBackupPath = null;
+            contentFileMock.Setup(m => m.CopyTo(It.IsAny<string>(), true))
+                .Callback<string, bool>((path, _) => capturedBackupPath = path)
+                .Returns((IFileInfo)null!);
+
+            adrSettingsMock.Setup(m => m.GetContentFile(It.IsAny<DocumentType>(), It.IsAny<string>())).Returns(contentFileMock.Object);
+            fileSystemMock.Setup(m => m.File.Exists(It.IsAny<string>())).Returns(true);
+
+            var record = new AdrRecord { RecordId = 42, FileName = "00042-test-record" };
+            IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, fileLockMock.Object, logger);
+
+            await sut.UpdateContentAsync(record, new[] { "new content" });
+
+            Assert.Equal("x:\\temp\\adr\\doc\\00042-test-record.bak", capturedBackupPath);
+            fileSystemMock.Verify(m => m.File.Delete("x:\\temp\\adr\\doc\\00042-test-record.bak"), Times.Once);
+        }
+
+        [Fact]
         public void AdrRecordRepository_CanInitialize()
         {
             IAdrRecordRepository sut = new AdrRecordRepository(fileSystemMock.Object, adrSettingsMock.Object, stdOutMock.Object, fileLockMock.Object, logger);

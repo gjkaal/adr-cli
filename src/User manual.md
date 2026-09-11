@@ -206,6 +206,11 @@ __Options__
 
 ### Update Decision/Consequences
 
+`update-content`, `update-status`, and `task-update` each briefly write a `.bak` copy of the
+markdown file next to the record (`docs/adr/*.bak` or `docs/planning/*.bak`) while applying the
+change, and delete it again once the write succeeds. Add `*.bak` to your `.gitignore` so a write
+that's interrupted mid-way never leaves one committed by accident.
+
 Decision and Consequences are markdown-only fields - they're never stored in the `.json` metadata
 file, so there's no risk of them drifting out of sync there. Besides AI drafting (`--ai` on `new`)
 and hand-editing the `.md` file directly, `update-content` sets either or both in place without
