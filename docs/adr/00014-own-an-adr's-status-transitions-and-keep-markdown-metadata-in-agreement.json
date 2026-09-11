@@ -1,0 +1,19 @@
+{
+  "Status": "Accepted",
+  "Logs": [
+    {
+      "DateTime": "2026-09-11T10:08:00.8063884Z",
+      "Status": "Accepted",
+      "Justification": "Design interview (grill-me) completed; all three RFC issues implemented, tested (141 tests passing), and merged into rfc-adr-status-transitions."
+    }
+  ],
+  "TemplateType": "Ad",
+  "Context": "See docs/rfc-adr-status-transitions-and-metadata-drift.md for the full analysis. Summary: (1) no MCP/CLI tool owned an ADR\u0027s Status, so adr_workflow_guide\u0027s own item 2 prescribed hand-editing the markdown plus adr_sync as the only route to accepting an ADR - the single most common ADR lifecycle operation - while item 5 separately forbade hand-editing metadata, a direct contradiction; (2) adr_new left a freshly created ADR\u0027s .md and .json disagreeing about status from the moment of creation, traced to AdrStatus.New being the enum\u0027s zero value colliding with JsonIgnoreCondition.WhenWritingDefault, which silently dropped the Status field from the .json; (3) adr_update_content wrote its .bak backup into the process\u0027s current working directory (the repository root under the n2adr MCP server) instead of next to the record, because FileInfo.CopyTo resolves a directory-less destination against the cwd, not the source file\u0027s folder.",
+  "References": {},
+  "RelatedTasks": {},
+  "SyncLinks": [],
+  "DateTime": "2026-09-11T00:00:00+02:00",
+  "FileName": "00014-own-an-adr\u0027s-status-transitions-and-keep-markdown-metadata-in-agreement",
+  "RecordId": 14,
+  "Title": "Own an ADR\u0027s status transitions and keep markdown/metadata in agreement"
+}
